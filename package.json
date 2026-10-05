@@ -1,0 +1,349 @@
+{
+  "name": "hushmark",
+  "displayName": "Hushmark",
+  "description": "%description%",
+  "version": "0.1.0",
+  "publisher": "local",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vanpeiyu/hushmark.git"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./src/extension.js",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "test": "node --test test/*.test.mjs",
+    "test:e2e": "npm run build && node test/e2e/index.mjs",
+    "test:e2e:docker": "docker build -q -t hushmark-e2e -f test/e2e/Dockerfile . && docker run --rm --init --shm-size=1g hushmark-e2e",
+    "vscode:prepublish": "npm run build",
+    "package": "vsce package --no-dependencies"
+  },
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "hushmark.editor",
+        "displayName": "Hushmark",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          },
+          {
+            "filenamePattern": "*.markdown"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "commands": [
+      {
+        "command": "hushmark.open",
+        "title": "%command.open%",
+        "category": "Hushmark",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "hushmark.openSource",
+        "title": "%command.openSource%",
+        "category": "Hushmark",
+        "icon": "$(go-to-file)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "hushmark.open",
+          "when": "resourceLangId == markdown && activeEditor == workbench.editors.files.textFileEditor",
+          "group": "navigation"
+        },
+        {
+          "command": "hushmark.openSource",
+          "when": "activeCustomEditorId == hushmark.editor",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "hushmark.open",
+          "when": "resourceLangId == markdown",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Hushmark",
+      "properties": {
+        "hushmark.previewStyle": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "minimal",
+            "reference"
+          ],
+          "enumItemLabels": [
+            "%config.previewStyle.soft%",
+            "%config.previewStyle.minimal%",
+            "%config.previewStyle.reference%"
+          ],
+          "default": "soft",
+          "order": 1,
+          "description": "%config.previewStyle%"
+        },
+        "hushmark.previewColor": {
+          "type": "string",
+          "enum": [
+            "green",
+            "cyan",
+            "blue",
+            "purple",
+            "pink",
+            "orange",
+            "sepia",
+            "mono",
+            "custom"
+          ],
+          "enumItemLabels": [
+            "%config.previewColor.green%",
+            "%config.previewColor.cyan%",
+            "%config.previewColor.blue%",
+            "%config.previewColor.purple%",
+            "%config.previewColor.pink%",
+            "%config.previewColor.orange%",
+            "%config.previewColor.sepia%",
+            "%config.previewColor.mono%",
+            "%config.previewColor.custom%"
+          ],
+          "default": "mono",
+          "order": 2,
+          "description": "%config.previewColor%"
+        },
+        "hushmark.previewColorScheme": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "light",
+            "dark"
+          ],
+          "enumItemLabels": [
+            "%config.previewColorScheme.auto%",
+            "%config.previewColorScheme.light%",
+            "%config.previewColorScheme.dark%"
+          ],
+          "default": "auto",
+          "order": 3,
+          "description": "%config.previewColorScheme%"
+        },
+        "hushmark.previewCustomColor": {
+          "type": "string",
+          "format": "color-hex",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "patternErrorMessage": "%config.previewCustomColor.pattern%",
+          "default": "#3366cc",
+          "order": 4,
+          "description": "%config.previewCustomColor%"
+        },
+        "hushmark.colorCustomizations": {
+          "type": "object",
+          "default": {},
+          "order": 5,
+          "properties": {
+            "background": {
+              "type": "string",
+              "format": "color"
+            },
+            "foreground": {
+              "type": "string",
+              "format": "color"
+            },
+            "strongForeground": {
+              "type": "string",
+              "format": "color"
+            },
+            "mutedForeground": {
+              "type": "string",
+              "format": "color"
+            },
+            "border": {
+              "type": "string",
+              "format": "color"
+            },
+            "strongBorder": {
+              "type": "string",
+              "format": "color"
+            },
+            "blockBackground": {
+              "type": "string",
+              "format": "color"
+            },
+            "codeBackground": {
+              "type": "string",
+              "format": "color"
+            },
+            "accent": {
+              "type": "string",
+              "format": "color"
+            },
+            "softAccent": {
+              "type": "string",
+              "format": "color"
+            },
+            "accentBackground": {
+              "type": "string",
+              "format": "color"
+            },
+            "link": {
+              "type": "string",
+              "format": "color"
+            },
+            "highlight": {
+              "type": "string",
+              "format": "color"
+            },
+            "selection": {
+              "type": "string",
+              "format": "color"
+            },
+            "lineHighlight": {
+              "type": "string",
+              "format": "color"
+            }
+          },
+          "patternProperties": {
+            "^\\[(green|cyan|blue|purple|pink|orange|sepia|mono|custom)\\]$": {
+              "type": "object",
+              "properties": {
+                "background": {
+                  "type": "string",
+                  "format": "color"
+                },
+                "foreground": {
+                  "type": "string",
+                  "format": "color"
+                },
+                "strongForeground": {
+                  "type": "string",
+                  "format": "color"
+                },
+                "mutedForeground": {
+                  "type": "string",
+                  "format": "color"
+                },
+                "border": {
+                  "type": "string",
+                  "format": "color"
+                },
+                "strongBorder": {
+                  "type": "string",
+                  "format": "color"
+                },
+                "blockBackground": {
+                  "type": "string",
+                  "format": "color"
+                },
+                "codeBackground": {
+                  "type": "string",
+                  "format": "color"
+                },
+                "accent": {
+                  "type": "string",
+                  "format": "color"
+                },
+                "softAccent": {
+                  "type": "string",
+                  "format": "color"
+                },
+                "accentBackground": {
+                  "type": "string",
+                  "format": "color"
+                },
+                "link": {
+                  "type": "string",
+                  "format": "color"
+                },
+                "highlight": {
+                  "type": "string",
+                  "format": "color"
+                },
+                "selection": {
+                  "type": "string",
+                  "format": "color"
+                },
+                "lineHighlight": {
+                  "type": "string",
+                  "format": "color"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false,
+          "markdownDescription": "%config.colorCustomizations%"
+        },
+        "hushmark.headingSize": {
+          "type": "string",
+          "enum": [
+            "body",
+            "medium",
+            "large"
+          ],
+          "enumItemLabels": [
+            "%config.headingSize.body%",
+            "%config.headingSize.medium%",
+            "%config.headingSize.large%"
+          ],
+          "default": "medium",
+          "order": 6,
+          "description": "%config.headingSize%"
+        },
+        "hushmark.fontFamily": {
+          "type": "string",
+          "default": "",
+          "order": 7,
+          "markdownDescription": "%config.fontFamily%"
+        },
+        "hushmark.lineHeight": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 4,
+          "order": 8,
+          "markdownDescription": "%config.lineHeight%"
+        },
+        "hushmark.rightMargin": {
+          "type": "boolean",
+          "default": true,
+          "order": 9,
+          "description": "%config.rightMargin%"
+        },
+        "hushmark.debugLog": {
+          "type": "boolean",
+          "default": false,
+          "order": 10,
+          "description": "%config.debugLog%"
+        }
+      }
+    }
+  },
+  "devDependencies": {
+    "@codemirror/commands": "^6.8.0",
+    "@codemirror/lang-markdown": "^6.3.0",
+    "@codemirror/language": "^6.11.0",
+    "@codemirror/language-data": "^6.5.0",
+    "@codemirror/search": "^6.5.0",
+    "@codemirror/state": "^6.5.0",
+    "@codemirror/view": "^6.36.0",
+    "@lezer/highlight": "^1.2.0",
+    "@lezer/markdown": "^1.4.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.25.0"
+  },
+  "l10n": "./l10n"
+}

@@ -1,0 +1,1057 @@
+/*
+ * Hushmark の見た目。
+ *
+ * 手元で変えたいときはこのファイルを直接編集せず、設定 hushmark.customCss に
+ * 上書き用の CSS ファイルを指定する（アップデートで消えないため）。
+ *
+ * CodeMirror は行の高さを測って位置を計算するので、行（.cm-line）には margin を付けない。
+ *
+ * テキストエディタと同じ感覚で扱えるよう、次の方針で見た目を作る。
+ * - 記号を出しても隠しても、文字の位置を動かさない。隠す記号は透明にして幅を残す（.cm-md-conceal）。
+ * - 字間と行間はソースのとおりにする。文字の大きさや左右の余白を要素ごとに変えず、等幅フォントの桁をそろえる。
+ *   ブロックの上下の余白は padding で足さず、ソースの空行や ``` の行をそのまま使う。
+ *   線は border ではなく inset の box-shadow などで描き、幅や高さを変えない。
+ * - 見出しと表は例外。見出しは文字を大きくし（「# 」は左の余白にぶら下げる）、表は HTML の表にする。
+ *   ただし見出しにも上下の余白は足さない。
+ * - プレビューのスタイル（設定 hushmark.previewStyle）ごとの飾りは、ファイルの最後の節にまとめる。それより前は、どの方針でも共通の
+ *   骨組みと、最小限の見た目。
+ * - 色は配色（設定 hushmark.theme。theme.js が body に変数を入れる）が決め、ここでは変数だけを使う。
+ */
+
+/* ================================================================ 寸法 */
+
+:root {
+  /* フォントは VSCode のエディタのフォント（editor.fontFamily）に合わせる。設定 hushmark.fontFamily で変えられる */
+  --md-font: var(--vscode-editor-font-family, monospace);
+  /* 文字の大きさと本文の行の高さ（整数の px）。VSCode の editor.fontSize と editor.lineHeight から metrics.js が入れる */
+  --md-font-size: 15px;
+  --md-line: 28px;
+  /*
+   * 行の左右の余白。行の左右の端が基準線になり、本文はそこからこの幅だけ内側に置く。
+   * 背景や線（コードブロック・引用・表・見出しの帯や線・水平線・カーソルのある行の背景）の左端は、すべて基準線に
+   * そろえる。この幅を狭くしておくと、行頭に空白がない行は「端から少しだけ空いて」、空白がある行は
+   * 「端から 1 文字分以上空いて」始まるので、行頭の空白の有無が見ただけで分かる
+   */
+  --md-line-pad: 4px;
+  /* 基準線の外側の余白。左は見出しの「### 」を置く場所。右も同じだけ空けて左右をそろえる（設定 hushmark.rightMargin） */
+  --md-side: 6ch;
+
+  /* コードブロックや表の角の丸み。スタイルごとに決める（最後の節） */
+  --md-radius: 4px;
+}
+
+/*
+ * ================================================================ 見出しの大きさ（設定 hushmark.headingSize）
+ * 見出しごとに、文字の大きさ（本文に対する倍率 --md-hN-scale）と、本文の何行分の高さにするか（--md-hN-lines）を決める。
+ * 行数は最低の行数で、文字が大きく行の高さが足りないときは、本文の行の整数倍に切り上げる（見出しの節）
+ */
+
+body.md-heading-body {
+  --md-h1-scale: 1; --md-h2-scale: 1; --md-h3-scale: 1; --md-h4-scale: 1; --md-h5-scale: 1; --md-h6-scale: 1;
+  --md-h1-lines: 1; --md-h2-lines: 1; --md-h3-lines: 1;
+}
+
+body.md-heading-medium {
+  --md-h1-scale: 1.8; --md-h2-scale: 1.4; --md-h3-scale: 1.2; --md-h4-scale: 1.08; --md-h5-scale: 1; --md-h6-scale: 1;
+  --md-h1-lines: 2; --md-h2-lines: 2; --md-h3-lines: 1;
+}
+
+body.md-heading-large {
+  --md-h1-scale: 2.2; --md-h2-scale: 1.6; --md-h3-scale: 1.3; --md-h4-scale: 1.12; --md-h5-scale: 1.04; --md-h6-scale: 1;
+  --md-h1-lines: 3; --md-h2-lines: 2; --md-h3-lines: 2;
+}
+
+/* 右の余白を出さないとき（設定 hushmark.rightMargin）。背景が右端まで届くので、右の角は丸めない */
+body.md-no-right-margin #editor .cm-content {
+  padding-right: 0;
+}
+
+body.md-no-right-margin .cm-md-codeblock,
+body.md-no-right-margin .cm-md-quote {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+/*
+ * ================================================================ 色
+ * 色は theme.js が配色から作り、body に変数として入れる。ここに書くのは既定値で、VSCode のテーマの色を使う。
+ * 既定値が使われるのは、VSCode のハイコントラストのテーマのとき（本人が選んだ見やすさを保つため、配色を使わない）と、
+ * 配色を入れる前の一瞬だけ。:where() で指定の強さを 0 にし、theme.js が入れる値を優先する
+ */
+
+:where(body) {
+  --md-bg: var(--vscode-editor-background);
+  --md-fg: var(--vscode-editor-foreground);
+  --md-strong-fg: var(--vscode-editor-foreground);
+  --md-muted: var(--vscode-descriptionForeground);
+  --md-border: var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.35));
+  --md-border-strong: var(--vscode-contrastBorder, var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.6)));
+  --md-block-bg: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.12));
+  --md-code-fg: var(--vscode-textPreformat-foreground, var(--vscode-editor-foreground));
+  --md-code-bg: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.12));
+  --md-hover: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.15));
+  --md-accent: var(--vscode-focusBorder, var(--vscode-textLink-foreground));
+  --md-accent-soft: var(--vscode-contrastBorder, var(--vscode-textBlockQuote-border, rgba(128, 128, 128, 0.5)));
+  --md-accent-bg: var(--vscode-textBlockQuote-background, transparent);
+  --md-highlight: transparent;
+  --md-link: var(--vscode-textLink-foreground);
+  --md-link-line: var(--vscode-textLink-foreground);
+  --md-selection: var(--vscode-editor-selectionBackground);
+  --md-caret: var(--vscode-editorCursor-foreground);
+  --md-line-highlight: var(--vscode-editor-lineHighlightBackground, transparent);
+  --md-line-highlight-border: var(--vscode-editor-lineHighlightBorder, transparent);
+  --md-match: var(--vscode-editor-findMatchHighlightBackground, rgba(255, 213, 0, 0.3));
+  --md-match-current: var(--vscode-editor-findMatchBackground, rgba(255, 150, 0, 0.45));
+  --md-error: var(--vscode-errorForeground, #f14c4c);
+
+  --md-tok-keyword: var(--vscode-symbolIcon-keywordForeground, #c586c0);
+  --md-tok-string: var(--vscode-debugTokenExpression-string, #ce9178);
+  --md-tok-number: var(--vscode-debugTokenExpression-number, #b5cea8);
+  --md-tok-comment: var(--vscode-descriptionForeground);
+  --md-tok-variable: var(--vscode-debugTokenExpression-name, #9cdcfe);
+  --md-tok-property: var(--vscode-symbolIcon-propertyForeground, #9cdcfe);
+  --md-tok-type: var(--vscode-symbolIcon-classForeground, #4ec9b0);
+  --md-tok-definition: var(--vscode-symbolIcon-functionForeground, #dcdcaa);
+}
+
+/* ================================================================ 全体 */
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* 配色の変数は body で決めるので、背景も body に塗る */
+body {
+  background: var(--md-bg);
+  color: var(--md-fg);
+}
+
+/*
+ * CodeMirror 自身のスタイル（.ͼ1 .cm-scroller { font-family: monospace; line-height: 1.4 } など）は
+ * クラス 2 つ分の強さで後から差し込まれるので、ここでは #editor を付けてそれより強くする。
+ */
+#editor,
+#editor .cm-editor {
+  height: 100%;
+}
+
+#editor .cm-editor {
+  background: var(--md-bg);
+  color: var(--md-fg);
+  font-family: var(--md-font);
+  font-size: var(--md-font-size);
+}
+
+#editor .cm-editor.cm-focused {
+  outline: none;
+}
+
+#editor .cm-scroller {
+  font-family: inherit;
+  line-height: var(--md-line);
+}
+
+#editor .cm-content {
+  /* 下に余白を取り、末尾の行も画面の中ほどで編集できるようにする */
+  padding: 1em var(--md-side) 50vh;
+  caret-color: var(--md-caret);
+}
+
+#editor .cm-line {
+  /* どの行も同じ余白にして桁をそろえる */
+  padding: 0 var(--md-line-pad);
+  overflow-wrap: break-word;
+}
+
+/* ================================================================ 行番号 */
+
+#editor .cm-gutters {
+  background: var(--md-bg);
+  color: var(--md-muted);
+  border-right: none;
+  font-size: var(--md-font-size);
+}
+
+#editor .cm-lineNumbers .cm-gutterElement {
+  padding: 0 0.5ch 0 1.5ch;
+  opacity: 0.6;
+}
+
+#editor .cm-lineNumbers .cm-gutterElement.cm-activeLineGutter {
+  background: transparent;
+  color: var(--md-fg);
+  opacity: 1;
+}
+
+/* 表の行番号。表の行ごとの番号を、測った位置（lineNumbers.js）に重ねる */
+#editor .cm-md-row-numbers {
+  position: relative;
+  height: 100%;
+}
+
+#editor .cm-md-row-numbers > span {
+  position: absolute;
+  right: 0;
+  line-height: var(--md-line);
+}
+
+/* 見出しの行は、番号の行の高さを見出しの 1 行目と同じにし、その中ほどに置く */
+#editor .cm-gutterElement.cm-md-gutter-heading {
+  line-height: var(--md-heading-line);
+  padding-top: var(--md-heading-pad);
+}
+#editor .cm-gutterElement.cm-md-gutter-h1 { --md-h-scale: var(--md-h1-scale); --md-h-lines: var(--md-h1-lines); }
+#editor .cm-gutterElement.cm-md-gutter-h2 { --md-h-scale: var(--md-h2-scale); --md-h-lines: var(--md-h2-lines); }
+#editor .cm-gutterElement.cm-md-gutter-h3 { --md-h-scale: var(--md-h3-scale); --md-h-lines: var(--md-h3-lines); }
+#editor .cm-gutterElement.cm-md-gutter-h4 { --md-h-scale: var(--md-h4-scale); }
+#editor .cm-gutterElement.cm-md-gutter-h5 { --md-h-scale: var(--md-h5-scale); }
+#editor .cm-gutterElement.cm-md-gutter-h6 { --md-h-scale: var(--md-h6-scale); }
+
+/*
+ * カーソルは CodeMirror の drawSelection で描き、選択範囲はブラウザ標準の表示にする（main.js）。
+ * drawSelection がブラウザの選択を透明にする指定（!important）を、#editor を付けた !important で戻し、
+ * drawSelection の選択の層は隠す。ブラウザの選択は背景色を持つ要素の上にも描かれる
+ */
+#editor .cm-content ::selection,
+#editor .cm-content::selection,
+#editor .cm-line ::selection,
+#editor .cm-line::selection {
+  background: var(--md-selection) !important;
+}
+
+#editor .cm-selectionLayer {
+  display: none;
+}
+
+#editor .cm-cursor {
+  border-left: 2px solid var(--md-caret);
+}
+
+/*
+ * カーソルのある行の背景（lineHighlight.js）。左端は、ほかの背景と同じく基準線にそろえる。
+ * コードブロックの背景を消さないよう、background-color ではなく background-image で重ねる。
+ * VSCode のテーマが背景ではなく枠線（editor.lineHighlightBorder）で示すときは、上下の線も画像で描く
+ */
+#editor .cm-md-active-line {
+  --md-highlight-left: 0px;
+  background-image:
+    linear-gradient(var(--md-line-highlight), var(--md-line-highlight)),
+    linear-gradient(var(--md-line-highlight-border), var(--md-line-highlight-border)),
+    linear-gradient(var(--md-line-highlight-border), var(--md-line-highlight-border));
+  background-repeat: no-repeat;
+  background-position: var(--md-highlight-left) 0, var(--md-highlight-left) top, var(--md-highlight-left) bottom;
+  background-size:
+    calc(100% - var(--md-highlight-left)) 100%,
+    calc(100% - var(--md-highlight-left)) 1px,
+    calc(100% - var(--md-highlight-left)) 1px;
+}
+
+/* editor.renderLineHighlightOnlyWhenFocus のときと、表のセルを編集している間は出さない（本文のカーソルは別の行にある） */
+#editor .cm-md-highlight-when-focused:not(.cm-focused) .cm-md-active-line,
+#editor .cm-editor:has(.cm-md-cell-editing) .cm-md-active-line {
+  background-image: none;
+}
+
+/* カーソルのある行で見えている Markdown の記号 */
+.cm-md-mark {
+  color: var(--md-muted);
+}
+
+/* 隠している記号。透明にして、その文字があった幅は残す */
+.cm-md-conceal,
+.cm-md-conceal * {
+  color: transparent !important;
+}
+
+/* ================================================================ 見出し */
+
+/*
+ * 見出しの行の高さは、本文の行の高さの整数倍に切り上げる。見出しの下の行も、本文の行の格子からずれない。
+ * --md-h-scale は見出しの文字の大きさ（本文に対する倍率）
+ */
+#editor .cm-md-heading,
+#editor .cm-gutterElement.cm-md-gutter-heading {
+  --md-heading-line: round(up, calc(var(--md-font-size) * var(--md-h-scale, 1) * 1.25), var(--md-line));
+  /*
+   * --md-h-lines は見出しの最低の行数。足りない分は上下の余白で足す（行の高さを広げると、折り返した見出しの
+   * 1 行ごとに広がるため）。余白も本文の行の半分の倍数なので、見出し全体の高さは本文の行の整数倍になる
+   */
+  --md-heading-pad: max(0px, calc((var(--md-line) * var(--md-h-lines, 1) - var(--md-heading-line)) / 2));
+}
+
+/* 見出しは文字の大きさと太さで表す。上下の余白は足さず、ソースの空行に任せる */
+.cm-md-heading {
+  /* 左の余白に、階層を示す図形を置く（スタイルごと、最後の節） */
+  position: relative;
+  color: var(--md-strong-fg);
+  font-weight: 700;
+  font-size: calc(var(--md-h-scale) * 1em);
+  line-height: var(--md-heading-line);
+}
+
+/* 行の余白（#editor .cm-line）より強くする */
+#editor .cm-md-heading {
+  padding-block: var(--md-heading-pad);
+}
+
+/*
+ * 基準線より左にぶら下げる「#」。本文と同じ大きさにし、左にずらす（ずらす量は livePreview.js）。
+ * 後ろの空白（.cm-md-heading-space）は見出しの大きさのままにする。--md-heading-space はその幅
+ * （等幅なので、本文の 1 文字分の幅に見出しの倍率を掛けたもの）
+ */
+.cm-md-heading-mark {
+  --md-heading-space: calc(1ch * var(--md-h-scale, 1));
+  font-size: var(--md-font-size);
+  /* 見出しより小さい文字なので、行の高さのままだとベースラインのずれの分だけ行が高くなる */
+  line-height: 1;
+  font-weight: 400;
+}
+
+/*
+ * 「#」の後ろの空白。行の余白の分だけ広く描き、空白の後ろが見出しの文字の位置になるようにする（livePreview.js）。
+ * word-spacing は空白の文字にしか効かないので、ここに入る IME の変換中の文字は広がらない
+ */
+.cm-md-heading-space {
+  word-spacing: var(--md-line-pad);
+}
+
+/* 見出しの線は、スタイルごとに描く（最後の節） */
+.cm-md-h1 {
+  --md-h-scale: var(--md-h1-scale);
+  --md-h-lines: var(--md-h1-lines);
+}
+
+.cm-md-h2 {
+  --md-h-scale: var(--md-h2-scale);
+  --md-h-lines: var(--md-h2-lines);
+}
+
+.cm-md-h3 { --md-h-scale: var(--md-h3-scale); --md-h-lines: var(--md-h3-lines); }
+.cm-md-h4 { --md-h-scale: var(--md-h4-scale); }
+.cm-md-h5 { --md-h-scale: var(--md-h5-scale); }
+
+/* h6 は本文と同じ大きさなので、色を淡くして見出しの最下位であることを示す */
+.cm-md-h6 {
+  --md-h-scale: var(--md-h6-scale);
+  color: var(--md-muted);
+}
+
+/* ================================================================ インライン */
+
+.cm-md-strong {
+  font-weight: 700;
+  color: var(--md-strong-fg);
+}
+
+.cm-md-em {
+  font-style: italic;
+}
+
+.cm-md-strike {
+  color: var(--md-muted);
+  text-decoration: line-through;
+}
+
+/* ` のあった幅も背景に含め、左右の余白にする */
+.cm-md-inline-code {
+  color: var(--md-code-fg);
+  background-color: var(--md-code-bg);
+  border-radius: 3px;
+}
+
+.cm-md-link {
+  color: var(--md-link);
+  text-decoration: none;
+  border-bottom: 1px solid var(--md-link-line);
+}
+
+.cm-md-image {
+  color: var(--md-muted);
+}
+
+/* 行末の空白による改行。空白 1 つごとに薄い点を描く（VSCode の空白の表示と同じ形） */
+.cm-md-hardbreak {
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--md-muted) 70%, transparent) 0 1.2px, transparent 1.6px);
+  background-size: 1ch 100%;
+  background-repeat: repeat-x;
+  background-position: left center;
+}
+
+/* ================================================================ リスト */
+
+/* - / * / + は透明にし、同じ幅の上に • を重ねる */
+.cm-md-bullet {
+  position: relative;
+  color: transparent;
+}
+
+.cm-md-bullet::after {
+  content: "•";
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  /* 折り返しの字下げ（wrapIndent.js）で行に付ける負の text-indent を引き継ぐと、• が左にずれる */
+  text-indent: 0;
+  color: var(--md-muted);
+}
+
+.cm-md-list-number {
+  color: var(--md-muted);
+}
+
+/* [ ] の 3 文字と同じ幅の箱。幅は livePreview.js で指定する */
+.cm-md-checkbox-cell {
+  display: inline-block;
+  text-align: center;
+  text-indent: 0;
+}
+
+.cm-md-checkbox {
+  margin: 0;
+  vertical-align: -0.1em;
+  cursor: pointer;
+  accent-color: var(--md-accent);
+}
+
+.cm-md-task-done {
+  color: var(--md-muted);
+  text-decoration: line-through;
+}
+
+/* ================================================================ 引用 */
+
+/*
+ * 文字を淡くし、基準線に縦の線を引く。線は行ごとに描き、続く行でつながって 1 本になる。
+ * 線の太さと色、背景はスタイルごとに決める（最後の節）
+ */
+.cm-md-quote {
+  --md-quote-bar: 2px;
+  --md-quote-bar-color: var(--md-border-strong);
+  position: relative;
+  color: var(--md-muted);
+}
+
+.cm-md-quote::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--md-quote-bar);
+  background: var(--md-quote-bar-color);
+}
+
+/* ================================================================ コードブロック */
+
+/*
+ * 基準線から右端まで淡い背景を敷く。上下の余白は足さない（ソースの ``` の行がそのまま余白になる）。
+ * 角の丸み（--md-radius）と枠はスタイルごとに決める（最後の節）
+ */
+.cm-md-codeblock {
+  background-color: var(--md-block-bg);
+}
+
+.cm-md-codeblock-begin {
+  border-top-left-radius: var(--md-radius);
+  border-top-right-radius: var(--md-radius);
+}
+
+.cm-md-codeblock-end {
+  border-bottom-left-radius: var(--md-radius);
+  border-bottom-right-radius: var(--md-radius);
+}
+
+.cm-md-code-info {
+  color: var(--md-muted);
+}
+
+/* コードブロック内の構文の色（@lezer/highlight の classHighlighter のクラス） */
+.cm-md-codeblock .tok-keyword { color: var(--md-tok-keyword); }
+.cm-md-codeblock .tok-string,
+.cm-md-codeblock .tok-string2 { color: var(--md-tok-string); }
+.cm-md-codeblock .tok-number,
+.cm-md-codeblock .tok-bool,
+.cm-md-codeblock .tok-atom { color: var(--md-tok-number); }
+.cm-md-codeblock .tok-comment { color: var(--md-tok-comment); font-style: italic; }
+.cm-md-codeblock .tok-variableName { color: var(--md-tok-variable); }
+.cm-md-codeblock .tok-propertyName { color: var(--md-tok-property); }
+.cm-md-codeblock .tok-typeName,
+.cm-md-codeblock .tok-className { color: var(--md-tok-type); }
+.cm-md-codeblock .tok-definition { color: var(--md-tok-definition); }
+.cm-md-codeblock .tok-meta { color: var(--md-muted); }
+.cm-md-codeblock .tok-invalid { color: var(--md-error); }
+
+/* ================================================================ 水平線 */
+
+/* 行の高さは変えず、その行の中ほどに線を引く */
+.cm-md-hr {
+  position: relative;
+}
+
+.cm-md-hr::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px solid var(--md-border-strong);
+}
+
+/* ================================================================ 表 */
+
+/* 上下の余白は足さない。表の左端は、ほかの箱と同じく行の端（基準線）にそろえる */
+.cm-md-table-wrap {
+  padding: 0;
+  cursor: text;
+}
+
+.cm-md-table-box {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
+}
+
+.cm-md-table-scroll {
+  overflow-x: auto;
+}
+
+/*
+ * 表の縦の位置はソースの行に合わせる。見出しの行は、ソースの見出しの行と区切りの行（|---|）の 2 行分、
+ * データの行はソースの 1 行分の高さにする（セルの中で折り返すと、行の高さの倍数で伸びる）。
+ * 高さが変わらないよう、線は border ではなく outline と inset の影で描く。
+ * 行の間には横の線だけを引き、列の間には線を引かない
+ */
+.cm-md-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  max-width: 100%;
+  font-size: 0.94em;
+  outline: 1px solid var(--md-border);
+  outline-offset: -1px;
+  border-radius: var(--md-radius);
+  overflow: hidden;
+  /*
+   * CodeMirror が折り返しのために本文に付ける指定（overflow-wrap: anywhere など）を戻す。
+   * 引き継ぐと列の最小幅が 1 文字になり、長いセルのある表で短いセルまで細かく折り返される
+   */
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.cm-md-table th,
+.cm-md-table td {
+  /* 1 列目の文字は、本文の 1 文字目と同じ位置にそろえる */
+  padding: 0 1.2em 0 var(--md-line-pad);
+  line-height: var(--md-line);
+  box-shadow: inset 0 -1px 0 var(--md-border);
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+
+/* 短いセルしかない列は折り返さない（tableModel.js の nowrapColumns） */
+.cm-md-table .cm-md-cell-nowrap {
+  white-space: nowrap;
+}
+
+/* 最後の行の下は、表の外枠（outline）が線になる */
+.cm-md-table tbody tr:last-child > * {
+  box-shadow: none;
+}
+
+.cm-md-table th {
+  /* 2 行分の高さの中ほどに見出しを置く */
+  padding-block: calc(var(--md-line) / 2);
+  vertical-align: middle;
+  color: var(--md-strong-fg);
+  font-weight: 700;
+  text-align: left;
+  box-shadow: inset 0 -1px 0 var(--md-border-strong);
+}
+
+.cm-md-table strong {
+  color: var(--md-strong-fg);
+}
+
+.cm-md-table em {
+  font-style: italic;
+}
+
+.cm-md-table code {
+  color: var(--md-code-fg);
+  background-color: var(--md-code-bg);
+  border-radius: 3px;
+  padding: 0 0.38em;
+}
+
+/*
+ * 編集中のセル。中身は小さなエディタ（cellEditor.js）にし、本文と同じくカーソルが触れた記号だけを出す。
+ * セルの余白も文字の大きさも変えず、編集を始めても文字の位置が動かないようにする。枠は outline で描く
+ */
+.cm-md-table .cm-md-cell-editing {
+  outline: 2px solid var(--md-accent);
+  outline-offset: -2px;
+  border-radius: 3px;
+}
+
+/* 本文のエディタ向けの指定（#editor .cm-editor など）を、セルのエディタでは戻す */
+#editor .cm-md-cell-input.cm-editor {
+  height: auto;
+  font-size: inherit;
+  background: transparent;
+  color: inherit;
+}
+
+#editor .cm-md-cell-input .cm-scroller {
+  line-height: var(--md-line);
+  overflow: visible;
+}
+
+#editor .cm-md-cell-input .cm-content {
+  padding: 0;
+}
+
+#editor .cm-md-cell-input .cm-line {
+  padding: 0;
+}
+
+/*
+ * セルのエディタはブラウザのカーソルを使う。本文のエディタの drawSelection がブラウザのカーソルを
+ * 透明にする指定（.cm-line { caret-color: transparent !important }）がセルの中にも及ぶので戻す
+ */
+#editor .cm-md-cell-input .cm-content,
+#editor .cm-md-cell-input .cm-line {
+  caret-color: var(--md-caret) !important;
+}
+
+/* 検索の一致を含むセル。いまの一致を含むセルは濃くする */
+.cm-md-table .cm-md-cell-match {
+  background-color: var(--md-match);
+}
+
+.cm-md-table .cm-md-cell-match-current {
+  background-color: var(--md-match-current);
+}
+
+/*
+ * 表にマウスを載せると出るボタン。
+ * 表の上の行（ふつうは空行）に重ねて出す。表に余白を足さないため。
+ * 隠れている間は、上の行のクリックを奪わないよう pointer-events を切る。
+ * 表との間は margin ではなく padding で空け、マウスを表からボタンへ動かす途中で :hover が切れないようにする
+ */
+.cm-md-table-tools {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  padding-bottom: 3px;
+  z-index: 1;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.cm-md-table-box:hover .cm-md-table-tools,
+.cm-md-table-box:focus-within .cm-md-table-tools {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.cm-md-table-tools button {
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.6;
+  padding: 0 0.6em;
+  white-space: nowrap;
+  color: var(--md-muted);
+  background: var(--md-bg);
+  border: 1px solid var(--md-border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.cm-md-table-tools button:hover {
+  color: var(--md-fg);
+  background: var(--md-hover);
+}
+
+/* 「ソース」で表全体をソース表示しているとき */
+.cm-md-table-src {
+  background-color: var(--md-block-bg);
+}
+
+/* ================================================================ フロントマター */
+
+.cm-md-frontmatter {
+  color: var(--md-muted);
+  background-color: var(--md-block-bg);
+}
+
+/* ================================================================ 検索ウィジェット（Ctrl+F / Ctrl+H） */
+
+/* VSCode のエディタの検索と同じく、右上に浮かべる（本文を押し下げない） */
+#editor .cm-panels.cm-panels-top {
+  position: absolute;
+  top: 0;
+  right: 28px;
+  left: auto;
+  z-index: 10;
+  background: transparent;
+  border: none;
+}
+
+.cm-md-find {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px 6px 4px 2px;
+  font-family: var(--vscode-font-family, system-ui, sans-serif);
+  font-size: 13px;
+  line-height: 1.4;
+  letter-spacing: normal;
+  color: var(--md-fg);
+  background: var(--md-bg);
+  border: 1px solid var(--md-border);
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.cm-md-find-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cm-md-find-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.cm-md-find-row[hidden] {
+  display: none;
+}
+
+.cm-md-find-box {
+  display: flex;
+  align-items: center;
+  width: 260px;
+  padding-right: 2px;
+  background: var(--md-bg);
+  border: 1px solid var(--md-border-strong);
+  border-radius: 2px;
+}
+
+.cm-md-find-box:focus-within {
+  border-color: var(--md-accent);
+}
+
+.cm-md-find-input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px;
+  font: inherit;
+  color: var(--md-fg);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.cm-md-find-input.cm-md-find-invalid {
+  color: var(--md-error);
+}
+
+.cm-md-find-toggle,
+.cm-md-find-button,
+.cm-md-find-expand {
+  font: inherit;
+  color: var(--md-fg);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cm-md-find-toggle {
+  min-width: 22px;
+  height: 20px;
+  padding: 0 3px;
+  font-size: 12px;
+  color: var(--md-muted);
+}
+
+.cm-md-find-toggle[aria-pressed="true"] {
+  color: var(--md-accent);
+  border-color: var(--md-accent);
+}
+
+.cm-md-find-button {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+}
+
+.cm-md-find-expand {
+  width: 18px;
+  padding: 0;
+}
+
+.cm-md-find-toggle:hover,
+.cm-md-find-button:hover,
+.cm-md-find-expand:hover {
+  background: var(--md-hover);
+}
+
+.cm-md-find-count {
+  min-width: 76px;
+  padding: 0 6px;
+  font-size: 12px;
+  color: var(--md-muted);
+  white-space: nowrap;
+}
+
+.cm-md-find-none .cm-md-find-count {
+  color: var(--md-error);
+}
+
+/* 一致の強調。いまの一致は濃くする */
+#editor .cm-searchMatch {
+  background: var(--md-match);
+  border-radius: 2px;
+}
+
+#editor .cm-searchMatch-selected {
+  background: var(--md-match-current);
+}
+
+/*
+ * ================================================================ プレビューのスタイル（設定 hushmark.previewStyle）
+ * どのスタイルも、縦の寸法は変えない。線は inset の影や疑似要素で描き、背景と色だけを変える。
+ *
+ * 見出しの階層は、文字の大きさによらず分かるよう、左の余白に置く図形で示す（設定 hushmark.headingSize が
+ * 等倍のときは、文字の大きさでは見分けられないため）。カーソルのある見出しでは「#」を出すので、図形は隠す。
+ * 見出しの下線は、本文の 1 行分の高さでは窮屈なので、2 行分以上の高さの見出し（等倍以外の h1・h2）にだけ引く。
+ */
+
+/* 見出しの図形の共通の置き場所。基準線の少し左に、見出しの高さの中ほどにそろえて置く */
+body .cm-md-heading::before {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 8px);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+body .cm-md-heading-active::before {
+  display: none !important;
+}
+
+/* ---------------------------------------------------------------- ソフト（soft） */
+/* 丸くやわらかい形と、アクセントの色の線や面で、親しみやすい見た目にする */
+
+body.md-style-soft {
+  --md-radius: 10px;
+}
+
+/* 図形は大きさが違っても、中心を同じ縦の位置（基準線の 12px 左）にそろえる */
+body.md-style-soft .cm-md-heading::before {
+  right: calc(100% + 12px);
+  transform: translate(50%, -50%);
+}
+
+/* 見出しの図形。h1・h2 は縦の棒（h1 が長い）、h3 は丸、h4 は輪、h5・h6 は小さな点 */
+body.md-style-soft .cm-md-heading::before {
+  content: "";
+  border-radius: 999px;
+  background: var(--md-accent);
+}
+body.md-style-soft .cm-md-h1::before { width: 5px; height: calc(var(--md-line) * 0.8); }
+body.md-style-soft .cm-md-h2::before { width: 5px; height: calc(var(--md-line) * 0.5); }
+body.md-style-soft .cm-md-h3::before { width: 9px; height: 9px; }
+body.md-style-soft .cm-md-h4::before { width: 9px; height: 9px; box-sizing: border-box; background: none; border: 2px solid var(--md-accent); }
+body.md-style-soft .cm-md-h5::before { width: 6px; height: 6px; background: var(--md-accent-soft); }
+body.md-style-soft .cm-md-h6::before { width: 6px; height: 6px; background: var(--md-border-strong); }
+
+/* h1 は、基準線から右端まで淡いアクセントの面の帯にする */
+body.md-style-soft .cm-md-h1 {
+  background-color: var(--md-accent-bg);
+  border-radius: var(--md-radius);
+}
+
+/* 引用は、四隅を丸めた淡いアクセントの面（カード）にする。左の線は引かない */
+body.md-style-soft .cm-md-quote {
+  --md-quote-bar: 0px;
+  background-color: var(--md-accent-bg);
+}
+body.md-style-soft .cm-md-quote-begin { border-top-left-radius: var(--md-radius); border-top-right-radius: var(--md-radius); }
+body.md-style-soft .cm-md-quote-end { border-bottom-left-radius: var(--md-radius); border-bottom-right-radius: var(--md-radius); }
+
+/* インラインコードは、角の丸い札の形で、淡いアクセントの面とアクセントの文字 */
+body.md-style-soft .cm-md-inline-code,
+body.md-style-soft .cm-md-table code {
+  color: var(--md-accent);
+  background-color: var(--md-accent-bg);
+  border-radius: 999px;
+}
+
+/* 太字の下半分に蛍光ペン */
+body.md-style-soft .cm-md-strong,
+body.md-style-soft .cm-md-table strong {
+  background: linear-gradient(transparent 62%, var(--md-highlight) 62%);
+}
+
+body.md-style-soft .cm-md-bullet::after,
+body.md-style-soft .cm-md-list-number {
+  color: var(--md-accent);
+}
+
+/* 表は角丸のカード。見出しの行に淡いアクセントの面 */
+body.md-style-soft .cm-md-table th {
+  background-color: var(--md-accent-bg);
+  box-shadow: inset 0 -1px 0 var(--md-accent-soft);
+}
+
+/* 水平線は、中央に短い点線 */
+body.md-style-soft .cm-md-hr::after {
+  left: 40%;
+  right: 40%;
+  border-top: 2px dotted var(--md-accent-soft);
+}
+
+/* ---------------------------------------------------------------- ミニマル（minimal） */
+/* 色と面をほとんど使わず、細い線と余白で見せる。アクセントの色はリンクとチェックボックスにだけ使う */
+
+/* 見出しの図形。「#」の数と同じ数の小さな点を並べる */
+body.md-style-minimal .cm-md-heading::before {
+  content: "";
+  height: 4px;
+  right: calc(100% + 6px);
+  background: radial-gradient(circle, var(--md-muted) 1.3px, transparent 1.8px) 0 0 / 5px 4px repeat-x;
+}
+body.md-style-minimal .cm-md-h1::before { width: 5px; }
+body.md-style-minimal .cm-md-h2::before { width: 10px; }
+body.md-style-minimal .cm-md-h3::before { width: 15px; }
+body.md-style-minimal .cm-md-h4::before { width: 20px; }
+body.md-style-minimal .cm-md-h5::before { width: 25px; }
+body.md-style-minimal .cm-md-h6::before { width: 30px; }
+
+/* 引用は、左の細い線と淡い文字だけ */
+body.md-style-minimal .cm-md-quote {
+  --md-quote-bar: 1px;
+}
+
+/* コードブロックは面を敷かず、基準線に細い破線を引く（引用の実線と見分ける） */
+body.md-style-minimal .cm-md-codeblock {
+  position: relative;
+  background-color: transparent;
+}
+body.md-style-minimal .cm-md-codeblock::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: repeating-linear-gradient(to bottom, var(--md-border-strong) 0 3px, transparent 3px 6px);
+}
+
+/* インラインコードは面を敷かず、細い枠線で範囲を示す（` のあった幅が余分な空白に見えないように） */
+body.md-style-minimal .cm-md-inline-code,
+body.md-style-minimal .cm-md-table code {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--md-border);
+}
+
+/* 箇条書きの記号は短い横線 */
+body.md-style-minimal .cm-md-bullet::after {
+  content: "–";
+}
+
+/* 表は外枠と行の間の線を引かず、見出しの下の線だけ */
+body.md-style-minimal .cm-md-table {
+  outline: none;
+}
+body.md-style-minimal .cm-md-table td {
+  box-shadow: none;
+}
+
+/* 水平線は、中央に短い細線 */
+body.md-style-minimal .cm-md-hr::after {
+  left: 42%;
+  right: 42%;
+}
+
+/* ---------------------------------------------------------------- リファレンス（reference） */
+/* プログラムのリファレンスの文書のように、見出しに札を付け、表やコードを灰色の線と面で区切る。色は控える */
+
+body.md-style-reference {
+  --md-radius: 6px;
+}
+
+/* 見出しの図形。「H1」〜「H6」の小さな札 */
+body.md-style-reference .cm-md-heading::before {
+  white-space: nowrap;
+  font-size: calc(var(--md-font-size) * 0.72);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--md-muted);
+}
+body.md-style-reference .cm-md-h1::before { content: "H1"; }
+body.md-style-reference .cm-md-h2::before { content: "H2"; }
+body.md-style-reference .cm-md-h3::before { content: "H3"; }
+body.md-style-reference .cm-md-h4::before { content: "H4"; }
+body.md-style-reference .cm-md-h5::before { content: "H5"; }
+body.md-style-reference .cm-md-h6::before { content: "H6"; }
+
+/* h1・h2 の下線。等倍（1 行分の高さ）のときは窮屈なので引かない */
+body.md-style-reference:not(.md-heading-body) .cm-md-h1,
+body.md-style-reference:not(.md-heading-body) .cm-md-h2 {
+  box-shadow: inset 0 -1px 0 var(--md-border);
+}
+
+body.md-style-reference .cm-md-quote {
+  --md-quote-bar: 4px;
+}
+
+/* コードブロックの枠。左右の線は行ごとに描き、最初と最後の行に上下の線を足す */
+body.md-style-reference .cm-md-codeblock {
+  box-shadow: inset 1px 0 0 var(--md-border), inset -1px 0 0 var(--md-border);
+}
+body.md-style-reference .cm-md-codeblock-begin {
+  box-shadow: inset 1px 0 0 var(--md-border), inset -1px 0 0 var(--md-border), inset 0 1px 0 var(--md-border);
+}
+body.md-style-reference .cm-md-codeblock-end {
+  box-shadow: inset 1px 0 0 var(--md-border), inset -1px 0 0 var(--md-border), inset 0 -1px 0 var(--md-border);
+}
+body.md-style-reference .cm-md-codeblock-begin.cm-md-codeblock-end {
+  box-shadow: inset 0 0 0 1px var(--md-border);
+}
+
+body.md-style-reference .cm-md-inline-code { border-radius: 6px; }
+
+/* 表は格子。列の間にも線を引き、見出しの行と偶数行に淡い面 */
+body.md-style-reference .cm-md-table th,
+body.md-style-reference .cm-md-table td {
+  box-shadow: inset -1px 0 0 var(--md-border), inset 0 -1px 0 var(--md-border);
+}
+body.md-style-reference .cm-md-table tr > :last-child {
+  box-shadow: inset 0 -1px 0 var(--md-border);
+}
+body.md-style-reference .cm-md-table tbody tr:last-child > * {
+  box-shadow: inset -1px 0 0 var(--md-border);
+}
+body.md-style-reference .cm-md-table tbody tr:last-child > :last-child {
+  box-shadow: none;
+}
+body.md-style-reference .cm-md-table th,
+body.md-style-reference .cm-md-table tbody tr:nth-child(even) {
+  background-color: var(--md-block-bg);
+}

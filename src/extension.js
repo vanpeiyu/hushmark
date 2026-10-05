@@ -1,0 +1,407 @@
+'use strict';
+
+const vscode = require('vscode');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const { rebaseChanges } = require('./textMerge');
+const { normalizeHref } = require('./links');
+
+const VIEW_TYPE = 'hushmark.editor';
+
+let output = null;
+
+/** 設定 hushmark.debugLog が有効なときだけ、同期の様子を出力パネルに書く */
+function log(...args) {
+  if (!vscode.workspace.getConfiguration('hushmark').get('debugLog')) return;
+  if (!output) output = vscode.window.createOutputChannel('Hushmark');
+  output.appendLine(`${new Date().toISOString().slice(11, 23)} ${args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')}`);
+}
+
+function activate(context) {
+  context.subscriptions.push(
+    vscode.window.registerCustomEditorProvider(VIEW_TYPE, new LiveEditorProvider(context), {
+      webviewOptions: { retainContextWhenHidden: true },
+      supportsMultipleEditorsPerDocument: true,
+    }),
+    vscode.commands.registerCommand('hushmark.open', (uri) => reopenWith(uri, VIEW_TYPE)),
+    vscode.commands.registerCommand('hushmark.openSource', (uri) => reopenWith(uri, 'default')),
+  );
+}
+
+function deactivate() {}
+
+async function reopenWith(uri, viewType) {
+  const target = uri instanceof vscode.Uri ? uri : activeTabUri();
+  if (!target) return;
+  await vscode.commands.executeCommand('vscode.openWith', target, viewType);
+}
+
+function activeTabUri() {
+  const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+  if (tab && tab.input && tab.input.uri instanceof vscode.Uri) return tab.input.uri;
+  return vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.uri;
+}
+
+class LiveEditorProvider {
+  constructor(context) {
+    this.context = context;
+  }
+
+  resolveCustomTextEditor(document, panel) {
+    const webview = panel.webview;
+    const media = vscode.Uri.joinPath(this.context.extensionUri, 'media');
+    webview.options = { enableScripts: true, localResourceRoots: [media] };
+    webview.html = renderHtml(webview, media);
+
+    const session = new SyncSession(document, webview);
+    const isThisDocument = (doc) => doc.uri.toString() === document.uri.toString();
+    const sendReadOnly = () => isReadOnly(document).then((readOnly) => webview.postMessage({ type: 'readOnly', readOnly }));
+    const subscriptions = [
+      webview.onDidReceiveMessage((message) => {
+        switch (message.type) {
+          case 'ready':
+            session.start();
+            sendReadOnly();
+            break;
+          case 'edit': session.enqueue(message); break;
+          case 'openLink': openLink(message.href, document.uri); break;
+          case 'log': log('[webview]', message.text); break;
+          case 'findInFiles': findInFiles(message); break;
+        }
+      }),
+      vscode.workspace.onDidChangeTextDocument((event) => {
+        if (isThisDocument(event.document)) session.onDocumentChanged();
+      }),
+      // 保存の直前に打った文字が保存から漏れないよう、届いている編集を適用し終えるまで待つ
+      vscode.workspace.onWillSaveTextDocument((event) => {
+        if (isThisDocument(event.document)) event.waitUntil(session.whenIdle());
+      }),
+      vscode.workspace.onDidChangeConfiguration((event) => {
+        const affects = (sections) => sections.some((section) => event.affectsConfiguration(section, document));
+        if (affects(OPTION_SETTINGS)) webview.postMessage({ type: 'options', options: editorOptions(document) });
+        if (affects(READONLY_SETTINGS)) sendReadOnly();
+      }),
+    ];
+    panel.onDidDispose(() => subscriptions.forEach((s) => s.dispose()));
+  }
+}
+
+/**
+ * 1 つの Webview と TextDocument の同期。
+ *
+ * Webview からは編集ごとに「変更前の文書に対する行・列の置換」と「変更後の全文」が届く。
+ * 置換は届いた順に 1 つずつ WorkspaceEdit で適用し、全文は食い違いの検出に使う。
+ * 文書の内容が Webview の持つ内容と違ったとき（別のエディタでの編集、git checkout など）だけ、
+ * 全文を Webview に送り直す。ファイル全体の置き換えはしない。
+ *
+ * 外からの変更が Webview に届く前に打たれた編集は、Webview の持つ全文（base）と今の文書の差の分だけ
+ * 位置をずらしてから当てる（textMerge.js の rebaseChanges）。差と重なる編集は当てずに捨て、
+ * 全文を送り直して食い違いを解消する。内容を壊すより、打鍵を 1 つ失うほうを選ぶ。
+ *
+ * Webview が編集の前に持っていた全文は、直前の編集の全文か、その後に Webview が受け取った送り直しの全文。
+ * Webview は送り直しを受け取らないことがある（自分の編集の適用を待っている間）ので、送り直しに番号を付け、
+ * Webview は最後に受け取った番号を編集に添える。
+ */
+class SyncSession {
+  constructor(document, webview) {
+    this.document = document;
+    this.webview = webview;
+    this.queue = [];
+    this.running = false;
+    this.idle = Promise.resolve();
+    /** 適用し終えた編集の通し番号 */
+    this.appliedSeq = 0;
+    /** Webview に送った（または Webview から届いた）最後の全文（改行は LF）。送り直すかどうかの判断に使う */
+    this.webviewText = null;
+    /** Webview が直前の編集の後に持っている全文 */
+    this.lastEditText = null;
+    /** 直前の編集に添えられていた送り直しの番号 */
+    this.lastSyncId = 0;
+    /** 送った全文（番号ごと）。Webview がどの全文を受け取ったかを、編集に添えられた番号から引く */
+    this.sentTexts = new Map();
+    this.nextSyncId = 1;
+    this.warnedFailure = false;
+  }
+
+  start() {
+    this.queue = [];
+    this.appliedSeq = 0;
+    this.sentTexts.clear();
+    this.webviewText = documentText(this.document);
+    const syncId = this.remember(this.webviewText);
+    this.lastSyncId = syncId;
+    this.lastEditText = this.webviewText;
+    this.webview.postMessage({ type: 'init', text: this.webviewText, syncId, options: editorOptions(this.document), strings: webviewStrings() });
+  }
+
+  remember(text) {
+    const id = this.nextSyncId++;
+    this.sentTexts.set(id, text);
+    // Webview が受け取らないまま送り直しが続いても、古いものから捨てて大きくなりすぎないようにする
+    // （捨てた番号の編集が届いたら、base が分からないので捨てて送り直す）
+    while (this.sentTexts.size > 20) this.sentTexts.delete(this.sentTexts.keys().next().value);
+    return id;
+  }
+
+  enqueue(message) {
+    this.queue.push(message);
+    if (!this.running) this.idle = this.run();
+  }
+
+  async run() {
+    this.running = true;
+    try {
+      while (this.queue.length > 0) await this.apply(this.queue.shift());
+    } finally {
+      this.running = false;
+    }
+    this.verify();
+  }
+
+  async apply(message) {
+    // この編集の前に Webview が持っていた全文
+    const base = message.syncId === this.lastSyncId ? this.lastEditText : this.sentTexts.get(message.syncId);
+    this.lastSyncId = message.syncId;
+    this.lastEditText = message.text;
+    this.webviewText = message.text;
+    this.appliedSeq = message.seq;
+    // 受け取られた送り直しより古いものは、もう引かれない
+    for (const id of this.sentTexts.keys()) if (id < message.syncId) this.sentTexts.delete(id);
+
+    const changes = base === undefined ? null : rebaseChanges(base, documentText(this.document), message.changes);
+    if (!changes) {
+      // 外からの変更と重なった。当てずに捨て、run の最後の verify で全文を送り直す
+      log('edit dropped (conflicts with an external change)', { seq: message.seq });
+      return;
+    }
+    const edit = new vscode.WorkspaceEdit();
+    for (const c of changes) {
+      edit.replace(this.document.uri, new vscode.Range(c.fromLine, c.fromCh, c.toLine, c.toCh), c.insert);
+    }
+    let applied = false;
+    try {
+      applied = await vscode.workspace.applyEdit(edit);
+    } catch (error) {
+      log('applyEdit threw', String(error));
+    }
+    log('edit', { seq: message.seq, changes, applied });
+    if (!applied && !this.warnedFailure) {
+      // 後続の編集は、当たらなかった分を含む全文を base にしてずらすので、食い違っても位置はずれない。
+      // run の最後の verify で、文書の実際の内容を Webview に送り直す
+      this.warnedFailure = true;
+      vscode.window.showWarningMessage(vscode.l10n.t('Hushmark: Could not apply an edit to the document. Showing the document content again ({0})', this.document.uri.fsPath));
+    }
+  }
+
+  onDocumentChanged() {
+    // 自分の編集による変更は、適用を終えた後の verify でまとめて確かめる
+    if (!this.running) this.verify();
+  }
+
+  verify() {
+    const text = documentText(this.document);
+    if (text === this.webviewText) return;
+    log('sync to webview', { ackSeq: this.appliedSeq, docLength: text.length, webviewLength: this.webviewText && this.webviewText.length });
+    this.webviewText = text;
+    const syncId = this.remember(text);
+    this.webview.postMessage({ type: 'sync', text, syncId, ackSeq: this.appliedSeq });
+  }
+
+  whenIdle() {
+    return this.idle;
+  }
+}
+
+/** 読み取り専用かどうかを決める設定（isReadOnly） */
+const READONLY_SETTINGS = ['files.readonlyInclude', 'files.readonlyExclude', 'files.readonlyFromPermissions'];
+
+/**
+ * 書き込めない文書か。VSCode のテキストエディタと同じ基準で決める。
+ * - 書き込めないファイルシステムのもの（git の過去の版など）は、いつも書き込めない
+ * - 設定 files.readonlyInclude に合い、files.readonlyExclude に合わないもの
+ * - ファイルの属性が読み取り専用（VSCode の中では「ロック」）のものは、files.readonlyFromPermissions が
+ *   有効なときだけ。既定では VSCode も編集でき、保存のときに上書きするかを尋ねる
+ * 書き込めない文書では、Webview は利用者の操作による変更を受け付けない
+ */
+async function isReadOnly(document) {
+  const uri = document.uri;
+  if (vscode.workspace.fs.isWritableFileSystem(uri.scheme) === false) return true;
+  const files = vscode.workspace.getConfiguration('files', document);
+  const matches = (globs) => Object.entries(globs || {})
+    .some(([pattern, on]) => on && vscode.languages.match({ pattern }, document) > 0);
+  if (matches(files.get('readonlyInclude')) && !matches(files.get('readonlyExclude'))) return true;
+  try {
+    const stat = await vscode.workspace.fs.stat(uri);
+    if ((stat.permissions || 0) & vscode.FilePermission.Readonly) return true;
+  } catch {
+    // まだ保存していない文書など、属性を読めないものは書き込めるものとして扱う
+    return false;
+  }
+  if (uri.scheme !== 'file' || files.get('readonlyFromPermissions') !== true) return false;
+  // ファイルの属性による読み取り専用は、API の stat には出てこないので、書き込めるかを直接確かめる
+  // （拡張機能はファイルのある側で動くので、Remote-SSH でも手元のファイルとして調べられる）
+  try {
+    await fs.promises.access(uri.fsPath, fs.constants.W_OK);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+/** Webview に渡す設定（editorOptions） */
+const OPTION_SETTINGS = [
+  'hushmark',
+  'editor.lineNumbers', 'editor.fontSize', 'editor.lineHeight', 'editor.wrappingIndent', 'editor.tabSize',
+  'editor.wordWrap', 'editor.renderLineHighlight', 'editor.renderLineHighlightOnlyWhenFocus',
+];
+
+/** テキストエディタの設定のうち、Webview でも合わせるもの */
+function editorOptions(document) {
+  const editor = vscode.workspace.getConfiguration('editor', document);
+  const hushmark = vscode.workspace.getConfiguration('hushmark', document);
+  return {
+    lineNumbers: editor.get('lineNumbers', 'on'),
+    fontSize: editor.get('fontSize', 14),
+    // hushmark.lineHeight（文字の大きさに対する倍率）が 0 のときは、VSCode の editor.lineHeight に従う
+    lineHeight: lineHeightMultiplier(hushmark) || editor.get('lineHeight', 0),
+    wrappingIndent: editor.get('wrappingIndent', 'same'),
+    tabSize: editor.get('tabSize', 4),
+    wordWrap: editor.get('wordWrap', 'off'),
+    renderLineHighlight: editor.get('renderLineHighlight', 'line'),
+    renderLineHighlightOnlyWhenFocus: editor.get('renderLineHighlightOnlyWhenFocus', false),
+    style: styleOptions(hushmark),
+  };
+}
+
+/** 見た目の設定 */
+function styleOptions(config) {
+  return {
+    look: oneOf(config.get('previewStyle'), STYLES, 'soft'),
+    color: oneOf(config.get('previewColor'), COLORS, 'mono'),
+    colorScheme: oneOf(config.get('previewColorScheme'), COLOR_SCHEMES, 'auto'),
+    customColor: /^#[0-9a-f]{6}$/i.test(config.get('previewCustomColor') || '') ? config.get('previewCustomColor') : '#3366cc',
+    colorCustomizations: plainObject(config.get('colorCustomizations')),
+    headingSize: oneOf(config.get('headingSize'), HEADING_SIZES, 'medium'),
+    rightMargin: config.get('rightMargin', true) !== false,
+    fontFamily: safeFontFamily(config.get('fontFamily')),
+  };
+}
+
+/** 選択肢（package.json の enum と同じ） */
+const STYLES = ['soft', 'minimal', 'reference'];
+const COLORS = ['green', 'cyan', 'blue', 'purple', 'pink', 'orange', 'sepia', 'mono', 'custom'];
+const COLOR_SCHEMES = ['auto', 'light', 'dark'];
+const HEADING_SIZES = ['body', 'medium', 'large'];
+
+/** 選択肢にない値は既定にする */
+function oneOf(value, choices, fallback) {
+  return choices.includes(value) ? value : fallback;
+}
+
+/** hushmark.lineHeight。範囲の外や 0 のときは 0（editor.lineHeight に従う） */
+function lineHeightMultiplier(config) {
+  const value = Number(config.get('lineHeight', 0));
+  return Number.isFinite(value) && value >= 1 && value <= 4 ? value : 0;
+}
+
+/** Webview に送れる、文字列と入れ子のオブジェクトだけからなる値にする（色の値は Webview で確かめる） */
+function plainObject(value) {
+  if (!value || typeof value !== 'object') return {};
+  const out = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (typeof item === 'string') out[key] = item;
+    else if (item && typeof item === 'object' && !Array.isArray(item)) out[key] = plainObject(item);
+  }
+  return out;
+}
+
+/** CSS の値として埋め込むので、宣言やタグを閉じられる文字は落とす */
+function safeFontFamily(value) {
+  return String(value || '').replace(/[<>{};]/g, '').trim();
+}
+
+/**
+ * Webview の画面に出す文言（webview/strings.js）。英語を元にし、VSCode の表示言語に合わせた翻訳
+ * （l10n/bundle.l10n.*.json）を Webview に渡す。{0} などは Webview で置き換えるので、ここでは引数を渡さない
+ */
+const WEBVIEW_STRINGS = [
+  'Find', 'Replace', 'All', 'Toggle Replace', 'Match Case', 'Match Whole Word', 'Use Regular Expression',
+  'Previous Match', 'Next Match', 'Close', 'Replace All', 'No results', 'Invalid regular expression',
+  '+ Row', '+ Column', 'Source', 'Add a row at the end', 'Add a column at the right', 'Edit the whole table as Markdown source',
+  'Lines {0}–{1}', '{0}+Click to open',
+];
+
+function webviewStrings() {
+  return Object.fromEntries(WEBVIEW_STRINGS.map((text) => [text, vscode.l10n.t(text)]));
+}
+
+/** Webview 側は改行を LF で扱うので、比較と送信は LF にそろえる */
+function documentText(document) {
+  const text = document.getText();
+  return document.eol === vscode.EndOfLine.CRLF ? text.replace(/\r\n/g, '\n') : text;
+}
+
+/** Ctrl+Shift+F / Ctrl+Shift+H。テキストエディタと同じく、選択中の文字列を検索語にして開く */
+async function findInFiles({ query, replace }) {
+  const command = replace ? 'workbench.action.replaceInFiles' : 'workbench.action.findInFiles';
+  await vscode.commands.executeCommand(command, query ? { query, triggerSearch: true } : undefined);
+}
+
+async function openLink(rawHref, documentUri) {
+  if (typeof rawHref !== 'string') return;
+  const href = normalizeHref(rawHref);
+  if (href === '' || href.startsWith('#')) return;
+  try {
+    if (/^[a-z][a-z0-9+.-]*:/i.test(href) && !/^[a-z]:[\\/]/i.test(href)) {
+      await vscode.env.openExternal(vscode.Uri.parse(href));
+      return;
+    }
+    const filePart = decodeURIComponent(href.split('#')[0]);
+    let target;
+    if (!path.isAbsolute(filePart) && !filePart.startsWith('/')) {
+      target = vscode.Uri.joinPath(documentUri, '..', filePart);
+    } else if (documentUri.scheme === 'file') {
+      target = vscode.Uri.file(filePart);
+    } else {
+      // Remote-SSH などでは、文書と同じリモートの絶対パスとして開く
+      target = documentUri.with({ path: filePart.replace(/\\/g, '/'), query: '', fragment: '' });
+    }
+    await vscode.commands.executeCommand('vscode.open', target);
+  } catch (error) {
+    vscode.window.showWarningMessage(vscode.l10n.t('Could not open the link: {0}', href));
+  }
+}
+
+function renderHtml(webview, media) {
+  const nonce = crypto.randomBytes(16).toString('base64');
+  const script = webview.asWebviewUri(vscode.Uri.joinPath(media, 'dist', 'main.js'));
+  const style = webview.asWebviewUri(vscode.Uri.joinPath(media, 'editor.css'));
+  // 最初の表示から見た目を合わせる（Webview は、設定を受け取ってから配色などを入れる）
+  const initial = styleOptions(vscode.workspace.getConfiguration('hushmark'));
+  const csp = [
+    "default-src 'none'",
+    // CodeMirror は実行時に style 要素を差し込むので 'unsafe-inline' が要る
+    `style-src ${webview.cspSource} 'unsafe-inline'`,
+    // 言語ごとの構文定義は分割したチャンクを動的に読み込む
+    `script-src 'nonce-${nonce}' ${webview.cspSource}`,
+    `img-src ${webview.cspSource} data:`,
+    `font-src ${webview.cspSource}`,
+  ].join('; ');
+
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="${csp}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="${style}">
+</head>
+<body class="md-style-${initial.look} md-heading-${initial.headingSize}${initial.rightMargin ? '' : ' md-no-right-margin'}">
+  <div id="editor"></div>
+  <script type="module" nonce="${nonce}" src="${script}"></script>
+</body>
+</html>`;
+}
+
+module.exports = { activate, deactivate };

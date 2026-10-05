@@ -1,0 +1,10 @@
+node_modules/**
+webview/**
+test/**
+build.mjs
+.gitignore
+**/*.map
+.e2e/**
+.vscode-test/**
+.github/**
+CONTRIBUTING.md
