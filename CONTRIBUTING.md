@@ -97,6 +97,37 @@ CI（GitHub Actions）では、Linux で `all` を、macOS と Windows で `smok
 
 `smoke`（`smoke.mjs`）では、ファイルを開くこと、追記と保存（改行が CRLF のまま）、取り消し、表のセルの編集、検索のキー操作、リンクの説明、折り返しの切り替えを確かめます。
 
+## 変更の取り込み
+
+`main` には PR を通して取り込みます。ルールセットで、次の条件を満たさないとマージできないようにしています。
+
+- CI の 3 つのジョブ（`test (ubuntu-latest)`、`test (macos-latest)`、`test (windows-latest)`）が通っている
+- ブランチが `main` の先端を含んでいる（含んでいなければ、PR の「Update branch」で追従させ、CI を通し直す）
+
+マージはマージコミットだけを使えるようにしています。マージした作業ブランチは自動で消えます。
+
+```sh
+git switch -c <ブランチ>
+# 変更してコミットする
+git push -u origin <ブランチ>
+gh pr create --fill
+gh pr checks --watch
+gh pr merge --merge
+```
+
+## リリース
+
+`v` で始まるタグを push すると、`.github/workflows/release.yml` が .vsix を作り、Release に添付します。ノートは `CHANGELOG.md` の該当するバージョンの節から作ります。タグが `package.json` のバージョンと違う場合や、タグのコミットが `main` に含まれない場合は失敗します。
+
+1. `package.json` と `package-lock.json` のバージョンを上げ（`npm version <version> --no-git-tag-version`）、`CHANGELOG.md` に `## <version> - <日付>` の節を足して、PR で `main` に取り込む
+2. `main` の先端にタグを付けて push する
+
+   ```sh
+   git switch main && git pull
+   git tag -a v<version> -m "Hushmark <version>"
+   git push origin v<version>
+   ```
+
 ## 開発で作るもの
 
 | もの | 作るとき | 消し方 |
