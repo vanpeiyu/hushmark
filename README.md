@@ -20,14 +20,7 @@
 
 ## インストール
 
-.vsix を作ってインストールします。Node.js 22 以上が必要です。
-
-```sh
-git clone https://github.com/vanpeiyu/hushmark.git
-cd hushmark
-npm ci
-npm run package    # hushmark-<version>.vsix ができる
-```
+[Releases](https://github.com/vanpeiyu/hushmark/releases) から `hushmark-<version>.vsix` をダウンロードしてインストールします。ソースから .vsix を作る方法は [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
 
 - 手元の VSCode には、コマンドパレットの「Extensions: Install from VSIX...」で .vsix を選ぶか、次のコマンドでインストールします。
 
