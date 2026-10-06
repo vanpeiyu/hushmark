@@ -25,7 +25,7 @@ export const MIN_CONTRAST = 4.5;
  */
 const LEVELS = {
   light: {
-    bg: { l: 0.99, c: 0.06, max: 0.008 },
+    bg: { l: 1, c: 0, max: 0 },
     blockBg: { l: 0.965, c: 0.12, max: 0.014 },
     codeBg: { l: 0.945, c: 0.12, max: 0.016 },
     border: { l: 0.91, c: 0.15, max: 0.02 },
