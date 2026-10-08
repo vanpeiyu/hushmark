@@ -47,6 +47,24 @@ function activeTabUri() {
 class LiveEditorProvider {
   constructor(context) {
     this.context = context;
+    /** 開いている Webview（文書の URI ごと）。ほかの文書のリンク（other.md#見出し）の見出しに移すのに使う */
+    this.webviews = new Map();
+    /** 開こうとしている文書の、移す先の見出し。Webview の準備ができたときに渡す */
+    this.pendingAnchors = new Map();
+  }
+
+  /** 文書を開き、Hushmark で開いたときは見出しに移す */
+  async openWithAnchor(target, fragment) {
+    const key = target.toString();
+    this.pendingAnchors.set(key, fragment);
+    // テキストエディタで開いたときなど、Webview が受け取らないものは捨てる
+    setTimeout(() => { if (this.pendingAnchors.get(key) === fragment) this.pendingAnchors.delete(key); }, 5000);
+    await vscode.commands.executeCommand('vscode.open', target);
+    const opened = [...(this.webviews.get(key) || [])].find((entry) => entry.panel.active);
+    if (opened && this.pendingAnchors.get(key) === fragment) {
+      this.pendingAnchors.delete(key);
+      opened.panel.webview.postMessage({ type: 'revealAnchor', fragment });
+    }
   }
 
   resolveCustomTextEditor(document, panel) {
@@ -56,6 +74,10 @@ class LiveEditorProvider {
     webview.html = renderHtml(webview, media);
 
     const session = new SyncSession(document, webview);
+    const key = document.uri.toString();
+    const entry = { panel };
+    if (!this.webviews.has(key)) this.webviews.set(key, new Set());
+    this.webviews.get(key).add(entry);
     const isThisDocument = (doc) => doc.uri.toString() === document.uri.toString();
     const sendReadOnly = () => isReadOnly(document).then((readOnly) => webview.postMessage({ type: 'readOnly', readOnly }));
     const subscriptions = [
@@ -64,9 +86,13 @@ class LiveEditorProvider {
           case 'ready':
             session.start();
             sendReadOnly();
+            if (this.pendingAnchors.has(key)) {
+              webview.postMessage({ type: 'revealAnchor', fragment: this.pendingAnchors.get(key) });
+              this.pendingAnchors.delete(key);
+            }
             break;
           case 'edit': session.enqueue(message); break;
-          case 'openLink': openLink(message.href, document.uri); break;
+          case 'openLink': openLink(message.href, document.uri, webview, this); break;
           case 'log': log('[webview]', message.text); break;
           case 'findInFiles': findInFiles(message); break;
         }
@@ -86,6 +112,8 @@ class LiveEditorProvider {
     ];
     const unwatch = watchDiskChanges(document, panel, log);
     panel.onDidDispose(() => {
+      this.webviews.get(key).delete(entry);
+      if (this.webviews.get(key).size === 0) this.webviews.delete(key);
       subscriptions.forEach((s) => s.dispose());
       unwatch();
     });
@@ -353,16 +381,26 @@ async function findInFiles({ query, replace }) {
   await vscode.commands.executeCommand(command, query ? { query, triggerSearch: true } : undefined);
 }
 
-async function openLink(rawHref, documentUri) {
+/**
+ * リンクを開く。#見出し は同じ Webview で見出しに移し、other.md#見出し は文書を開いてから見出しに移す
+ * （Hushmark で開いたときだけ。テキストエディタは文書の先頭を表示する）
+ */
+async function openLink(rawHref, documentUri, webview, provider) {
   if (typeof rawHref !== 'string') return;
   const href = normalizeHref(rawHref);
-  if (href === '' || href.startsWith('#')) return;
+  if (href === '' || href === '#') return;
+  if (href.startsWith('#')) {
+    webview.postMessage({ type: 'revealAnchor', fragment: href.slice(1) });
+    return;
+  }
   try {
     if (/^[a-z][a-z0-9+.-]*:/i.test(href) && !/^[a-z]:[\\/]/i.test(href)) {
       await vscode.env.openExternal(vscode.Uri.parse(href));
       return;
     }
-    const filePart = decodeURIComponent(href.split('#')[0]);
+    const [rawFile, ...rest] = href.split('#');
+    const fragment = rest.join('#');
+    const filePart = decodeURIComponent(rawFile);
     let target;
     if (!path.isAbsolute(filePart) && !filePart.startsWith('/')) {
       target = vscode.Uri.joinPath(documentUri, '..', filePart);
@@ -372,7 +410,8 @@ async function openLink(rawHref, documentUri) {
       // Remote-SSH などでは、文書と同じリモートの絶対パスとして開く
       target = documentUri.with({ path: filePart.replace(/\\/g, '/'), query: '', fragment: '' });
     }
-    await vscode.commands.executeCommand('vscode.open', target);
+    if (fragment && /\.(md|markdown)$/i.test(target.path)) await provider.openWithAnchor(target, fragment);
+    else await vscode.commands.executeCommand('vscode.open', target);
   } catch (error) {
     vscode.window.showWarningMessage(vscode.l10n.t('Could not open the link: {0}', href));
   }

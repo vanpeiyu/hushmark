@@ -660,4 +660,24 @@ await loadDoc(entityDoc);
 const entityCells = JSON.parse(await web("JSON.stringify([...document.querySelectorAll('.cm-md-table td')].map((e) => e.textContent))"));
 check('表のセルの文字参照を元の文字にする', entityCells.join('|') === '© © A|&notit; &', entityCells);
 
+// 22. 文書内のリンク（#見出し）を Ctrl+クリックすると、その見出しに移る
+const anchorDoc = ['[後の見出しへ](#後の見出しその2)', '', ...Array.from({ length: 80 }, (_, i) => `行 ${i + 1}`), '', '## 後の見出し（その2）', '', '後'];
+await loadDoc(anchorDoc);
+await clickPos(await web('__hushmarkView.state.doc.length'));
+await web('__hushmarkView.scrollDOM.scrollTop = 0');
+await sleep(200);
+const linkAt = await toPage(JSON.parse(await web("JSON.stringify((() => { const r = document.querySelector('.cm-md-link').getBoundingClientRect(); return { x: r.left + 8, y: r.top + r.height / 2 }; })())")));
+for (const type of ['mousePressed', 'mouseReleased']) {
+  await cdp.send('Input.dispatchMouseEvent', { type, x: linkAt.x, y: linkAt.y, button: 'left', clickCount: 1, modifiers: MOD });
+}
+await sleep(800);
+const anchorTarget = JSON.parse(await web(`JSON.stringify((() => {
+  const v = __hushmarkView;
+  const line = v.state.doc.lineAt(v.state.selection.main.head);
+  const top = v.coordsAtPos(line.from).top - v.scrollDOM.getBoundingClientRect().top;
+  return { text: line.text, top, height: v.scrollDOM.clientHeight };
+})())`));
+check('#見出し のリンク: 見出しにカーソルが移り、画面に出る', anchorTarget.text === '## 後の見出し（その2）' &&
+  anchorTarget.top >= 0 && anchorTarget.top < anchorTarget.height, anchorTarget);
+
 finish();
