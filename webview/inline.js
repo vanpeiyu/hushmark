@@ -27,48 +27,55 @@ const ELEMENT_FOR = {
   InlineCode: 'code',
 };
 
-/** インライン Markdown を DOM にして parent に追加する（innerHTML は使わない） */
-export function renderInline(text, parent) {
-  const tree = cellParser.parse(text);
-  renderRange(tree.topNode, text, parent, 0, text.length);
+/** リンクの参照定義のラベルの比べ方。CommonMark と同じく、前後の空白、空白の連続、大文字と小文字の違いを無視する */
+export function normalizeLabel(label) {
+  return label.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
-function renderRange(node, text, parent, from, to) {
+/**
+ * インライン Markdown を DOM にして parent に追加する（innerHTML は使わない）。
+ * definitions は文書の中のリンクの参照定義（正規化したラベルからリンク先）。参照リンク（[foo]）に使う
+ */
+export function renderInline(text, parent, definitions = new Map()) {
+  const tree = cellParser.parse(text);
+  renderRange(tree.topNode, text, parent, 0, text.length, definitions);
+}
+
+function renderRange(node, text, parent, from, to, definitions) {
   let pos = from;
   for (let child = node.firstChild; child; child = child.nextSibling) {
     if (child.to <= from || child.from >= to) continue;
     if (child.from > pos) parent.appendChild(document.createTextNode(text.slice(pos, child.from)));
-    renderNode(child, text, parent);
+    renderNode(child, text, parent, definitions);
     pos = child.to;
   }
   if (to > pos) parent.appendChild(document.createTextNode(text.slice(pos, to)));
 }
 
-function renderNode(node, text, parent) {
+function renderNode(node, text, parent, definitions) {
   const { name, from, to } = node;
   if (SKIPPED_NODES.has(name)) return;
   if (name === 'URL' && node.parent && URL_OWNERS.has(node.parent.name)) return;
 
   if (ELEMENT_FOR[name]) {
-    renderRange(node, text, parent.appendChild(document.createElement(ELEMENT_FOR[name])), from, to);
-  } else if (name === 'Link' && !node.getChild('URL')) {
-    // 参照リンク（[foo] など）。セルを描くときは文書の参照定義を見られないので、[ ] ごとただの文字にする
-    // （定義のない [foo] は CommonMark でもただの文字）
+    renderRange(node, text, parent.appendChild(document.createElement(ELEMENT_FOR[name])), from, to, definitions);
+  } else if (name === 'Link' && !node.getChild('URL') && referenceHref(node, text, definitions) === null) {
+    // 定義のない参照リンク（[foo] など）は、CommonMark と同じく [ ] ごとただの文字にする
     const marks = node.getChildren('LinkMark');
     const textFrom = marks[0] ? marks[0].to : from;
     const textTo = marks[1] ? marks[1].from : to;
     parent.appendChild(document.createTextNode(text.slice(from, textFrom)));
-    renderRange(node, text, parent, textFrom, textTo);
+    renderRange(node, text, parent, textFrom, textTo, definitions);
     parent.appendChild(document.createTextNode(text.slice(textTo, to)));
   } else if (name === 'Link') {
     const marks = node.getChildren('LinkMark');
     const url = node.getChild('URL');
     const a = parent.appendChild(document.createElement('span'));
     a.className = 'cm-md-link';
-    if (url) setAttributes(a, linkAttributes(text.slice(url.from, url.to)));
+    setAttributes(a, linkAttributes(url ? text.slice(url.from, url.to) : referenceHref(node, text, definitions)));
     const textFrom = marks[0] ? marks[0].to : from;
     const textTo = marks[1] ? marks[1].from : to;
-    renderRange(node, text, a, textFrom, textTo);
+    renderRange(node, text, a, textFrom, textTo, definitions);
   } else if (name === 'Image' && node.getChild('URL')) {
     // 画像は描かずに代替テキストを出す。本文と同じく、マウスを載せると浮かせて表示し（imagePreview.js）、
     // Ctrl+クリックで開く
@@ -81,7 +88,7 @@ function renderNode(node, text, parent) {
     // 記号は「![」「]」「(」「)」の順
     const textFrom = marks[0] ? marks[0].to : from;
     const textTo = marks[1] ? marks[1].from : to;
-    renderRange(node, text, span, textFrom, textTo);
+    renderRange(node, text, span, textFrom, textTo, definitions);
   } else if (name === 'Escape') {
     parent.appendChild(document.createTextNode(text.slice(from + 1, to)));
   } else if (name === 'HardBreak') {
@@ -99,8 +106,18 @@ function renderNode(node, text, parent) {
     setAttributes(a, linkAttributes(href));
     a.textContent = href;
   } else {
-    renderRange(node, text, parent, from, to);
+    renderRange(node, text, parent, from, to, definitions);
   }
+}
+
+/** 参照リンク（[foo]、[text][foo]、[foo][]）のリンク先。定義がなければ null */
+function referenceHref(node, text, definitions) {
+  const label = node.getChild('LinkLabel');
+  const marks = node.getChildren('LinkMark');
+  const name = label && label.to - label.from > 2
+    ? text.slice(label.from + 1, label.to - 1)
+    : marks.length >= 2 ? text.slice(marks[0].to, marks[1].from) : '';
+  return definitions.get(normalizeLabel(name)) ?? null;
 }
 
 /**

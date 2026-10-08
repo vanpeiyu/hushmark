@@ -758,4 +758,17 @@ await loadDoc(changedDistant);
 const caretAfter = JSON.parse(await web('JSON.stringify((() => { const v = __hushmarkView; const h = v.state.selection.main.head; const l = v.state.doc.lineAt(h); return { line: l.number, col: h - l.from }; })())'));
 check('離れた 2 か所が外で変わっても、間のカーソルは動かない', caretAfter.line === 6 && caretAfter.col === 3, caretAfter);
 
+// 29. 表のセルの中の参照リンクは、文書の定義があればリンクにする。定義が変われば描き直す
+const refTable = (def) => ['| 名前 | リンク |', '|---|---|', '| a | [ref] と [none] |', '', '後', ...(def ? ['', `[ref]: ${def}`] : [])];
+const cellLinks = () => web("JSON.stringify([...document.querySelectorAll('.cm-md-table td .cm-md-link')].map((e) => [e.textContent, e.getAttribute('data-href')]))").then(JSON.parse);
+await loadDoc(refTable('https://example.com/one'));
+let links = await cellLinks();
+check('表のセルの参照リンク: 定義のあるものだけリンクにする', links.length === 1 && links[0][0] === 'ref' && links[0][1] === 'https://example.com/one', links);
+await loadDoc(refTable('https://example.com/two'));
+links = await cellLinks();
+check('表のセルの参照リンク: 定義が変わると描き直す', links.length === 1 && links[0][1] === 'https://example.com/two', links);
+await loadDoc(refTable(null));
+links = await cellLinks();
+check('表のセルの参照リンク: 定義を消すとただの文字に戻す', links.length === 0, links);
+
 finish();

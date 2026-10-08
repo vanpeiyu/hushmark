@@ -12,7 +12,7 @@
 import { EditorSelection, StateEffect, StateField } from '@codemirror/state';
 import { Decoration, EditorView, WidgetType, keymap } from '@codemirror/view';
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
-import { linkAttributes, openLinkHandler } from './inline.js';
+import { linkAttributes, normalizeLabel, openLinkHandler } from './inline.js';
 import { TableWidget, enterTableByKeyboard, isRawTable, rawTables, tableScrollHandler, tableSearchHighlight, toggleRawTable } from './tableWidget.js';
 import { buildTableModel, splitRow } from './tableModel.js';
 import { hasMod } from './platform.js';
@@ -480,7 +480,7 @@ function buildDecorations(state, span = null) {
           }
           const source = doc.sliceString(first.from, last.to);
           decorations.push(Decoration.replace({
-            widget: new TableWidget(buildTableModel(lines), source),
+            widget: new TableWidget(buildTableModel(lines), source, definitions()),
             block: true,
           }).range(first.from, last.to));
           return false;
@@ -492,10 +492,6 @@ function buildDecorations(state, span = null) {
   return Decoration.set(decorations, true);
 }
 
-/** リンクの参照定義のラベルの比べ方。CommonMark と同じく、前後の空白、空白の連続、大文字と小文字の違いを無視する */
-export function normalizeLabel(label) {
-  return label.trim().replace(/\s+/g, ' ').toLowerCase();
-}
 
 /** 文書の中のリンクの参照定義（[foo]: URL）。同じラベルが複数あるときは最初のものを使う */
 function linkDefinitions(state) {
