@@ -600,8 +600,10 @@ const afterMarks = await cursorLeft();
 await press(cdp, 'ArrowLeft');
 await sleep(150);
 const betweenMarks = await cursorLeft();
-check('見出しの空白の前後: 描かれるカーソルが空白の幅以上動く', beforeText - afterMarks >= 15 && afterMarks > betweenMarks,
-  { beforeText, afterMarks, betweenMarks });
+// 空白の幅は、フォントと行の余白（--md-line-pad）で変わるので、描かれた空白の幅と比べる
+const spaceWidth = await web("Math.round(document.querySelector('.cm-md-heading-space').getBoundingClientRect().width)");
+check('見出しの空白の前後: 描かれるカーソルが空白の幅だけ動く', Math.abs(beforeText - afterMarks - spaceWidth) <= 2 && spaceWidth > 0 &&
+  afterMarks > betweenMarks, { beforeText, afterMarks, betweenMarks, spaceWidth });
 
 // 16. 表のセルの端で ← / → を押すと、隣のセルに移る
 const arrowTableDoc = ['| 果物 | 値 |', '|---|---|', '| りんご | 12 |', '', '後'];
