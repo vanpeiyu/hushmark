@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ChangeSet, EditorState, Text } from '@codemirror/state';
-import { diffText, toLineChanges } from '../webview/sync.js';
+import { diffHunks, diffText, toLineChanges } from '../webview/sync.js';
 import { rebaseChanges } from '../src/textMerge.js';
 
 /** 行・列の置換リストを、変更前の文字列にまとめて適用する（WorkspaceEdit と同じく範囲はすべて変更前が基準） */
@@ -69,4 +69,46 @@ test('rebaseChanges: 外からの変更と重なる編集は null（捨てて同
   // 食い違いがなければ、そのまま返す
   const same = [{ fromLine: 0, fromCh: 0, toLine: 0, toCh: 0, insert: 'x' }];
   assert.equal(rebaseChanges('a', 'a', same), same);
+});
+
+test('diffHunks: 離れた 2 か所の変更は 2 つの置換にし、間の文字は置き換えない', () => {
+  const before = 'one\ntwo\nthree\nfour\nfive';
+  const after = 'ONE\ntwo\nthree\nfour\nfive!';
+  assert.deepEqual(diffHunks(before, after), [
+    { from: 0, to: 3, insert: 'ONE' },
+    { from: before.length, to: before.length, insert: '!' },
+  ]);
+});
+
+test('diffHunks: 行の追加と削除、末尾の改行', () => {
+  for (const [before, after] of [
+    ['a\nb\nc', 'a\nc'],
+    ['a\nb\nc', 'a\nb\nx\nc'],
+    ['a\nb\nc\n', 'x\na\nb\nc\n'],
+    ['a', 'a\n'],
+    ['a\n', 'a'],
+    ['', 'x\ny'],
+    ['x\ny', ''],
+  ]) {
+    const hunks = diffHunks(before, after);
+    let text = before;
+    for (const h of [...hunks].reverse()) text = text.slice(0, h.from) + h.insert + text.slice(h.to);
+    assert.equal(text, after, JSON.stringify([before, after, hunks]));
+  }
+});
+
+test('diffHunks: ランダムな文字列でも、当てると変更後の文字列になり、置換は重ならず前から順', () => {
+  let seed = 7;
+  const rand = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  const pieces = ['a', 'b', '\n', 'x', '\n\n', 'あ', '😀'];
+  const make = () => Array.from({ length: Math.floor(rand() * 40) }, () => pieces[Math.floor(rand() * pieces.length)]).join('');
+  for (let k = 0; k < 500; k++) {
+    const before = make();
+    const after = rand() < 0.5 ? make() : before.slice(0, Math.floor(rand() * before.length)) + make() + before.slice(Math.floor(rand() * before.length));
+    const hunks = diffHunks(before, after);
+    for (let t = 1; t < hunks.length; t++) assert.ok(hunks[t].from >= hunks[t - 1].to, JSON.stringify(hunks));
+    let text = before;
+    for (const h of [...hunks].reverse()) text = text.slice(0, h.from) + h.insert + text.slice(h.to);
+    assert.equal(text, after, JSON.stringify([before, after, hunks]));
+  }
 });

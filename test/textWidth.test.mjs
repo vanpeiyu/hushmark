@@ -23,3 +23,26 @@ test('posAtColumn: 桁の位置を返し、全角の途中なら前にそろえ�
   // タブの途中の桁なら、タブの前
   assert.equal(posAtColumn('a\tb', 0, 2, 4), 1);
 });
+
+test('結合文字は前の文字と合わせて 1 文字、絵文字は 2 桁と数える', () => {
+  // か + 結合用の濁点（2 つの符号位置で 1 文字）
+  assert.equal(displayWidth('が'), 2);
+  // e + 結合用のアクセント
+  assert.equal(columnsOf('éx', 4), 2);
+  assert.equal(displayWidth('😀'), 2);
+  // ZWJ でつないだ絵文字と、肌の色を付けた絵文字も 1 文字
+  assert.equal(displayWidth('👨‍👩‍👧'), 2);
+  assert.equal(displayWidth('👍🏽'), 2);
+  // 異体字セレクタで絵文字にしたものは 2 桁、そうでないものは 1 桁
+  assert.equal(displayWidth('❤️'), 2);
+  assert.equal(displayWidth('©'), 1);
+  assert.equal(displayWidth('🇯🇵'), 2);
+});
+
+test('posAtColumn: 見た目の 1 文字の途中には置かない', () => {
+  // 'e' + 結合用のアクセント + 'x'。桁 1 は結合文字の後ろ（位置 2）
+  assert.equal(posAtColumn('éx', 0, 1, 4), 2);
+  // 絵文字（サロゲートペア）の途中の桁なら、その前
+  assert.equal(posAtColumn('a😀b', 0, 2, 4), 1);
+  assert.equal(posAtColumn('a😀b', 0, 3, 4), 3);
+});
