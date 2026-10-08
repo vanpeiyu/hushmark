@@ -294,6 +294,51 @@ for (let i = 0; i < 30 && !reflected; i++) {
 }
 check('外部変更: 表示に反映された', reflected);
 
+// 6-2. 未保存の変更があるときに外でファイルを書き換えると、読み込まずに通知し、「Revert File」で読み込む
+const diskToast = () => cdp.evaluateIn(mainCtx, `(() => {
+  const toast = [...document.querySelectorAll('.notifications-toasts .notification-toast')].find((t) => t.textContent.includes('was changed on disk'));
+  const button = toast && [...toast.querySelectorAll('.monaco-button')].find((b) => b.textContent.trim() === 'Revert File');
+  if (!button) return null;
+  const r = button.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+})()`);
+const isDirty = () => cdp.evaluateIn(mainCtx, "!!document.querySelector('.tab.active.dirty')");
+async function waitUntil(read, timeoutMs = 6000) {
+  for (const deadline = Date.now() + timeoutMs; Date.now() < deadline; await sleep(200)) {
+    const value = await read();
+    if (value) return value;
+  }
+  return null;
+}
+
+// 自分の保存の直後に入力して未保存の変更がある状態になっても、自分の保存では通知しない
+await clickPos(await web('__hushmarkView.state.doc.line(1).to'));
+await type(cdp, 'A');
+await press(cdp, 's', MOD);
+await type(cdp, 'B');
+await sleep(2000);
+check('外部変更（未保存）: 自分の保存では通知しない', !(await diskToast()));
+// B は保存に含まれることがあるので、未保存の変更を確実に作る
+await type(cdp, 'C');
+await sleep(300);
+check('外部変更（未保存）: 未保存の変更がある', await isDirty());
+
+const unsavedDoc = await webDoc();
+const changedOnDisk = readFile().replace(/^# [^\r\n]*/, '# ディスクで変えた見出し');
+writeFile(changedOnDisk);
+let toastButton = await waitUntil(diskToast);
+check('外部変更（未保存）: 通知する', toastButton);
+// 通知はスライドして出てくるので、止まってから押す
+await sleep(1000);
+toastButton = await diskToast();
+check('外部変更（未保存）: 表示は未保存の内容のまま', (await webDoc()) === unsavedDoc);
+if (toastButton) {
+  await click(cdp, toastButton.x, toastButton.y);
+  const reverted = await waitUntil(async () => (await webDoc()) === changedOnDisk.replace(/\r\n/g, '\n'));
+  check('外部変更（未保存）: Revert File でディスクの内容を読み込む', reverted, (await webDoc()).slice(0, 80));
+  check('外部変更（未保存）: 読み込んだ後は未保存の変更がない', !(await isDirty()));
+}
+
 
 // 7. 改行なしでコードブロックが終わるファイルでも、その後ろに書ける
 const endsWithFence = ['# 末尾', '', '```js', 'x', '```'];

@@ -21,5 +21,7 @@
   "Lines {0}–{1}": "{0}～{1} 行目",
   "{0}+Click to open": "{0}+クリックで開く",
   "Hushmark: Could not apply an edit to the document. Showing the document content again ({0})": "Hushmark: 編集を文書に反映できませんでした。文書の内容に合わせて表示し直します（{0}）",
-  "Could not open the link: {0}": "リンクを開けませんでした: {0}"
+  "Could not open the link: {0}": "リンクを開けませんでした: {0}",
+  "Hushmark: {0} was changed on disk. It has unsaved changes, so the changes on disk were not loaded.": "Hushmark: {0} がディスク上で変更されました。未保存の変更があるため、ディスクの内容は読み込んでいません。",
+  "Revert File": "ファイルを元に戻す"
 }
