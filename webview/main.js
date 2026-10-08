@@ -16,7 +16,7 @@ import { markdownSupport } from './markdownSetup.js';
 import { reconfigureWrapIndent, wrapIndent } from './wrapIndent.js';
 import { lineHighlight, reconfigureLineHighlight } from './lineHighlight.js';
 import { verticalMove } from './verticalMove.js';
-import { diffText, toLineChanges } from './sync.js';
+import { diffHunks, toLineChanges } from './sync.js';
 import { hasMod } from './platform.js';
 import { setStrings } from './strings.js';
 import { imagePreview } from './imagePreview.js';
@@ -232,10 +232,11 @@ function applyRemote(text, ackSeq, id) {
     return;
   }
   syncId = id;
-  const change = diffText(view.state.doc.toString(), text);
-  if (!change) return;
+  // 変わったところごとに置き換え、その間にあるカーソルを動かさない
+  const changes = diffHunks(view.state.doc.toString(), text);
+  if (changes.length === 0) return;
   view.dispatch({
-    changes: change,
+    changes,
     annotations: [remote.of(true), Transaction.addToHistory.of(false)],
   });
 }

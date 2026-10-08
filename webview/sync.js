@@ -3,7 +3,7 @@
 // TextDocument では 2 文字になり、オフセットのままだと食い違うため。
 
 // 差分の計算は拡張機能本体と同じものを使う
-export { diffText } from '../src/textMerge.js';
+export { diffHunks, diffText } from '../src/textMerge.js';
 
 /**
  * CodeMirror の ChangeSet を、変更前の文書に対する行・列の置換リストに変換する。
