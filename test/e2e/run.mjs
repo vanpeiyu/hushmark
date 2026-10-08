@@ -155,6 +155,18 @@ await sleep(200);
 doc = await checkInSync('セルの中で Ctrl+Z');
 ts = await tableState();
 check('セルの中で Ctrl+Z: 取り消せて、入力欄も戻る', doc.split('\n')[10] === '| ぶどう |  |  |' && ts.value === 'ぶどう' && ts.focused, { line: doc.split('\n')[10], ts });
+// セルの途中で打って取り消すと、カーソルは取り消したところに戻る（セルの先頭に戻らない）
+const undoCellCaret = () => web("document.querySelector('.cm-md-cell-input').mdCellView.state.selection.main.head");
+await press(cdp, 'Home');
+await press(cdp, 'ArrowRight');
+await sleep(600); // 取り消しの単位を分ける
+await type(cdp, 'x');
+await sleep(300);
+await press(cdp, 'z', MOD);
+await sleep(300);
+const undoCaret = await undoCellCaret();
+check('セルの途中で打って Ctrl+Z: カーソルは取り消したところ', undoCaret === 1 && (await tableState()).value === 'ぶどう', undoCaret);
+await press(cdp, 'End');
 
 await press(cdp, 'Escape');
 await sleep(150);
@@ -588,8 +600,10 @@ const afterMarks = await cursorLeft();
 await press(cdp, 'ArrowLeft');
 await sleep(150);
 const betweenMarks = await cursorLeft();
-check('見出しの空白の前後: 描かれるカーソルが空白の幅以上動く', beforeText - afterMarks >= 15 && afterMarks > betweenMarks,
-  { beforeText, afterMarks, betweenMarks });
+// 空白の幅は、フォントと行の余白（--md-line-pad）で変わるので、描かれた空白の幅と比べる
+const spaceWidth = await web("Math.round(document.querySelector('.cm-md-heading-space').getBoundingClientRect().width)");
+check('見出しの空白の前後: 描かれるカーソルが空白の幅だけ動く', Math.abs(beforeText - afterMarks - spaceWidth) <= 2 && spaceWidth > 0 &&
+  afterMarks > betweenMarks, { beforeText, afterMarks, betweenMarks, spaceWidth });
 
 // 16. 表のセルの端で ← / → を押すと、隣のセルに移る
 const arrowTableDoc = ['| 果物 | 値 |', '|---|---|', '| りんご | 12 |', '', '後'];
@@ -710,6 +724,12 @@ if (!remote) {
   check('画像のリンクにマウスを載せると、画像を表示する', shown.length === 1 && shown[0] === 4, shown);
   const missing = await hoverImage(1);
   check('読めない画像では何も表示しない', missing.length === 0, missing);
+  // 表のセルの中の画像も同じ
+  await loadDoc(['| 色 | 画像 |', '|---|---|', '| 赤 | ![red](pic.png) |', '', '後']);
+  const cellImage = await web("document.querySelector('.cm-md-table .cm-md-image')?.textContent");
+  check('表のセルの画像は、代替テキストを出す', cellImage === 'red', cellImage);
+  const shownInCell = await hoverImage(0);
+  check('表のセルの画像にマウスを載せると、画像を表示する', shownInCell.length === 1 && shownInCell[0] === 4, shownInCell);
 }
 
 // 25. 文字列を選んで URL を貼り付けると、リンクにする
@@ -725,5 +745,40 @@ await web(`(() => {
 })()`);
 doc = await checkInSync('URL の貼り付け');
 check('文字列を選んで URL を貼り付けると、リンクにする', doc.startsWith('see [docs](https://example.com/docs) here'), doc);
+
+// 28. ほかのツールで離れた 2 か所が変わっても、その間にあるカーソルは動かない
+const distantDoc = Array.from({ length: 12 }, (_, i) => `行 ${i + 1} の文`);
+await loadDoc(distantDoc);
+const caretBefore = await web('__hushmarkView.state.doc.line(6).from + 3');
+await clickPos(caretBefore);
+const changedDistant = [...distantDoc];
+changedDistant[0] = '最初の行を変えた';
+changedDistant[11] = '最後の行を変えた';
+await loadDoc(changedDistant);
+const caretAfter = JSON.parse(await web('JSON.stringify((() => { const v = __hushmarkView; const h = v.state.selection.main.head; const l = v.state.doc.lineAt(h); return { line: l.number, col: h - l.from }; })())'));
+check('離れた 2 か所が外で変わっても、間のカーソルは動かない', caretAfter.line === 6 && caretAfter.col === 3, caretAfter);
+
+// 29. 表のセルの中の参照リンクは、文書の定義があればリンクにする。定義が変われば描き直す
+const refTable = (def) => ['| 名前 | リンク |', '|---|---|', '| a | [ref] と [none] |', '', '後', ...(def ? ['', `[ref]: ${def}`] : [])];
+const cellLinks = () => web("JSON.stringify([...document.querySelectorAll('.cm-md-table td .cm-md-link')].map((e) => [e.textContent, e.getAttribute('data-href')]))").then(JSON.parse);
+await loadDoc(refTable('https://example.com/one'));
+let links = await cellLinks();
+check('表のセルの参照リンク: 定義のあるものだけリンクにする', links.length === 1 && links[0][0] === 'ref' && links[0][1] === 'https://example.com/one', links);
+await loadDoc(refTable('https://example.com/two'));
+links = await cellLinks();
+check('表のセルの参照リンク: 定義が変わると描き直す', links.length === 1 && links[0][1] === 'https://example.com/two', links);
+await loadDoc(refTable(null));
+links = await cellLinks();
+check('表のセルの参照リンク: 定義を消すとただの文字に戻す', links.length === 0, links);
+
+// 30. 絵文字を含む行へ ↑ で移っても、桁（絵文字は 2 桁）を保つ
+await loadDoc(['😀😀abc', 'abcdefgh', '', '後']);
+const emojiLine2 = await web('__hushmarkView.state.doc.line(2).from');
+await clickPos(emojiLine2 + 6); // 2 行目の 6 桁目（f の前）
+await press(cdp, 'ArrowUp');
+await sleep(150);
+const emojiHead = await web('__hushmarkView.state.selection.main.head');
+// 1 行目の 6 桁目は「😀😀ab」の後ろ（UTF-16 で 6 文字目）
+check('絵文字を含む行へ ↑: 絵文字を 2 桁と数えて桁を保つ', emojiHead === 6, emojiHead);
 
 finish();

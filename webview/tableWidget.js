@@ -199,14 +199,18 @@ export class TableWidget extends WidgetType {
   /**
    * @param model buildTableModel の結果。オフセットは表の先頭からの相対位置
    * @param source 表のソース全体
+   * @param definitions 文書の中のリンクの参照定義（セルの中の参照リンクに使う）
    */
-  constructor(model, source) {
+  constructor(model, source, definitions = new Map()) {
     super();
     this.model = model;
     this.source = source;
+    this.definitions = definitions;
+    // 参照定義が変わったら、セルを描き直す
+    this.definitionsKey = JSON.stringify([...definitions]);
   }
 
-  eq(other) { return other.source === this.source; }
+  eq(other) { return other.source === this.source && other.definitionsKey === this.definitionsKey; }
 
   // ソースの行数（データの行と、2 行分の見出しの行）と同じ数の本文の行の高さになる（editor.css）
   get estimatedHeight() { return (this.model.rows.length + 1) * 28; }
@@ -277,7 +281,7 @@ function renderTable(ctl) {
       el.dataset.col = String(col);
       if (aligns[col]) el.style.textAlign = aligns[col];
       el.classList.toggle('cm-md-cell-nowrap', nowrap[col]);
-      showRendered(el, cell.text);
+      showRendered(ctl, el, cell.text);
     });
   });
   ctl.rebuilding = false;
@@ -299,18 +303,19 @@ function patchTable(ctl) {
       if (editing && editing.row === row && editing.col === col) {
         // 取り消しなどで内容が変わったときだけセルのエディタを書き換える（前後の空白の違いは無視する）
         if (editing.editor.state.doc.toString().trim() !== cell.text) setCellText(editing.editor, cell.text);
-      } else if (el.dataset.src !== cell.text) {
-        showRendered(el, cell.text);
+      } else if (el.dataset.src !== cell.text || el.dataset.definitions !== ctl.widget.definitionsKey) {
+        showRendered(ctl, el, cell.text);
       }
     });
   });
 }
 
-function showRendered(el, text) {
+function showRendered(ctl, el, text) {
   el.textContent = '';
   el.classList.remove('cm-md-cell-editing');
-  renderInline(text, el);
+  renderInline(text, el, ctl.widget.definitions);
   el.dataset.src = text;
+  el.dataset.definitions = ctl.widget.definitionsKey;
 }
 
 function cellElement(ctl, row, col) {
@@ -369,7 +374,7 @@ function stopEditing(ctl) {
   const el = editing.editor.dom.parentElement;
   editing.editor.destroy();
   const cell = ctl.widget.model.rows[editing.row] && ctl.widget.model.rows[editing.row][editing.col];
-  if (el) showRendered(el, cell ? cell.text : '');
+  if (el) showRendered(ctl, el, cell ? cell.text : '');
   releaseColumns(ctl);
 }
 
