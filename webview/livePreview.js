@@ -283,9 +283,21 @@ function buildDecorations(state) {
           return;
         }
 
-        case 'Image':
-          mark('cm-md-image', from, to);
+        case 'Image': {
+          // 画像は描かずにソースのまま出す。マウスを載せると浮かせて表示し（imagePreview.js）、Ctrl+クリックで開く
+          const url = node.getChild('URL');
+          let href = url ? doc.sliceString(url.from, url.to) : null;
+          if (!href) {
+            const label = node.getChild('LinkLabel');
+            const marks = node.getChildren('LinkMark');
+            const name = label && label.to - label.from > 2
+              ? doc.sliceString(label.from + 1, label.to - 1)
+              : marks.length >= 2 ? doc.sliceString(marks[0].to, marks[1].from) : '';
+            href = definitions().get(normalizeLabel(name)) ?? null;
+          }
+          mark('cm-md-image', from, to, href === null ? undefined : { 'data-image-src': href, 'data-href': href });
           return false;
+        }
 
         case 'Autolink': {
           const url = node.getChild('URL');

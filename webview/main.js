@@ -19,6 +19,7 @@ import { verticalMove } from './verticalMove.js';
 import { diffText, toLineChanges } from './sync.js';
 import { hasMod } from './platform.js';
 import { setStrings } from './strings.js';
+import { imagePreview } from './imagePreview.js';
 import { revealAnchor } from './anchors.js';
 
 const vscode = acquireVsCodeApi();
@@ -128,6 +129,7 @@ function createEditor(text, options) {
       markdownSupport(languages),
       syntaxHighlighting(classHighlighter),
       livePreview({ openLink: (href) => vscode.postMessage({ type: 'openLink', href }) }),
+      imagePreview(resolveImage),
       // livePreview の「↑↓ で表に入る」より後、CodeMirror の基本のキーより前に置く
       verticalMove(),
       findWidget(),
@@ -140,6 +142,25 @@ function createEditor(text, options) {
   // E2E テスト（test/e2e）が DevTools プロトコル経由で文書の内容を読むための参照
   window.__hushmarkView = view;
   view.focus();
+}
+
+/**
+ * 画像のリンク先を、拡張機能本体に img に渡せる URL にしてもらう（imagePreview.js）。ファイルが変わることがあるので
+ * 結果は覚えず、問い合わせ中の同じリンク先だけをまとめる
+ */
+const imageRequests = new Map();
+const pendingImages = new Map();
+let nextImageId = 1;
+function resolveImage(href) {
+  if (!pendingImages.has(href)) {
+    const id = nextImageId++;
+    pendingImages.set(href, new Promise((resolve) => imageRequests.set(id, (src) => {
+      pendingImages.delete(href);
+      resolve(src);
+    })));
+    vscode.postMessage({ type: 'resolveImage', id, href });
+  }
+  return pendingImages.get(href);
 }
 
 function sendLocalChanges(update) {
@@ -252,6 +273,10 @@ window.addEventListener('message', (event) => {
       break;
     case 'sync':
       applyRemote(message.text, message.ackSeq, message.syncId);
+      break;
+    case 'image':
+      imageRequests.get(message.id)?.(message.src);
+      imageRequests.delete(message.id);
       break;
     case 'revealAnchor':
       if (view) revealAnchor(view, message.fragment);
