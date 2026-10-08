@@ -27,7 +27,7 @@
     "vscode:prepublish": "npm run build",
     "package": "vsce package --no-dependencies",
     "test:web": "npm run build && node test/web/smoke.mjs",
-    "demo": "docker build -q -t hushmark-e2e -f test/e2e/Dockerfile . && mkdir -p docs/images && docker run --rm --init --shm-size=1g -v \"$PWD/docs/images:/out\" --entrypoint xvfb-run hushmark-e2e -a -s \"-screen 0 1600x1000x24\" sh -c \"npm run build && node test/demo/record.mjs --out /out/demo.gif\""
+    "demo": "docker build -q -t hushmark-e2e -f test/e2e/Dockerfile . && mkdir -p docs/images && docker run --rm --init --shm-size=1g -v \"$PWD/docs/images:/out\" --entrypoint xvfb-run hushmark-e2e -a -s \"-screen 0 1600x1000x24\" sh -c \"npm run build && node test/demo/record.mjs --out /out/demo.gif && node test/demo/record.mjs --lang ja --out /out/demo-ja.gif\""
   },
   "contributes": {
     "customEditors": [
