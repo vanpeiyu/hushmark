@@ -134,12 +134,40 @@ function createEditor(text, options) {
       keymap.of([...searchKeymap, indentWithTab, ...defaultKeymap]),
       EditorView.contentAttributes.of({ spellcheck: 'false', autocorrect: 'off', autocapitalize: 'off' }),
       EditorView.updateListener.of(sendLocalChanges),
+      EditorView.updateListener.of((update) => { if (update.selectionSet) saveViewState(); }),
     ],
   });
   view = new EditorView({ state, parent: document.getElementById('editor') });
+  restoreViewState();
+  view.scrollDOM.addEventListener('scroll', saveViewState, { passive: true });
   // E2E テスト（test/e2e）が DevTools プロトコル経由で文書の内容を読むための参照
   window.__hushmarkView = view;
   view.focus();
+}
+
+/**
+ * カーソルと、画面の上端の行の位置。VSCode は Webview の状態（setState）を、ウィンドウを再読み込みしたときや
+ * VSCode を起動し直したときにも残すので、開き直したときに元の位置に戻せる
+ */
+let saveTimer = null;
+function saveViewState() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    const { anchor, head } = view.state.selection.main;
+    const top = view.lineBlockAtHeight(view.scrollDOM.scrollTop).from;
+    vscode.setState({ anchor, head, top });
+  }, 200);
+}
+
+function restoreViewState() {
+  const saved = vscode.getState();
+  if (!saved) return;
+  const length = view.state.doc.length;
+  const clamp = (pos) => Math.min(Math.max(Number(pos) || 0, 0), length);
+  view.dispatch({
+    selection: EditorSelection.single(clamp(saved.anchor), clamp(saved.head)),
+    effects: EditorView.scrollIntoView(view.state.doc.lineAt(clamp(saved.top)).from, { y: 'start' }),
+  });
 }
 
 function sendLocalChanges(update) {

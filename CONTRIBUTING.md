@@ -58,7 +58,8 @@ code --extensionDevelopmentPath="$PWD" <試す Markdown ファイル>
 npm run test:e2e -- full       # 編集・表・検索・同期などを細かく確かめる
 npm run test:e2e -- smoke      # 主な操作と、OS ごとに違うキー操作を短く確かめる
 npm run test:e2e -- readonly   # 読み取り専用のファイルで編集できないことを確かめる
-npm run test:e2e -- all        # full と readonly
+npm run test:e2e -- restore    # ウィンドウを再読み込みしても、カーソルとスクロールの位置が戻ることを確かめる
+npm run test:e2e -- all        # full と readonly と restore
 ```
 
 テストごとに VSCode を起動し、終わると閉じます。次のオプションがあります。
