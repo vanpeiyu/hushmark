@@ -7,6 +7,7 @@ import { EditorView, keymap } from '@codemirror/view';
 import { defaultKeymap } from '@codemirror/commands';
 import { livePreview } from './livePreview.js';
 import { pasteLink } from './pasteLink.js';
+import { diffText } from './sync.js';
 import { cellMarkdownSupport } from './markdownSetup.js';
 
 /**
@@ -69,11 +70,16 @@ export function createCellEditor({ parent, text, openLink, keys, onChange, onBlu
   return view;
 }
 
-/** 本文の文書の変更（取り消しなど）をセルに合わせる */
+/**
+ * 本文の文書の変更（取り消しなど）をセルに合わせる。変わったところだけを置き換え、カーソルはその直後に置く
+ * （本文での取り消しと同じ）。セル全体を置き換えると、カーソルがセルの先頭に戻るため
+ */
 export function setCellText(view, text) {
-  if (view.state.doc.toString() === text) return;
+  const change = diffText(view.state.doc.toString(), text);
+  if (!change) return;
   view.dispatch({
-    changes: { from: 0, to: view.state.doc.length, insert: text },
+    changes: change,
+    selection: { anchor: change.from + change.insert.length },
     annotations: fromDocument.of(true),
   });
 }
