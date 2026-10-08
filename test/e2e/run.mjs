@@ -680,4 +680,16 @@ const anchorTarget = JSON.parse(await web(`JSON.stringify((() => {
 check('#見出し のリンク: 見出しにカーソルが移り、画面に出る', anchorTarget.text === '## 後の見出し（その2）' &&
   anchorTarget.top >= 0 && anchorTarget.top < anchorTarget.height, anchorTarget);
 
+// 23. 表の上のボタンは表の右端にそろえ、表が狭いときは左にはみ出さない
+const toolsLayout = () => web(`JSON.stringify((() => {
+  const box = (s) => document.querySelector(s).getBoundingClientRect();
+  return { tools: box('.cm-md-table-tools'), table: box('.cm-md-table'), content: box('.cm-content') };
+})())`).then(JSON.parse);
+await loadDoc(['| a | b |', '|---|---|', '| 1 | 2 |', '', '後']);
+const narrow = await toolsLayout();
+check('狭い表: ボタンが本文の左端からはみ出さない', narrow.tools.left >= narrow.content.left, narrow);
+await loadDoc([`| ${'長い見出し'.repeat(6)} | b |`, '|---|---|', '| 1 | 2 |', '', '後']);
+const wide = await toolsLayout();
+check('広い表: ボタンを表の右端にそろえる', Math.abs(wide.tools.right - wide.table.right) < 2, wide);
+
 finish();
