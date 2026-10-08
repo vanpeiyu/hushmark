@@ -665,7 +665,10 @@ body {
 .cm-md-table-tools {
   position: absolute;
   bottom: 100%;
+  /* 表の右端にそろえる。ボタンの列より表が狭いときは、左にはみ出さないよう表の左端にそろえる */
+  left: 0;
   right: 0;
+  justify-content: safe flex-end;
   padding-bottom: 3px;
   z-index: 1;
   display: flex;
