@@ -19,6 +19,7 @@ import { verticalMove } from './verticalMove.js';
 import { diffText, toLineChanges } from './sync.js';
 import { hasMod } from './platform.js';
 import { setStrings } from './strings.js';
+import { revealAnchor } from './anchors.js';
 
 const vscode = acquireVsCodeApi();
 
@@ -251,6 +252,9 @@ window.addEventListener('message', (event) => {
       break;
     case 'sync':
       applyRemote(message.text, message.ackSeq, message.syncId);
+      break;
+    case 'revealAnchor':
+      if (view) revealAnchor(view, message.fragment);
       break;
   }
 });
