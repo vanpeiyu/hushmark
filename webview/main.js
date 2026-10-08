@@ -20,6 +20,7 @@ import { diffText, toLineChanges } from './sync.js';
 import { hasMod } from './platform.js';
 import { setStrings } from './strings.js';
 import { revealAnchor } from './anchors.js';
+import { fileInsert } from './fileInsert.js';
 
 const vscode = acquireVsCodeApi();
 
@@ -130,6 +131,7 @@ function createEditor(text, options) {
       livePreview({ openLink: (href) => vscode.postMessage({ type: 'openLink', href }) }),
       // livePreview の「↑↓ で表に入る」より後、CodeMirror の基本のキーより前に置く
       verticalMove(),
+      fileInsert(requestInsert),
       findWidget(),
       keymap.of([...searchKeymap, indentWithTab, ...defaultKeymap]),
       EditorView.contentAttributes.of({ spellcheck: 'false', autocorrect: 'off', autocapitalize: 'off' }),
@@ -167,6 +169,17 @@ function restoreViewState() {
   view.dispatch({
     selection: EditorSelection.single(clamp(saved.anchor), clamp(saved.head)),
     effects: EditorView.scrollIntoView(view.state.doc.lineAt(clamp(saved.top)).from, { y: 'start' }),
+  });
+}
+
+/** 拡張機能本体に頼んで、文書に入れる Markdown を受け取る（fileInsert.js） */
+const insertRequests = new Map();
+let nextInsertId = 1;
+function requestInsert(message) {
+  const id = nextInsertId++;
+  return new Promise((resolve) => {
+    insertRequests.set(id, resolve);
+    vscode.postMessage({ ...message, id });
   });
 }
 
@@ -280,6 +293,10 @@ window.addEventListener('message', (event) => {
       break;
     case 'sync':
       applyRemote(message.text, message.ackSeq, message.syncId);
+      break;
+    case 'insertResult':
+      insertRequests.get(message.id)?.(message.text);
+      insertRequests.delete(message.id);
       break;
     case 'revealAnchor':
       if (view) revealAnchor(view, message.fragment);

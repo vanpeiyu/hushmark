@@ -32,4 +32,18 @@ function normalizeHref(raw) {
   return href;
 }
 
-module.exports = { decodeEntities, normalizeHref };
+/** from（フォルダー）から to への相対パス。どちらも / で区切った絶対パス */
+function relativePath(from, to) {
+  const a = from.split('/').filter(Boolean);
+  const b = to.split('/').filter(Boolean);
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  return [...a.slice(i).map(() => '..'), ...b.slice(i)].join('/') || '.';
+}
+
+/** パスを Markdown のリンク先に書ける形にする。空白や括弧を含むときは <> で囲む */
+function markdownPath(p) {
+  return /[\s()<>]/.test(p) ? `<${p.replace(/[<>]/g, (c) => encodeURIComponent(c))}>` : p;
+}
+
+module.exports = { decodeEntities, normalizeHref, relativePath, markdownPath };
