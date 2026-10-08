@@ -108,7 +108,7 @@ CI（GitHub Actions）では、Linux で `all` と Web 版のテストを、macO
 
 ## README の GIF
 
-README の GIF（`docs/images/demo.gif`）は、`npm run demo` で録り直します。E2E テストと同じく VSCode を起動して操作し（`test/demo/record.mjs`）、操作ごとに撮った画面をつないで GIF にします。フォントによって見た目が変わらないよう、E2E テストの Docker のイメージ（`hushmark-e2e`）の中で録ります。操作や文書を変えたときは、`--frames <フォルダ>` を付けて `node test/demo/record.mjs` を実行すると、撮った画面を PNG でも書き出すので、それで確かめます。
+README の GIF（英語の README の `docs/images/demo.gif` と、日本語の README の `docs/images/demo-ja.gif`）は、`npm run demo` で録り直します。日本語のものは、VSCode の表示言語を日本語にし、日本語の文での強調も見せます。E2E テストと同じく VSCode を起動して操作し（`test/demo/record.mjs`）、操作ごとに撮った画面をつないで GIF にします。フォントによって見た目が変わらないよう、E2E テストの Docker のイメージ（`hushmark-e2e`）の中で録ります。操作や文書を変えたときは、`--frames <フォルダ>` を付けて `node test/demo/record.mjs` を実行すると、撮った画面を PNG でも書き出すので、それで確かめます。
 
 README は英語（`README.md`）と日本語（`README.ja.md`）の 2 つです。内容を変えるときは両方を直します。
 
@@ -134,7 +134,7 @@ gh pr merge --merge
 
 `v` で始まるタグを push すると、`.github/workflows/release.yml` が .vsix を作り、Release に添付します。ノートは `CHANGELOG.md` の該当するバージョンの節から作ります。タグが `package.json` のバージョンと違う場合や、タグのコミットが `main` に含まれない場合は失敗します。
 
-1. `package.json` と `package-lock.json` のバージョンを上げ（`npm version <version> --no-git-tag-version`）、`CHANGELOG.md` に `## <version> - <日付>` の節を足して、PR で `main` に取り込む
+1. `package.json` と `package-lock.json` のバージョンを上げ（`npm version <version> --no-git-tag-version`）、`CHANGELOG.md` の `## 未リリース` の節を `## <version> - <日付>` に改めて、PR で `main` に取り込む。リリースまでの変更は、PR ごとに `## 未リリース` の節に書いておく
 2. `main` の先端にタグを付けて push する
 
    ```sh

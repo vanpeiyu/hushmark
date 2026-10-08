@@ -155,6 +155,18 @@ await sleep(200);
 doc = await checkInSync('セルの中で Ctrl+Z');
 ts = await tableState();
 check('セルの中で Ctrl+Z: 取り消せて、入力欄も戻る', doc.split('\n')[10] === '| ぶどう |  |  |' && ts.value === 'ぶどう' && ts.focused, { line: doc.split('\n')[10], ts });
+// セルの途中で打って取り消すと、カーソルは取り消したところに戻る（セルの先頭に戻らない）
+const undoCellCaret = () => web("document.querySelector('.cm-md-cell-input').mdCellView.state.selection.main.head");
+await press(cdp, 'Home');
+await press(cdp, 'ArrowRight');
+await sleep(600); // 取り消しの単位を分ける
+await type(cdp, 'x');
+await sleep(300);
+await press(cdp, 'z', MOD);
+await sleep(300);
+const undoCaret = await undoCellCaret();
+check('セルの途中で打って Ctrl+Z: カーソルは取り消したところ', undoCaret === 1 && (await tableState()).value === 'ぶどう', undoCaret);
+await press(cdp, 'End');
 
 await press(cdp, 'Escape');
 await sleep(150);
@@ -588,8 +600,10 @@ const afterMarks = await cursorLeft();
 await press(cdp, 'ArrowLeft');
 await sleep(150);
 const betweenMarks = await cursorLeft();
-check('見出しの空白の前後: 描かれるカーソルが空白の幅以上動く', beforeText - afterMarks >= 15 && afterMarks > betweenMarks,
-  { beforeText, afterMarks, betweenMarks });
+// 空白の幅は、フォントと行の余白（--md-line-pad）で変わるので、描かれた空白の幅と比べる
+const spaceWidth = await web("Math.round(document.querySelector('.cm-md-heading-space').getBoundingClientRect().width)");
+check('見出しの空白の前後: 描かれるカーソルが空白の幅だけ動く', Math.abs(beforeText - afterMarks - spaceWidth) <= 2 && spaceWidth > 0 &&
+  afterMarks > betweenMarks, { beforeText, afterMarks, betweenMarks, spaceWidth });
 
 // 16. 表のセルの端で ← / → を押すと、隣のセルに移る
 const arrowTableDoc = ['| 果物 | 値 |', '|---|---|', '| りんご | 12 |', '', '後'];
