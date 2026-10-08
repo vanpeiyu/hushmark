@@ -99,6 +99,7 @@ function rebuildChanged(decorations, tr) {
 function changedBlocks(treeBefore, treeAfter, changes) {
   const blocksOf = (tree, map) => {
     const list = [];
+    // SyntaxNode の nextSibling は大きな木では遅いので、カーソルでたどる
     for (let child = tree.topNode.firstChild; child; child = child.nextSibling) {
       list.push({ name: child.name, from: map(child.from, -1), to: map(child.to, 1) });
     }
@@ -180,11 +181,15 @@ function selectionSpans(state) {
 /** from から to に重なる、文書の直下のブロック */
 function topLevelBlocks(tree, from, to) {
   const blocks = [];
-  for (let child = tree.topNode.firstChild; child; child = child.nextSibling) {
-    if (child.to < from) continue;
-    if (child.from > to) break;
-    blocks.push(child);
-  }
+  // 先頭から順にたどると長い文書で遅いので、from に接するブロック（終わりが from 以降の最初のもの）から始める
+  const first = tree.topNode.childAfter(from - 1);
+  if (!first) return blocks;
+  const cursor = first.cursor();
+  do {
+    if (cursor.to < from) continue;
+    if (cursor.from > to) break;
+    blocks.push(cursor.node);
+  } while (cursor.nextSibling());
   return blocks;
 }
 
