@@ -13,7 +13,7 @@ import { EditorSelection, StateEffect, StateField } from '@codemirror/state';
 import { Decoration, EditorView, WidgetType, keymap } from '@codemirror/view';
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { linkAttributes, openLinkHandler } from './inline.js';
-import { TableWidget, enterTableByKeyboard, isRawTable, rawTables, tableScrollHandler, tableSearchHighlight } from './tableWidget.js';
+import { TableWidget, enterTableByKeyboard, isRawTable, rawTables, tableScrollHandler, tableSearchHighlight, toggleRawTable } from './tableWidget.js';
 import { buildTableModel, splitRow } from './tableModel.js';
 import { hasMod } from './platform.js';
 
@@ -37,12 +37,12 @@ const previewField = StateField.define({
     return buildDecorations(state);
   },
   update(decorations, tr) {
-    if (tr.docChanged || tr.reconfigured ||
-        tr.effects.some((e) => e.is(setFocus)) ||
-        tr.state.field(rawTables) !== tr.startState.field(rawTables) ||
-        syntaxTree(tr.state) !== syntaxTree(tr.startState)) {
+    // ソース表示の表は、文書が変わると位置を写した新しい配列になるので、切り替えの操作と数で変化を見る
+    if (tr.reconfigured || tr.effects.some((e) => e.is(setFocus) || e.is(toggleRawTable)) ||
+        tr.state.field(rawTables).length !== tr.startState.field(rawTables).length) {
       return buildDecorations(tr.state);
     }
+    if (tr.docChanged || syntaxTree(tr.state) !== syntaxTree(tr.startState)) return rebuildChanged(decorations, tr);
     if (tr.selection) return rebuildAroundSelection(decorations, tr.startState, tr.state);
     return decorations;
   },
@@ -71,18 +71,81 @@ export function livePreview({ openLink } = {}) {
 // 装飾の組み立て
 
 /**
- * カーソル（選択範囲）が動いただけのときは、動く前と後の行を含むブロックの装飾だけを作り直す。
- * 記号を出すかどうかは、カーソルのある行と、それを含むブロック（コードブロックや表）で決まるため。
- * 長い文書でも、カーソルの移動にかかる時間が文書の長さによらないようにする
+ * 文書や構文木が変わったときは、変わったブロックと、カーソルの前後の行を含むブロックの装飾だけを作り直す。
+ * 変わったブロックは、変更のあった範囲と、文書の直下のブロックの並びを変更の前後で比べて食い違う範囲
+ * （コードブロックを開いて後ろがすべてコードになったときなど）。リンクの参照定義は文書のどこのリンクにも
+ * 効くので、参照定義にかかる変更とフロントマターにかかる変更では、全体を作り直す
  */
-function rebuildAroundSelection(decorations, before, after) {
-  const spans = mergeSpans([...selectionSpans(before), ...selectionSpans(after)]);
-  const frontmatter = frontmatterRange(after.doc);
-  // フロントマターの行の装飾は、ブロックの単位では作り直せないので、全体を作り直す
-  if (frontmatter && spans.some((s) => s.from <= frontmatter.to)) return buildDecorations(after);
+function rebuildChanged(decorations, tr) {
+  const { startState: before, state: after, changes } = tr;
+  const spans = [];
+  changes.iterChangedRanges((_fromA, _toA, fromB, toB) => spans.push({ from: fromB, to: toB }));
+  for (const span of selectionSpans(before)) {
+    spans.push({ from: changes.mapPos(span.from, -1), to: changes.mapPos(span.to, 1) });
+  }
+  spans.push(...selectionSpans(after));
+  spans.push(...changedBlocks(syntaxTree(before), syntaxTree(after), changes));
+
+  const frontmatters = [frontmatterRange(before.doc), frontmatterRange(after.doc)].filter(Boolean);
+  const expanded = mergeSpans(spans.map((span) => expandToBlocks(after, span)));
+  if (expanded.some((span) => frontmatters.some((f) => span.from <= f.to + 1)) ||
+      !sameDefinitions(cachedDefinitions(before), cachedDefinitions(after))) {
+    return buildDecorations(after);
+  }
+  return replaceSpans(decorations.map(changes), after, expanded);
+}
+
+/** 変更の前後で、文書の直下のブロックの並び（種類と範囲）が食い違うところ（変更の後の位置） */
+function changedBlocks(treeBefore, treeAfter, changes) {
+  const blocksOf = (tree, map) => {
+    const list = [];
+    for (let child = tree.topNode.firstChild; child; child = child.nextSibling) {
+      list.push({ name: child.name, from: map(child.from, -1), to: map(child.to, 1) });
+    }
+    return list;
+  };
+  const before = blocksOf(treeBefore, (pos, assoc) => changes.mapPos(pos, assoc));
+  const after = blocksOf(treeAfter, (pos) => pos);
+  const same = (a, b) => a.name === b.name && a.from === b.from && a.to === b.to;
+  let head = 0;
+  while (head < before.length && head < after.length && same(before[head], after[head])) head++;
+  let tail = 0;
+  while (tail < before.length - head && tail < after.length - head &&
+         same(before[before.length - 1 - tail], after[after.length - 1 - tail])) tail++;
+  const differing = [...before.slice(head, before.length - tail), ...after.slice(head, after.length - tail)];
+  return differing.map((b) => ({ from: b.from, to: b.to }));
+}
+
+/** 構文木ごとの、リンクの参照定義（linkDefinitions）。文書を変えるたびに前後の定義を比べるので覚えておく */
+const definitionsByTree = new WeakMap();
+function cachedDefinitions(state) {
+  const tree = syntaxTree(state);
+  if (!definitionsByTree.has(tree)) definitionsByTree.set(tree, linkDefinitions(state));
+  return definitionsByTree.get(tree);
+}
+
+function sameDefinitions(a, b) {
+  if (a.size !== b.size) return false;
+  for (const [key, value] of a) if (b.get(key) !== value) return false;
+  return true;
+}
+
+/** 範囲を、その行と、それに重なる文書の直下のブロックまで広げる */
+function expandToBlocks(state, { from, to }) {
+  from = state.doc.lineAt(Math.min(from, state.doc.length)).from;
+  to = state.doc.lineAt(Math.min(to, state.doc.length)).to;
+  for (const block of topLevelBlocks(syntaxTree(state), from, to)) {
+    from = Math.min(from, block.from);
+    to = Math.max(to, block.to);
+  }
+  return { from, to };
+}
+
+/** 範囲（文書の直下のブロックの単位）の装飾を作り直して入れ替える */
+function replaceSpans(decorations, state, spans) {
   for (const span of spans) {
     const rebuilt = [];
-    for (const cursor = buildDecorations(after, span).iter(); cursor.value; cursor.next()) {
+    for (const cursor = buildDecorations(state, span).iter(); cursor.value; cursor.next()) {
       rebuilt.push(cursor.value.range(cursor.from, cursor.to));
     }
     decorations = decorations.update({
@@ -95,19 +158,23 @@ function rebuildAroundSelection(decorations, before, after) {
   return decorations;
 }
 
+/**
+ * カーソル（選択範囲）が動いただけのときは、動く前と後の行を含むブロックの装飾だけを作り直す。
+ * 記号を出すかどうかは、カーソルのある行と、それを含むブロック（コードブロックや表）で決まるため。
+ * 長い文書でも、カーソルの移動にかかる時間が文書の長さによらないようにする
+ */
+function rebuildAroundSelection(decorations, before, after) {
+  const spans = mergeSpans([...selectionSpans(before), ...selectionSpans(after)]);
+  const frontmatter = frontmatterRange(after.doc);
+  // フロントマターの行の装飾は、ブロックの単位では作り直せないので、全体を作り直す
+  if (frontmatter && spans.some((s) => s.from <= frontmatter.to)) return buildDecorations(after);
+  return replaceSpans(decorations, after, spans);
+}
+
 /** 選択範囲のある行を含む、文書の直下のブロックの範囲。フォーカスがないときは、どの行も記号を出さないので空 */
 function selectionSpans(state) {
   if (!state.field(focusField)) return [];
-  const tree = syntaxTree(state);
-  return state.selection.ranges.map((r) => {
-    let from = state.doc.lineAt(r.from).from;
-    let to = state.doc.lineAt(r.to).to;
-    for (const block of topLevelBlocks(tree, from, to)) {
-      from = Math.min(from, block.from);
-      to = Math.max(to, block.to);
-    }
-    return { from, to };
-  });
+  return state.selection.ranges.map((r) => expandToBlocks(state, r));
 }
 
 /** from から to に重なる、文書の直下のブロック */
@@ -137,7 +204,7 @@ function mergeSpans(spans) {
 function buildDecorations(state, span = null) {
   const doc = state.doc;
   let linkDefinitionsCache = null;
-  const definitions = () => (linkDefinitionsCache ??= linkDefinitions(state));
+  const definitions = () => (linkDefinitionsCache ??= cachedDefinitions(state));
   const active = activeRanges(state);
   const isActive = (from, to) => active.some((r) => from <= r.to && to >= r.from);
   const decorations = [];
