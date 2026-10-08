@@ -17,6 +17,7 @@
     "Other"
   ],
   "main": "./src/extension.js",
+  "browser": "./dist/web/extension.js",
   "scripts": {
     "build": "node build.mjs",
     "watch": "node build.mjs --watch",
@@ -24,7 +25,8 @@
     "test:e2e": "npm run build && node test/e2e/index.mjs",
     "test:e2e:docker": "docker build -q -t hushmark-e2e -f test/e2e/Dockerfile . && docker run --rm --init --shm-size=1g hushmark-e2e",
     "vscode:prepublish": "npm run build",
-    "package": "vsce package --no-dependencies"
+    "package": "vsce package --no-dependencies",
+    "test:web": "npm run build && node test/web/smoke.mjs"
   },
   "contributes": {
     "customEditors": [
@@ -342,6 +344,7 @@
     "@lezer/highlight": "^1.2.0",
     "@lezer/markdown": "^1.4.0",
     "@vscode/test-electron": "^3.1.0",
+    "@vscode/test-web": "^0.0.81",
     "@vscode/vsce": "^4.0.0",
     "esbuild": "^0.25.0"
   },
