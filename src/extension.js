@@ -1,9 +1,6 @@
 'use strict';
 
 const vscode = require('vscode');
-const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
 const { rebaseChanges } = require('./textMerge');
 const { normalizeHref } = require('./links');
 const { watchDiskChanges } = require('./diskChanges');
@@ -273,7 +270,14 @@ async function isReadOnly(document) {
   }
   if (uri.scheme !== 'file' || files.get('readonlyFromPermissions') !== true) return false;
   // ファイルの属性による読み取り専用は、API の stat には出てこないので、書き込めるかを直接確かめる
-  // （拡張機能はファイルのある側で動くので、Remote-SSH でも手元のファイルとして調べられる）
+  // （拡張機能はファイルのある側で動くので、Remote-SSH でも手元のファイルとして調べられる）。
+  // Web 版の VSCode では fs がないので、書き込めるものとして扱う
+  let fs;
+  try {
+    fs = require('fs');
+  } catch {
+    return false;
+  }
   try {
     await fs.promises.access(uri.fsPath, fs.constants.W_OK);
     return false;
@@ -402,7 +406,7 @@ async function openLink(rawHref, documentUri, webview, provider) {
     const fragment = rest.join('#');
     const filePart = decodeURIComponent(rawFile);
     let target;
-    if (!path.isAbsolute(filePart) && !filePart.startsWith('/')) {
+    if (!/^([a-z]:)?[\\/]/i.test(filePart)) {
       target = vscode.Uri.joinPath(documentUri, '..', filePart);
     } else if (documentUri.scheme === 'file') {
       target = vscode.Uri.file(filePart);
@@ -418,7 +422,8 @@ async function openLink(rawHref, documentUri, webview, provider) {
 }
 
 function renderHtml(webview, media) {
-  const nonce = crypto.randomBytes(16).toString('base64');
+  // Web 版の VSCode でも動くよう、Node の crypto ではなく Web Crypto を使う
+  const nonce = btoa(String.fromCharCode(...globalThis.crypto.getRandomValues(new Uint8Array(16))));
   const script = webview.asWebviewUri(vscode.Uri.joinPath(media, 'dist', 'main.js'));
   const style = webview.asWebviewUri(vscode.Uri.joinPath(media, 'editor.css'));
   // 最初の表示から見た目を合わせる（Webview は、設定を受け取ってから配色などを入れる）

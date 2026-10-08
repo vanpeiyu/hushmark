@@ -6,9 +6,10 @@ Node.js（22 以上）が必要です。
 
 ```sh
 npm ci
-npm run build      # webview/ を media/dist/ にまとめ、同梱したパッケージのライセンス文を書き出す（npm run watch で監視）
+npm run build      # webview/ を media/dist/ に、Web 版の拡張機能本体を dist/web/ にまとめ、同梱したパッケージのライセンス文を書き出す（npm run watch で監視）
 npm test           # 同期・表の分割・装飾などの単体テスト
 npm run test:e2e -- all   # E2E テスト（下の「E2E テスト」を参照）
+npm run test:web   # Web 版の VSCode でのスモークテスト（下の「Web 版のテスト」を参照）
 npm run package    # .vsix を作る
 ```
 
@@ -20,7 +21,7 @@ code --extensionDevelopmentPath="$PWD" <試す Markdown ファイル>
 
 ## 構成
 
-- `src/extension.js`：カスタムエディタの登録と、Webview と TextDocument の同期
+- `src/extension.js`：カスタムエディタの登録と、Webview と TextDocument の同期。デスクトップ版はこのまま読み込み、Web 版（vscode.dev など）は `dist/web/extension.js` にまとめたものを読み込む。Web 版でも動くよう、Node の API（`fs` など）は使わないか、使えないときの扱いを決めておく
   - `textMerge.js`：差分の計算と、ほかのエディタでの変更と重なった編集の位置合わせ
   - `links.js`：リンク先の正規化
   - `diskChanges.js`：未保存の変更があるときに、ファイルが外で書き換えられたことの通知
@@ -58,7 +59,8 @@ code --extensionDevelopmentPath="$PWD" <試す Markdown ファイル>
 npm run test:e2e -- full       # 編集・表・検索・同期などを細かく確かめる
 npm run test:e2e -- smoke      # 主な操作と、OS ごとに違うキー操作を短く確かめる
 npm run test:e2e -- readonly   # 読み取り専用のファイルで編集できないことを確かめる
-npm run test:e2e -- all        # full と readonly
+npm run test:e2e -- restore    # ウィンドウを再読み込みしても、カーソルとスクロールの位置が戻ることを確かめる
+npm run test:e2e -- all        # full と readonly と restore
 ```
 
 テストごとに VSCode を起動し、終わると閉じます。次のオプションがあります。
@@ -77,7 +79,7 @@ VSCode は画面なしでは起動できないので、テスト中はウィン�
 npm run test:e2e:docker -- all
 ```
 
-CI（GitHub Actions）では、Linux で `all` を、macOS と Windows で `smoke` を実行します。
+CI（GitHub Actions）では、Linux で `all` と Web 版のテストを、macOS と Windows で `smoke` を実行します。
 
 作業フォルダ（このフォルダの `.e2e`）は、起動のたびに丸ごと消して作り直します。VSCode の出力は `.e2e/vscode.log` に残ります。
 
@@ -97,6 +99,12 @@ CI（GitHub Actions）では、Linux で `all` を、macOS と Windows で `smok
 - 読み取り専用のファイルで編集できないこと、設定を変えると解除されること
 
 `smoke`（`smoke.mjs`）では、ファイルを開くこと、追記と保存（改行が CRLF のまま）、取り消し、表のセルの編集、検索のキー操作、リンクの説明、折り返しの切り替えを確かめます。
+
+## Web 版のテスト
+
+`npm run test:web`（`test/web/smoke.mjs`）は、@vscode/test-web でブラウザー版の VSCode を起動し、Playwright の Chromium（画面なし）で操作します。ファイルを開くこと、見出しと表の表示、追記と保存を確かめます。
+
+作業フォルダ（`.e2e/web`）は、VSCode からは読み取り専用に見えます。保存した内容はブラウザーの中に残り、ファイルには書き込まれません。そのため、ほかのツールでの変更の反映は確かめられません。失敗したときは、画面を `.e2e/web/failure.png` に、ブラウザーのエラーを `.e2e/web/console.log` に残します。
 
 ## 変更の取り込み
 
@@ -135,3 +143,5 @@ gh pr merge --merge
 |---|---|---|
 | E2E テストに使う VSCode（`.vscode-test`）と作業フォルダ（`.e2e`） | `npm run test:e2e` を実行したとき | このフォルダの中（git の管理外）にあるので、フォルダごと消す |
 | Docker のイメージ `hushmark-e2e` | `npm run test:e2e:docker` を実行したとき | `docker image rm hushmark-e2e` |
+| Web 版のテストに使う VSCode（`.vscode-test-web`） | `npm run test:web` を実行したとき | このフォルダの中（git の管理外）にあるので、フォルダごと消す |
+| Web 版のテストに使う Chromium | `npm ci` のとき（Playwright がダウンロードする） | `~/.cache/ms-playwright`（Windows では `%LOCALAPPDATA%\ms-playwright`、macOS では `~/Library/Caches/ms-playwright`）を消す |
