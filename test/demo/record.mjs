@@ -1,7 +1,7 @@
 // README の GIF（docs/images/demo.gif）を録る。E2E テストと同じく VSCode を起動して DevTools プロトコルで操作し、
 // 操作ごとに画面を撮ってつなぐ（コマ撮り）。撮る速さに左右されないので、遅いマシンでも同じ GIF になる。
 // 使い方: npm run demo（Docker の Linux のコンテナで、仮想のディスプレイを使って録る）
-//         node test/demo/record.mjs [--out <path>]（画面のあるマシンで直接録る）
+//         node test/demo/record.mjs [--lang en|ja] [--out <path>] [--frames <dir>]（画面のあるマシンで直接録る）
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -17,12 +17,19 @@ import { extensionRoot, launch } from '../e2e/vscode.mjs';
 const { values: options } = parseArgs({
   options: {
     out: { type: 'string', default: path.join(extensionRoot, 'docs/images/demo.gif') },
+    lang: { type: 'string', default: 'en' },
+    // 作業フォルダ（E2E テストと同じく、起動のたびに消して作り直す）
+    'work-dir': { type: 'string', default: path.join(extensionRoot, '.e2e') },
     // 撮った画面を PNG でも書き出す（確かめるとき）
     frames: { type: 'string' },
   },
 });
 
-const DOCUMENT = `# Trip Notes
+/** 台本（文書と操作する箇所）。英語の README と日本語の README（README.ja.md）の GIF で使い分ける */
+const SCRIPTS = {
+  en: {
+    name: 'notes.md',
+    text: `# Trip Notes
 
 Markdown markers show up **only where your cursor is**.
 Everything else stays clean, like a *preview*.
@@ -42,14 +49,61 @@ Everything else stays clean, like a *preview*.
 
 > Write Markdown and see the result in the same place.
 
-`;
+`,
+    bold: ['only where', 3],
+    heading: ['Packing list', 4],
+    listEnd: ['`train`', 7],
+    newItem: 'Sunscreen *SPF 50*',
+    cellBackspaces: 2,
+    cellText: '92',
+    lastHeading: '## Ready to go!',
+  },
+  // 日本語の文での強調（**「必須」**です のように、CommonMark では強調にならないもの）も見せる
+  ja: {
+    name: 'メモ.md',
+    text: `# 旅のメモ
+
+記号は**カーソルのある要素だけ**に出ます。
+ほかの記号は隠れて、*プレビュー*のように見えます。
+
+## 持ち物
+
+- [x] パスポート
+- [ ] 充電器
+- 電車で食べる\`おやつ\`
+
+## 予算
+
+| 項目 | 金額 |
+|:--|--:|
+| ホテル | 24000 |
+| 電車 | 8500 |
+
+> Markdown を書いた場所で、そのまま結果を確かめられます。
+
+`,
+    bold: ['カーソルのある', 2],
+    heading: ['持ち物', 1],
+    listEnd: ['`おやつ`', 5],
+    newItem: '日焼け止めは**「必須」**です',
+    cellBackspaces: 4,
+    cellText: '9200',
+    lastHeading: '## 準備完了！',
+    locale: 'ja',
+  },
+};
+
+const SCRIPT = SCRIPTS[options.lang];
+if (!SCRIPT) throw new Error(`台本がない: ${options.lang}`);
 
 /** ページ（ワークベンチ）の大きさ。撮るのはエディタの部分だけ */
 const PAGE = { width: 760, height: 860 };
 
 const vscode = await launch({
-  workDir: path.join(extensionRoot, '.e2e'),
-  document: { name: 'notes.md', text: DOCUMENT },
+  workDir: path.resolve(options['work-dir']),
+  document: { name: SCRIPT.name, text: SCRIPT.text },
+  // 日本語の台本は、VSCode の表示言語も日本語にする（表のボタンなどの文言を日本語で見せる）
+  locale: SCRIPT.locale,
   settings: {
     'workbench.colorTheme': 'Default Light Modern',
     'workbench.activityBar.location': 'hidden',
@@ -163,11 +217,11 @@ await web('(() => { const v = __hushmarkView; v.focus(); v.dispatch({ selection:
 await shot(1800);
 
 // 太字の中をクリックすると、その太字の記号だけが出る
-await clickText('only where', 3);
+await clickText(...SCRIPT.bold);
 await shot(1600);
 
 // 見出しをクリックすると、# が左の余白に出る
-await clickText('Packing list', 4);
+await clickText(...SCRIPT.heading);
 await shot(1400);
 
 // チェックボックスをクリックして切り替える
@@ -175,11 +229,11 @@ await clickElement('.cm-md-checkbox', 1);
 await shot(1200);
 
 // 箇条書きの末尾で Enter を押し、続けて打つ
-await clickText('`train`', 7);
+await clickText(...SCRIPT.listEnd);
 await shot(500);
 await press(cdp, 'Enter');
 await shot(300);
-await typeSlowly('Sunscreen *SPF 50*');
+await typeSlowly(SCRIPT.newItem);
 await shot(700);
 await press(cdp, 'ArrowDown');
 await shot(1400);
@@ -188,11 +242,11 @@ await shot(1400);
 await clickElement('.cm-md-table td', 3);
 await shot(500);
 await press(cdp, 'End');
-await press(cdp, 'Backspace');
-await shot(150);
-await press(cdp, 'Backspace');
-await shot(150);
-await typeSlowly('92');
+for (let i = 0; i < SCRIPT.cellBackspaces; i++) {
+  await press(cdp, 'Backspace');
+  await shot(150);
+}
+await typeSlowly(SCRIPT.cellText);
 await shot(500);
 await press(cdp, 'Escape');
 await shot(1400);
@@ -200,7 +254,7 @@ await shot(1400);
 // 見出しを打つ
 await web('(() => { const v = __hushmarkView; v.focus(); v.dispatch({ selection: { anchor: v.state.doc.length } }); })()');
 await shot(300);
-await typeSlowly('## Ready to go!');
+await typeSlowly(SCRIPT.lastHeading);
 await press(cdp, 'Enter');
 await shot(2500);
 
