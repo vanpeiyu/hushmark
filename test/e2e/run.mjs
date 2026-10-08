@@ -724,6 +724,12 @@ if (!remote) {
   check('画像のリンクにマウスを載せると、画像を表示する', shown.length === 1 && shown[0] === 4, shown);
   const missing = await hoverImage(1);
   check('読めない画像では何も表示しない', missing.length === 0, missing);
+  // 表のセルの中の画像も同じ
+  await loadDoc(['| 色 | 画像 |', '|---|---|', '| 赤 | ![red](pic.png) |', '', '後']);
+  const cellImage = await web("document.querySelector('.cm-md-table .cm-md-image')?.textContent");
+  check('表のセルの画像は、代替テキストを出す', cellImage === 'red', cellImage);
+  const shownInCell = await hoverImage(0);
+  check('表のセルの画像にマウスを載せると、画像を表示する', shownInCell.length === 1 && shownInCell[0] === 4, shownInCell);
 }
 
 // 25. 文字列を選んで URL を貼り付けると、リンクにする

@@ -69,6 +69,19 @@ function renderNode(node, text, parent) {
     const textFrom = marks[0] ? marks[0].to : from;
     const textTo = marks[1] ? marks[1].from : to;
     renderRange(node, text, a, textFrom, textTo);
+  } else if (name === 'Image' && node.getChild('URL')) {
+    // 画像は描かずに代替テキストを出す。本文と同じく、マウスを載せると浮かせて表示し（imagePreview.js）、
+    // Ctrl+クリックで開く
+    const marks = node.getChildren('LinkMark');
+    const url = node.getChild('URL');
+    const span = parent.appendChild(document.createElement('span'));
+    span.className = 'cm-md-image';
+    const href = text.slice(url.from, url.to);
+    setAttributes(span, { 'data-image-src': href, 'data-href': href });
+    // 記号は「![」「]」「(」「)」の順
+    const textFrom = marks[0] ? marks[0].to : from;
+    const textTo = marks[1] ? marks[1].from : to;
+    renderRange(node, text, span, textFrom, textTo);
   } else if (name === 'Escape') {
     parent.appendChild(document.createTextNode(text.slice(from + 1, to)));
   } else if (name === 'HardBreak') {

@@ -57,7 +57,7 @@ Download `hushmark-<version>.vsix` from [Releases](https://github.com/vanpeiyu/h
 |---|---|---|
 | Heading | Hides `#`. Depending on the style, shows a mark for the level in the left margin. A line with only `##` is not a heading | ― |
 | Emphasis, link | Hides the syntax together with its width. A reference link such as `[foo]` becomes a link only when the document defines `[foo]: URL` (as in CommonMark) | Ctrl+Click (Cmd+Click on macOS) opens the link. A link to `#heading` moves to that heading (anchors follow the same rules as GitHub). For `other.md#heading`, the cursor moves to the heading when the file opens in this editor |
-| Image | Not rendered in the document; the source is shown in a muted color (rendering it would break the alignment with source lines) | Hover to show the image in a popup. Ctrl+Click opens the image file |
+| Image | Not rendered in the document; the source is shown in a muted color (rendering it would break the alignment with source lines). Inside table cells, the alt text is shown | Hover to show the image in a popup. Ctrl+Click opens the image file |
 | Inline code | Hides `` ` `` and uses its width as padding of the background | ― |
 | Two trailing spaces (line break) | Shows a faint dot where the spaces are | ― |
 | List, task | Shows a bullet in place of `-` and a checkbox in place of `[ ]` | Click a checkbox to toggle between `[ ]` and `[x]` |
@@ -198,7 +198,7 @@ For what development creates (such as the Docker image used for tests), see [CON
 - No space is added above or below headings. Add blank lines to the source if you want space.
 - Images are not rendered in the document (they are shown only on hover). Mermaid diagrams and math are not rendered; they are shown as source.
 - The undo history belongs to this editor only. Edits made in the other side of a split view or in the text editor cannot be undone with Ctrl+Z in this editor.
-- Inside table cells, reference links such as `[foo]` are shown as plain text rather than links. Images in table cells are not rendered either.
+- Inside table cells, reference links such as `[foo]` are shown as plain text rather than links.
 - In very long documents or large tables, typing and cursor movement may become slow.
 - On lines with combining characters or emoji, the column may shift slightly when moving with ↑ / ↓.
 
