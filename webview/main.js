@@ -19,7 +19,9 @@ import { verticalMove } from './verticalMove.js';
 import { diffText, toLineChanges } from './sync.js';
 import { hasMod } from './platform.js';
 import { setStrings } from './strings.js';
+import { imagePreview } from './imagePreview.js';
 import { revealAnchor } from './anchors.js';
+import { pasteLink } from './pasteLink.js';
 
 const vscode = acquireVsCodeApi();
 
@@ -128,18 +130,67 @@ function createEditor(text, options) {
       markdownSupport(languages),
       syntaxHighlighting(classHighlighter),
       livePreview({ openLink: (href) => vscode.postMessage({ type: 'openLink', href }) }),
+      imagePreview(resolveImage),
       // livePreview の「↑↓ で表に入る」より後、CodeMirror の基本のキーより前に置く
       verticalMove(),
+      pasteLink,
       findWidget(),
       keymap.of([...searchKeymap, indentWithTab, ...defaultKeymap]),
       EditorView.contentAttributes.of({ spellcheck: 'false', autocorrect: 'off', autocapitalize: 'off' }),
       EditorView.updateListener.of(sendLocalChanges),
+      EditorView.updateListener.of((update) => { if (update.selectionSet) saveViewState(); }),
     ],
   });
   view = new EditorView({ state, parent: document.getElementById('editor') });
+  restoreViewState();
+  view.scrollDOM.addEventListener('scroll', saveViewState, { passive: true });
   // E2E テスト（test/e2e）が DevTools プロトコル経由で文書の内容を読むための参照
   window.__hushmarkView = view;
   view.focus();
+}
+
+/**
+ * 画像のリンク先を、拡張機能本体に img に渡せる URL にしてもらう（imagePreview.js）。ファイルが変わることがあるので
+ * 結果は覚えず、問い合わせ中の同じリンク先だけをまとめる
+ */
+const imageRequests = new Map();
+const pendingImages = new Map();
+let nextImageId = 1;
+function resolveImage(href) {
+  if (!pendingImages.has(href)) {
+    const id = nextImageId++;
+    pendingImages.set(href, new Promise((resolve) => imageRequests.set(id, (src) => {
+      pendingImages.delete(href);
+      resolve(src);
+    })));
+    vscode.postMessage({ type: 'resolveImage', id, href });
+  }
+  return pendingImages.get(href);
+}
+
+/**
+ * カーソルと、画面の上端の行の位置。VSCode は Webview の状態（setState）を、ウィンドウを再読み込みしたときや
+ * VSCode を起動し直したときにも残すので、開き直したときに元の位置に戻せる
+ */
+let saveTimer = null;
+function saveViewState() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    const { anchor, head } = view.state.selection.main;
+    const top = view.lineBlockAtHeight(view.scrollDOM.scrollTop).from;
+    vscode.setState({ anchor, head, top });
+  }, 200);
+}
+
+function restoreViewState() {
+  const saved = vscode.getState();
+  if (!saved) return;
+  const length = view.state.doc.length;
+  const clamp = (pos) => Math.min(Math.max(Number(pos) || 0, 0), length);
+  view.dispatch({
+    selection: EditorSelection.single(clamp(saved.anchor), clamp(saved.head)),
+    effects: EditorView.scrollIntoView(view.state.doc.lineAt(clamp(saved.top)).from, { y: 'start' }),
+  });
 }
 
 function sendLocalChanges(update) {
@@ -252,6 +303,10 @@ window.addEventListener('message', (event) => {
       break;
     case 'sync':
       applyRemote(message.text, message.ackSeq, message.syncId);
+      break;
+    case 'image':
+      imageRequests.get(message.id)?.(message.src);
+      imageRequests.delete(message.id);
       break;
     case 'revealAnchor':
       if (view) revealAnchor(view, message.fragment);
