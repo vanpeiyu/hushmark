@@ -6,6 +6,7 @@ import { Annotation, EditorState, Facet, Prec } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { defaultKeymap } from '@codemirror/commands';
 import { livePreview } from './livePreview.js';
+import { pasteLink } from './pasteLink.js';
 import { cellMarkdownSupport } from './markdownSetup.js';
 
 /**
@@ -52,6 +53,7 @@ export function createCellEditor({ parent, text, openLink, keys, onChange, onBlu
         EditorView.lineWrapping,
         cellMarkdownSupport(),
         livePreview({ openLink }),
+        pasteLink,
         // CodeMirror は更新のたびにエディタの要素の class を書き直すので、後から classList で足さない
         EditorView.editorAttributes.of({ class: 'cm-md-cell-input' }),
         EditorView.contentAttributes.of({ spellcheck: 'false', autocorrect: 'off', autocapitalize: 'off' }),

@@ -82,6 +82,7 @@
 | Ctrl+B | Cmd+B | 太字 |
 | Ctrl+I | Cmd+I | 斜体 |
 | Alt+Z | Option+Z | 折り返しの切り替え |
+| 文字列を選んで URL を貼り付け | 同じ | 選んだ文字列を、その URL へのリンク（`[文字列](URL)`）にする（VSCode の Markdown のテキストエディタと同じ） |
 | Ctrl+K の後のキー | Cmd+K の後のキー | VSCode の 2 つ打ちのキー（Ctrl+K Z など）として VSCode に渡し、文字としては入力しない |
 
 表のセルを編集している間も、同じキーを使えます。

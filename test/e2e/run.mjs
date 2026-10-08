@@ -680,4 +680,18 @@ const anchorTarget = JSON.parse(await web(`JSON.stringify((() => {
 check('#見出し のリンク: 見出しにカーソルが移り、画面に出る', anchorTarget.text === '## 後の見出し（その2）' &&
   anchorTarget.top >= 0 && anchorTarget.top < anchorTarget.height, anchorTarget);
 
+// 25. 文字列を選んで URL を貼り付けると、リンクにする
+await loadDoc(['see docs here', '', '後']);
+await web(`(() => {
+  const v = __hushmarkView;
+  const from = v.state.doc.toString().indexOf('docs');
+  v.focus();
+  v.dispatch({ selection: { anchor: from, head: from + 4 } });
+  const data = new DataTransfer();
+  data.setData('text/plain', 'https://example.com/docs');
+  v.contentDOM.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+})()`);
+doc = await checkInSync('URL の貼り付け');
+check('文字列を選んで URL を貼り付けると、リンクにする', doc.startsWith('see [docs](https://example.com/docs) here'), doc);
+
 finish();
