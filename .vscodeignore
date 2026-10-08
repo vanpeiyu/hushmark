@@ -9,3 +9,4 @@ build.mjs
 .github/**
 CONTRIBUTING.md
 .vscode-test-web/**
+docs/**
