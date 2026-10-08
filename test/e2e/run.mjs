@@ -155,6 +155,18 @@ await sleep(200);
 doc = await checkInSync('セルの中で Ctrl+Z');
 ts = await tableState();
 check('セルの中で Ctrl+Z: 取り消せて、入力欄も戻る', doc.split('\n')[10] === '| ぶどう |  |  |' && ts.value === 'ぶどう' && ts.focused, { line: doc.split('\n')[10], ts });
+// セルの途中で打って取り消すと、カーソルは取り消したところに戻る（セルの先頭に戻らない）
+const undoCellCaret = () => web("document.querySelector('.cm-md-cell-input').mdCellView.state.selection.main.head");
+await press(cdp, 'Home');
+await press(cdp, 'ArrowRight');
+await sleep(600); // 取り消しの単位を分ける
+await type(cdp, 'x');
+await sleep(300);
+await press(cdp, 'z', MOD);
+await sleep(300);
+const undoCaret = await undoCellCaret();
+check('セルの途中で打って Ctrl+Z: カーソルは取り消したところ', undoCaret === 1 && (await tableState()).value === 'ぶどう', undoCaret);
+await press(cdp, 'End');
 
 await press(cdp, 'Escape');
 await sleep(150);
