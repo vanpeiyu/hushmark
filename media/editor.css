@@ -372,6 +372,24 @@ body {
   color: var(--md-muted);
 }
 
+/* 画像のリンクにマウスを載せたときに浮かせて表示する画像（imagePreview.js） */
+.cm-md-image-preview {
+  position: fixed;
+  z-index: 10;
+  padding: 4px;
+  background: var(--md-bg);
+  border: 1px solid var(--md-border);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.16);
+  pointer-events: none;
+}
+
+.cm-md-image-preview img {
+  display: block;
+  max-width: min(480px, 80vw);
+  max-height: min(360px, 60vh);
+}
+
 /* 行末の空白による改行。空白 1 つごとに薄い点を描く（VSCode の空白の表示と同じ形） */
 .cm-md-hardbreak {
   background-image: radial-gradient(circle, color-mix(in srgb, var(--md-muted) 70%, transparent) 0 1.2px, transparent 1.6px);

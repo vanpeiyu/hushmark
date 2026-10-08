@@ -4,10 +4,12 @@
 // 開いたファイルは途中で何度も書き換える。
 
 import { ALT, MOD, SHIFT, click, isMac, press, sleep, type } from './cdp.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
 import { openSession } from './session.mjs';
 
 const {
-  cdp, mainCtx, web, check, finish, toPage, clickPos, clickSelector, clickTableTool,
+  file, remote, cdp, mainCtx, web, check, finish, toPage, clickPos, clickSelector, clickTableTool,
   webDoc, readFile, writeFile, loadDoc, checkInSync,
 } = await openSession();
 
@@ -691,5 +693,23 @@ check('狭い表: ボタンが本文の左端からはみ出さない', narrow.t
 await loadDoc([`| ${'長い見出し'.repeat(6)} | b |`, '|---|---|', '| 1 | 2 |', '', '後']);
 const wide = await toolsLayout();
 check('広い表: ボタンを表の右端にそろえる', Math.abs(wide.tools.right - wide.table.right) < 2, wide);
+
+// 24. 画像のリンクにマウスを載せると、画像を浮かせて表示する。読めない画像では何も出さない
+if (!remote) {
+  // 4×3 の赤い PNG
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAF0lEQVR4AWP8z8DwnwEJMDGgASYGNAAAYWsCBNgUK1IAAAAASUVORK5CYII=';
+  fs.writeFileSync(path.join(path.dirname(file), 'pic.png'), Buffer.from(png, 'base64'));
+  await loadDoc(['![red](pic.png) と ![none](missing.png)', '', '後']);
+  const hoverImage = async (index) => {
+    const at = await toPage(JSON.parse(await web(`JSON.stringify((() => { const r = document.querySelectorAll('.cm-md-image')[${index}].getBoundingClientRect(); return { x: r.left + 6, y: r.top + r.height / 2 }; })())`)));
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at.x, y: at.y });
+    await sleep(1000);
+    return JSON.parse(await web("JSON.stringify([...document.querySelectorAll('.cm-md-image-preview img')].map((i) => i.naturalWidth))"));
+  };
+  const shown = await hoverImage(0);
+  check('画像のリンクにマウスを載せると、画像を表示する', shown.length === 1 && shown[0] === 4, shown);
+  const missing = await hoverImage(1);
+  check('読めない画像では何も表示しない', missing.length === 0, missing);
+}
 
 finish();
