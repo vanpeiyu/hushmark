@@ -85,6 +85,7 @@
 |---|---|---|
 | Ctrl+F / Ctrl+H | Cmd+F / Cmd+Option+F | エディタ内の検索 / 置換（下の「検索」を参照） |
 | Ctrl+Shift+F / Ctrl+Shift+H | Cmd+Shift+F / Cmd+Shift+H | VSCode のフォルダー内の検索 / 置換。選択中の文字列を検索語にする |
+| Ctrl+Shift+O | Cmd+Shift+O | 見出しの一覧を出し、選んだ見出しに移る（テキストエディタの「Go to Symbol in Editor」に当たる）。一覧で選んでいる間はその見出しを表示し、選ばずに閉じると元の位置に戻る |
 | Ctrl+B | Cmd+B | 太字 |
 | Ctrl+I | Cmd+I | 斜体 |
 | Alt+Z | Option+Z | 折り返しの切り替え |

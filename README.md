@@ -85,6 +85,7 @@ The keyboard shortcuts are the same as in the VS Code editor. Elsewhere in this 
 |---|---|---|
 | Ctrl+F / Ctrl+H | Cmd+F / Cmd+Option+F | Find / replace in the editor (see "Find" below) |
 | Ctrl+Shift+F / Ctrl+Shift+H | Cmd+Shift+F / Cmd+Shift+H | Search / replace in VS Code's folder. The selected text becomes the search term |
+| Ctrl+Shift+O | Cmd+Shift+O | Shows the list of headings and moves to the one you choose (like "Go to Symbol in Editor" in the text editor). The view follows the highlighted heading, and closing the list without choosing returns to the original position |
 | Ctrl+B | Cmd+B | Bold |
 | Ctrl+I | Cmd+I | Italic |
 | Alt+Z | Option+Z | Toggle word wrap |

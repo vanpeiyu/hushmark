@@ -1,6 +1,7 @@
 {
   "description": "カーソルが触れている要素だけを展開する、静かな Markdown ライブプレビューエディタ",
   "command.open": "ライブエディタで開く",
+  "command.goToHeading": "見出しに移動...",
   "command.openSource": "テキストエディタで開く",
   "config.previewStyle": "プレビューのスタイル",
   "config.previewStyle.soft": "ソフト",

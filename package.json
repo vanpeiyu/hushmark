@@ -57,6 +57,11 @@
         "title": "%command.openSource%",
         "category": "Hushmark",
         "icon": "$(go-to-file)"
+      },
+      {
+        "command": "hushmark.goToHeading",
+        "title": "%command.goToHeading%",
+        "category": "Hushmark"
       }
     ],
     "menus": {
@@ -77,6 +82,12 @@
           "command": "hushmark.open",
           "when": "resourceLangId == markdown",
           "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "hushmark.goToHeading",
+          "when": "activeCustomEditorId == hushmark.editor"
         }
       ]
     },
@@ -332,7 +343,15 @@
           "description": "%config.debugLog%"
         }
       }
-    }
+    },
+    "keybindings": [
+      {
+        "command": "hushmark.goToHeading",
+        "key": "ctrl+shift+o",
+        "mac": "cmd+shift+o",
+        "when": "activeCustomEditorId == hushmark.editor"
+      }
+    ]
   },
   "devDependencies": {
     "@codemirror/commands": "^6.8.0",
