@@ -110,6 +110,7 @@ const KEYS = {
   ArrowLeft: { code: 'ArrowLeft', keyCode: 37 },
   ArrowRight: { code: 'ArrowRight', keyCode: 39 },
   Escape: { code: 'Escape', keyCode: 27 },
+  F1: { code: 'F1', keyCode: 112 },
 };
 
 /** 修飾キーのビット */
