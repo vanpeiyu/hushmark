@@ -21,6 +21,7 @@ import { hasMod } from './platform.js';
 import { setStrings } from './strings.js';
 import { imagePreview } from './imagePreview.js';
 import { revealAnchor } from './anchors.js';
+import { pasteLink } from './pasteLink.js';
 
 const vscode = acquireVsCodeApi();
 
@@ -132,6 +133,7 @@ function createEditor(text, options) {
       imagePreview(resolveImage),
       // livePreview の「↑↓ で表に入る」より後、CodeMirror の基本のキーより前に置く
       verticalMove(),
+      pasteLink,
       findWidget(),
       keymap.of([...searchKeymap, indentWithTab, ...defaultKeymap]),
       EditorView.contentAttributes.of({ spellcheck: 'false', autocorrect: 'off', autocapitalize: 'off' }),
