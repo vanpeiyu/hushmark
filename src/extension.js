@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { rebaseChanges } = require('./textMerge');
 const { normalizeHref } = require('./links');
+const { watchDiskChanges } = require('./diskChanges');
 
 const VIEW_TYPE = 'hushmark.editor';
 
@@ -83,7 +84,11 @@ class LiveEditorProvider {
         if (affects(READONLY_SETTINGS)) sendReadOnly();
       }),
     ];
-    panel.onDidDispose(() => subscriptions.forEach((s) => s.dispose()));
+    const unwatch = watchDiskChanges(document, panel, log);
+    panel.onDidDispose(() => {
+      subscriptions.forEach((s) => s.dispose());
+      unwatch();
+    });
   }
 }
 

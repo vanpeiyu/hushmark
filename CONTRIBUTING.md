@@ -23,6 +23,7 @@ code --extensionDevelopmentPath="$PWD" <試す Markdown ファイル>
 - `src/extension.js`：カスタムエディタの登録と、Webview と TextDocument の同期
   - `textMerge.js`：差分の計算と、ほかのエディタでの変更と重なった編集の位置合わせ
   - `links.js`：リンク先の正規化
+  - `diskChanges.js`：未保存の変更があるときに、ファイルが外で書き換えられたことの通知
 - `webview/`：Webview 側
   - `main.js`：エディタの組み立て、拡張機能本体とのやり取り、キー操作
   - `livePreview.js`：装飾
@@ -87,7 +88,7 @@ CI（GitHub Actions）では、Linux で `all` を、macOS と Windows で `smok
 - ファイル末尾のコードブロックの後ろへの入力
 - チェックボックス
 - 検索
-- 外部での変更の反映
+- 外部での変更の反映（未保存の変更があるときの通知と Revert File を含む）
 - IME の変換中の入力
 - 見出しの `#` の前後で描かれるカーソルの位置、↑↓ の桁、Alt+Z、Ctrl+K の後のキー
 - 表の長いセルの編集（列の幅を保つ）、← → でのセルの移動、省略されたセルへの入力、引用の中の表、長い表の検索
