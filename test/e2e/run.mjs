@@ -740,4 +740,16 @@ await web(`(() => {
 doc = await checkInSync('URL の貼り付け');
 check('文字列を選んで URL を貼り付けると、リンクにする', doc.startsWith('see [docs](https://example.com/docs) here'), doc);
 
+// 28. ほかのツールで離れた 2 か所が変わっても、その間にあるカーソルは動かない
+const distantDoc = Array.from({ length: 12 }, (_, i) => `行 ${i + 1} の文`);
+await loadDoc(distantDoc);
+const caretBefore = await web('__hushmarkView.state.doc.line(6).from + 3');
+await clickPos(caretBefore);
+const changedDistant = [...distantDoc];
+changedDistant[0] = '最初の行を変えた';
+changedDistant[11] = '最後の行を変えた';
+await loadDoc(changedDistant);
+const caretAfter = JSON.parse(await web('JSON.stringify((() => { const v = __hushmarkView; const h = v.state.selection.main.head; const l = v.state.doc.lineAt(h); return { line: l.number, col: h - l.from }; })())'));
+check('離れた 2 か所が外で変わっても、間のカーソルは動かない', caretAfter.line === 6 && caretAfter.col === 3, caretAfter);
+
 finish();
