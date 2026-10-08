@@ -4,3 +4,5 @@ media/dist
 .vscode-test
 .e2e
 *.vsix
+.vscode-test-web
+dist

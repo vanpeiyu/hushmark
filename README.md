@@ -1,153 +1,160 @@
 # Hushmark
 
-カーソルが触れている要素だけ Markdown の記号を表示する、VSCode のライブプレビューエディタです。文書は Markdown のテキストのまま編集します。
+[日本語](README.ja.md)
 
-見出しや引用などの行単位の記号は、カーソルのある行で表示します。`code`、*斜体*、リンクなどのインライン要素の記号は、カーソルがその要素に触れているときだけ表示します。それ以外の記号は隠し、見た目を整えて表示します。
+A live preview Markdown editor for VS Code that shows Markdown syntax only for the element under your cursor. You edit the document as plain Markdown text.
 
-## 特長
+Line-level syntax, such as headings and blockquotes, is shown on the line with the cursor. Inline syntax, such as `code`, *emphasis*, and links, is shown only while the cursor touches that element. All other syntax is hidden and the text is styled.
 
-- 日本語の文でも強調が効きます。CommonMark の規則では、`**注意（readme.md 参照）。**の件` や `は**「重要」**です` のように、記号の内側が約物で外側が日本語の文字のときは強調になりません。Hushmark は [markdown-cjk-friendly](https://github.com/tats-u/markdown-cjk-friendly) と同じく、外側が日本語などの文字なら強調にします。内側が日本語の約物なら、外側が数字や英字でも強調にします（`**重要。**2つ目`）。`*` と `~~` も同じです。
-- 見出し・引用・リスト・コードの記号は、表示しても隠しても文字の位置が変わりません。記号のあった幅を空けて残し、見出しの `#` は左の余白に表示します。強調やリンクの記号は、幅を残すと余分な空白に見えるので幅ごと隠します。そのため、カーソルがその要素に入ったときだけ、同じ行の後ろの文字が動きます。
-- 字間と行間はソースのとおりです。等幅フォントの桁がそろうよう、要素ごとに文字の大きさや左右の余白を変えません。見出しだけは文字を大きくできますが、その場合も見出しの高さは本文の行の整数倍にします。
-- 縦の位置はソースの行にそろえます。ブロックの上下に余白を足さず、ソースの空行や ` ``` ` の行をそのまま余白にします。表は、見出しの行を 2 行分（見出しと区切りの行）、データの行を 1 行分の高さで表示します。
-- 背景や線の左端は 1 か所にそろえます。行頭に空白がない行は左端から少しだけ空いて、空白がある行は 1 文字分以上空いて始まるので、行頭の空白の有無が見て分かります。
-- 見た目は、スタイル（線や背景、角の丸みなど）と色の組み合わせで選べます。各要素の色は、選んだ色を基準に自動で作り、文字は地の色に対して読みやすさの基準を満たします。
-- 見出しの階層は、文字の大きさによらず、左の余白の図形で分かります。
-- 文書を別の形式に変換しないので、保存しても書いた Markdown の書式（リストの記号、空白、改行コード）は変わりません。取り消し（Ctrl+Z）とやり直し（Ctrl+Y / Ctrl+Shift+Z）も使えます。
-- ほかのエディタ（分割表示やテキストエディタ）での変更と、このエディタでの入力が重なっても、内容を壊しません。同じ場所を同時に変えたときは、このエディタで入力した文字を捨て、文書の内容に合わせて表示し直します。
-- ほかのツールがファイルを書き換えると、表示に反映します。未保存の変更があるときは反映せずに通知し、通知の「Revert File」で未保存の変更を捨ててファイルの内容を読み込めます。
-- 書き込めない文書（git の過去の版など）は編集できません。ファイルの属性による読み取り専用は、VSCode と同じく、設定 `files.readonlyFromPermissions` が有効なときだけ効きます。`files.readonlyInclude` と `files.readonlyExclude` にも従います。
-- 画面の文言は、VSCode の表示言語に合わせて英語か日本語で表示します。
-- Web 版の VSCode（vscode.dev、github.dev）でも動きます。
+![Hushmark: clicking bold text shows its markers, clicking a heading shows its # in the margin, then a task is checked, a list item is typed, a table cell is edited, and a heading is typed](docs/images/demo.gif)
 
-## インストール
+## Features
 
-[Releases](https://github.com/vanpeiyu/hushmark/releases) から `hushmark-<version>.vsix` をダウンロードしてインストールします。ソースから .vsix を作る方法は [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
+- Headings, blockquotes, lists, and code keep their text in place whether their syntax is shown or hidden. The hidden syntax keeps its width, and the `#` of a heading is shown in the left margin. Emphasis and link syntax is hidden together with its width, because the remaining space would look like extra blanks. As a result, text after it on the same line moves only when the cursor enters that element.
+- Letter spacing and line spacing follow the source. To keep the columns of a monospaced font aligned, the font size and side margins do not change per element. Only headings can use a larger font, and even then their height is a whole multiple of a body line.
+- Vertical positions match the source lines. No space is added above or below blocks; the blank lines and ` ``` ` lines of the source become the space. A table header takes two lines (the header and the delimiter row), and each data row takes one line.
+- Backgrounds and rules start at one left edge. Lines without leading spaces start slightly inside that edge, and lines with leading spaces start at least one character further in, so you can see whether a line is indented.
+- Choose the look by combining a style (rules, backgrounds, rounded corners, and so on) with a color. The colors of each element are derived from the chosen color, and text meets readability contrast requirements against its background.
+- The level of a heading is shown by a mark in the left margin, regardless of the font size.
+- Emphasis works in Chinese, Japanese, and Korean text. Under the CommonMark rules, `**注意（readme.md 参照）。**の件` and `は**「重要」**です` are not emphasized, because the inside of the delimiter is punctuation and the outside is a CJK character. Like [markdown-cjk-friendly](https://github.com/tats-u/markdown-cjk-friendly), Hushmark emphasizes them when the outside is a CJK character. When the inside is CJK punctuation, it also emphasizes them when the outside is a digit or a Latin letter (`**重要。**2つ目`). The same applies to `*` and `~~`.
+- The document is never converted to another format, so saving keeps your Markdown formatting (list markers, spaces, and line endings) as written. Undo (Ctrl+Z) and redo (Ctrl+Y / Ctrl+Shift+Z) work as usual.
+- Edits made in another editor (a split view or the text editor) do not corrupt the document even when they overlap with typing in this editor. When both change the same place at the same time, the characters typed in this editor are discarded and the view is updated to match the document.
+- When another tool changes the file, the view is updated. If there are unsaved changes, the file is not reloaded and a notification appears instead; choose "Revert File" in the notification to discard the unsaved changes and load the file.
+- Documents that cannot be written (such as an older version from git) cannot be edited. As in VS Code, a file that is read-only because of its file permissions is treated as read-only only when `files.readonlyFromPermissions` is enabled. `files.readonlyInclude` and `files.readonlyExclude` are also respected.
+- The cursor and scroll positions are restored when you reload the window or restart VS Code.
+- The UI is shown in English or Japanese, following the VS Code display language.
+- Works in VS Code for the Web (vscode.dev and github.dev).
 
-- 手元の VSCode には、コマンドパレットの「Extensions: Install from VSIX...」で .vsix を選ぶか、次のコマンドでインストールします。
+## Installation
+
+Download `hushmark-<version>.vsix` from [Releases](https://github.com/vanpeiyu/hushmark/releases) and install it. To build a .vsix from source, see [CONTRIBUTING.md](CONTRIBUTING.md) (in Japanese).
+
+- For your local VS Code, run "Extensions: Install from VSIX..." from the Command Palette and select the .vsix, or run:
 
   ```sh
   code --install-extension hushmark-<version>.vsix
   ```
 
-- Remote-SSH で使う場合、拡張はファイルがあるリモート側で動くので、接続先にもインストールします。Remote-SSH で開いたウィンドウで「Extensions: Install from VSIX...」を使うか、接続先で次のコマンドを実行します（`<commit>` は `ls ~/.vscode-server/cli/servers/` で確かめます）。
+- With Remote - SSH, the extension runs on the remote side where the files are, so install it on the remote host as well. Run "Extensions: Install from VSIX..." in the window opened with Remote - SSH, or run the following on the remote host (find `<commit>` with `ls ~/.vscode-server/cli/servers/`):
 
   ```sh
   ~/.vscode-server/cli/servers/Stable-<commit>/server/bin/code-server --install-extension hushmark-<version>.vsix
   ```
 
-## 使い方
+## Usage
 
-- エディタのタイトルバーの「ライブエディタで開く」か、エクスプローラーの右クリックメニューから開きます。
-- テキストエディタに戻すときは、タイトルバーの「テキストエディタで開く」を使います。
-- Markdown のファイルを常にこのエディタで開くときは、設定に次を書きます。
+- Open a Markdown file with "Open in Live Editor" in the editor title bar or in the Explorer context menu.
+- To go back to the text editor, use "Open in Text Editor" in the editor title bar.
+- To always open Markdown files in this editor, add the following to your settings:
 
   ```json
   "workbench.editorAssociations": { "*.md": "hushmark.editor" }
   ```
 
-## 表示と操作
+## Display and editing
 
-| 要素 | カーソルが触れていないとき | 操作 |
+| Element | When the cursor is not on it | Actions |
 |---|---|---|
-| 見出し | `#` を隠す。スタイルに応じて、左の余白に階層を示す図形を出す。`##` だけの行は見出しにしない | ― |
-| 強調・リンク | 記号を幅ごと隠す。`[foo]` のような参照リンクは、文書の中に `[foo]: URL` の定義があるときだけリンクにする（CommonMark と同じ） | Ctrl+クリック（macOS では Cmd+クリック）でリンクを開く。`#見出し` のリンクは、その見出しに移る（アンカーは GitHub と同じ規則で作る）。`other.md#見出し` は、開いた文書がこのエディタで開いたときに見出しに移る |
-| インラインコード | `` ` `` を隠し、その幅を背景の余白にする | ― |
-| 行末の空白 2 つ（改行） | 空白の位置に薄い点を出す | ― |
-| 箇条書き・タスク | `-` の位置に記号、`[ ]` の位置にチェックボックス | チェックボックスのクリックで `[ ]` と `[x]` を切り替える |
-| 表 | 表の形で表示する | 下の「表の編集」を参照 |
-| コードブロック | ` ``` ` を隠し、その行を上下の余白にする（言語名は行頭に出す）。言語ごとに色分けする | ― |
-| 引用・水平線 | 記号を隠す | ― |
-| フロントマター | 装飾しない | ― |
+| Heading | Hides `#`. Depending on the style, shows a mark for the level in the left margin. A line with only `##` is not a heading | ― |
+| Emphasis, link | Hides the syntax together with its width. A reference link such as `[foo]` becomes a link only when the document defines `[foo]: URL` (as in CommonMark) | Ctrl+Click (Cmd+Click on macOS) opens the link. A link to `#heading` moves to that heading (anchors follow the same rules as GitHub). For `other.md#heading`, the cursor moves to the heading when the file opens in this editor |
+| Image | Not rendered in the document; the source is shown in a muted color (rendering it would break the alignment with source lines) | Hover to show the image in a popup. Ctrl+Click opens the image file |
+| Inline code | Hides `` ` `` and uses its width as padding of the background | ― |
+| Two trailing spaces (line break) | Shows a faint dot where the spaces are | ― |
+| List, task | Shows a bullet in place of `-` and a checkbox in place of `[ ]` | Click a checkbox to toggle between `[ ]` and `[x]` |
+| Table | Shows a table | See "Editing tables" below |
+| Code block | Hides ` ``` ` and uses those lines as space above and below (the language name is shown at the start of the line). Highlights syntax for each language | ― |
+| Blockquote, horizontal rule | Hides the syntax | ― |
+| Front matter | No styling | ― |
 
-次の VSCode のエディタの設定（Markdown に対する値）に合わせます。Markdown にだけ適用するときは、`"[markdown]": { ... }` の中に書きます。変更はすぐに反映されます。
+The following VS Code editor settings (their values for Markdown) are respected. To apply them only to Markdown, put them inside `"[markdown]": { ... }`. Changes take effect immediately.
 
-| 設定 | 動き |
+| Setting | Behavior |
 |---|---|
-| `editor.fontSize` | 文字の大きさ |
-| `editor.lineHeight` | 行の高さ。`hushmark.lineHeight` が 1 未満のときに使う。`0`（既定）のときは、文字の大きさの 1.85 倍にする（日本語の文章に合わせ、VSCode の自動の 1.35 倍より広くする） |
-| `editor.lineNumbers` | 行番号。`off` で消え、`interval` で 10 行ごとになる。`relative` は `on` と同じ表示になる。表には、表の行ごとにその行の番号を出す |
-| `editor.wrappingIndent` | 折り返した行の字下げ。`none` 以外では、箇条書きや引用の 2 行目以降を本文の先頭の桁にそろえる |
-| `editor.tabSize` | タブの幅 |
-| `editor.wordWrap` | 折り返し。`off` のときは折り返さず、それ以外（`on`・`wordWrapColumn`・`bounded`）は画面の幅で折り返す。Alt+Z でその場で切り替えられる（設定は変えない） |
-| `editor.renderLineHighlight` | カーソルのある行の背景。`line` と `all`（既定は `line`）で、行の左右の端まで薄い背景を付ける |
-| `editor.renderLineHighlightOnlyWhenFocus` | `true` のとき、エディタにフォーカスがある間だけ行の背景を付ける |
+| `editor.fontSize` | Font size |
+| `editor.lineHeight` | Line height. Used when `hushmark.lineHeight` is less than 1. When `0` (default), 1.85 times the font size, which is wider than VS Code's automatic 1.35 times to suit CJK text |
+| `editor.lineNumbers` | Line numbers. `off` hides them and `interval` shows every 10th line. `relative` is shown the same as `on`. For tables, each row shows the number of its line |
+| `editor.wrappingIndent` | Indentation of wrapped lines. Except for `none`, the second and later lines of list items and blockquotes are aligned with the start of the text |
+| `editor.tabSize` | Tab width |
+| `editor.wordWrap` | Word wrap. `off` does not wrap; any other value (`on`, `wordWrapColumn`, `bounded`) wraps at the width of the view. Alt+Z toggles it on the spot (without changing the setting) |
+| `editor.renderLineHighlight` | Background of the line with the cursor. With `line` or `all` (default `line`), a light background spans the full width of the line |
+| `editor.renderLineHighlightOnlyWhenFocus` | When `true`, the line background is shown only while the editor has focus |
 
-キー操作は次のとおりで、VSCode のエディタと同じです。この README のほかの箇所では Windows と Linux のキーで書きます。macOS では、とくに断りがなければ Ctrl を Cmd に、Alt を Option に読み替えてください。
+The keyboard shortcuts are the same as in the VS Code editor. Elsewhere in this README, keys are written for Windows and Linux. On macOS, read Ctrl as Cmd and Alt as Option unless noted otherwise.
 
-| キー | macOS | 動き |
+| Key | macOS | Behavior |
 |---|---|---|
-| Ctrl+F / Ctrl+H | Cmd+F / Cmd+Option+F | エディタ内の検索 / 置換（下の「検索」を参照） |
-| Ctrl+Shift+F / Ctrl+Shift+H | Cmd+Shift+F / Cmd+Shift+H | VSCode のフォルダー内の検索 / 置換。選択中の文字列を検索語にする |
-| Ctrl+B | Cmd+B | 太字 |
-| Ctrl+I | Cmd+I | 斜体 |
-| Alt+Z | Option+Z | 折り返しの切り替え |
-| 画像を貼り付け（Ctrl+V） | 同じ | 文書と同じフォルダーに `image.png`（あれば `image-1.png` など）として保存し、画像のリンクを入れる。文字列も一緒にコピーしたもの（Excel のセルなど）は、文字列として貼り付ける |
-| Shift を押しながらエクスプローラーからドロップ | 同じ | そのファイルへの相対パスのリンクを入れる（画像は画像のリンク）。OS のファイルマネージャーからドロップした画像は、貼り付けと同じく保存してリンクを入れる |
-| Ctrl+K の後のキー | Cmd+K の後のキー | VSCode の 2 つ打ちのキー（Ctrl+K Z など）として VSCode に渡し、文字としては入力しない |
+| Ctrl+F / Ctrl+H | Cmd+F / Cmd+Option+F | Find / replace in the editor (see "Find" below) |
+| Ctrl+Shift+F / Ctrl+Shift+H | Cmd+Shift+F / Cmd+Shift+H | Search / replace in VS Code's folder. The selected text becomes the search term |
+| Ctrl+B | Cmd+B | Bold |
+| Ctrl+I | Cmd+I | Italic |
+| Alt+Z | Option+Z | Toggle word wrap |
+| Paste a URL over selected text | Same | Turns the selected text into a link to that URL (`[text](URL)`), as in VS Code's Markdown text editor |
+| Paste an image (Ctrl+V) | Same | Saves it as `image.png` (or `image-1.png` and so on if it exists) in the folder of the document and inserts an image link. When text was copied together with the image (such as Excel cells), the text is pasted |
+| Drop from the Explorer while holding Shift | Same | Inserts a link to the file with a relative path (an image link for images). Images dropped from your OS file manager are saved and linked in the same way as pasted images |
+| The key after Ctrl+K | The key after Cmd+K | Passed to VS Code as a chord (such as Ctrl+K Z) and not typed as a character |
 
-表のセルを編集している間も、同じキーを使えます。
+The same keys work while you edit a table cell.
 
-### 検索
+### Find
 
-VSCode のエディタの検索ウィジェットと同じく、右上に表示します。
+As with the find widget of the VS Code editor, it appears in the upper right.
 
-| 操作 | macOS | 動き |
+| Action | macOS | Behavior |
 |---|---|---|
-| Ctrl+F | Cmd+F | 開く。選択中の文字列（1 行以内）を検索語にする |
-| 検索語を入力 | 同じ | 開いたときのカーソル位置から、最初の一致に移る |
-| Enter / Shift+Enter、F3 / Shift+F3 | 左に加えて Cmd+G / Cmd+Shift+G | 次 / 前の一致 |
-| Alt+C / Alt+W / Alt+R | Cmd+Option+C / W / R | 大文字と小文字の区別 / 単語単位 / 正規表現の切り替え |
-| Ctrl+H、または左端の › | Cmd+Option+F、または左端の › | 置換の欄を出す。置換の欄で Enter は 1 件置換、Ctrl+Alt+Enter（macOS では Cmd+Option+Enter）はすべて置換 |
-| Esc | 同じ | 閉じてエディタに戻る |
+| Ctrl+F | Cmd+F | Opens it. The selected text (within one line) becomes the search term |
+| Type a search term | Same | Moves to the first match from the cursor position when the widget was opened |
+| Enter / Shift+Enter, F3 / Shift+F3 | Also Cmd+G / Cmd+Shift+G | Next / previous match |
+| Alt+C / Alt+W / Alt+R | Cmd+Option+C / W / R | Toggle match case / whole word / regular expression |
+| Ctrl+H, or › at the left | Cmd+Option+F, or › at the left | Shows the replace field. In the replace field, Enter replaces one match and Ctrl+Alt+Enter (Cmd+Option+Enter on macOS) replaces all |
+| Esc | Same | Closes it and returns to the editor |
 
-表の中の一致は、一致を含むセルに色を付けて示します。
+Matches inside a table are shown by highlighting the cells that contain them.
 
-フォルダー内の検索（Ctrl+Shift+F）の結果をダブルクリックや Enter で開くと、このエディタにフォーカスが入ります。ただし、一致した位置には移りません。VSCode がカスタムエディタに開く位置を渡さないためです。
+When you open a result of Search (Ctrl+Shift+F) with a double-click or Enter, this editor receives focus, but the cursor does not move to the match, because VS Code does not pass the position to custom editors.
 
-### 表の編集
+### Editing tables
 
-表は表の形で表示し、クリックしたセルだけを編集します。セルの中でも、太字やリンクの記号はカーソルが触れたときだけ表示し、長い内容はセルの幅で折り返します。列の幅は編集を始める直前の幅で固定し、セルから出ると計算し直します。
+Tables are shown as tables, and only the cell you click is edited as source. Inside a cell, bold and link syntax is shown only while the cursor touches it, and long content wraps at the cell width. Column widths are fixed at their width just before editing starts and are recalculated when you leave the cell.
 
-| 操作 | 動き |
+| Action | Behavior |
 |---|---|
-| セルをクリック | そのセルの、クリックした位置から編集する |
-| 表の上下の行で ↑ / ↓ | 表の端の行のセルを編集する |
-| Tab / Shift+Tab | 次 / 前のセル。最後のセルで Tab を押すと行を追加する |
-| Enter / Shift+Enter | 下 / 上のセル。表の端では表の外に出る |
-| ↑ / ↓ | セルの中で折り返した行を移る。最初の行の ↑ / 最後の行の ↓ では、まずセルの先頭 / 末尾に移り、もう一度押すと上 / 下のセルに移る |
-| Esc | 編集をやめて表の下の行に出る |
-| `\|` を入力 | セルの区切りにならないよう、`\|` にエスケープする |
+| Click a cell | Edits that cell from the clicked position |
+| ↑ / ↓ on the line above or below a table | Edits a cell in the nearest row of the table |
+| Tab / Shift+Tab | Next / previous cell. Tab in the last cell adds a row |
+| Enter / Shift+Enter | Cell below / above. At the edge of the table, leaves the table |
+| ↑ / ↓ | Moves between wrapped lines in a cell. ↑ on the first line or ↓ on the last line first moves to the start or end of the cell, and pressing it again moves to the cell above or below |
+| Esc | Stops editing and moves to the line below the table |
+| Type `\|` | Escapes it as `\|` so that it does not split the cell |
 
-表にマウスを載せると、右上に次のボタンが出ます。
+When you hover over a table, the following buttons appear in its upper right.
 
-- 「＋行」「＋列」：行や列を追加する
-- 「ソース」：表全体を Markdown のソースで表示する。カーソルが表から出ると元の表示に戻る。揃え位置（`:--:`）の変更や行・列の削除は、ここで行う
+- "+ Row" and "+ Column": add a row or a column
+- "Source": shows the whole table as Markdown source. It returns to the table view when the cursor leaves the table. Change alignment (`:--:`) or delete rows and columns here
 
-## 設定
+## Settings
 
-見た目は、プレビューのスタイルと色の 2 つで選びます。どの組み合わせでも使えます。
+Choose the look with two settings: the preview style and the color. Any combination works.
 
-| 設定 | 内容 |
+| Setting | Description |
 |---|---|
-| `hushmark.previewStyle` | プレビューのスタイル。`soft`（ソフト、既定）は丸い形と色の付いた線や面で親しみやすい見た目、`minimal`（ミニマル）は色と面をほとんど使わない見た目、`reference`（リファレンス）は見出しに「H1」などの札を付け、表やコードを枠で区切る見た目 |
-| `hushmark.previewColor` | プレビューの色。`green`（グリーン）・`cyan`（シアン）・`blue`（ブルー）・`purple`（パープル）・`pink`（ピンク）・`orange`（オレンジ）・`sepia`（セピア）・`mono`（モノクロ、既定）・`custom`（カスタム） |
-| `hushmark.previewColorScheme` | プレビューの明暗。`auto`（既定）は VSCode のテーマに合わせる。`light` と `dark` は、明るい地と暗い地に固定する |
-| `hushmark.previewCustomColor` | `custom` のときの色（`#rrggbb`、既定 `#3366cc`）。この色の色相と鮮やかさを基準に、各要素の色を作る |
-| `hushmark.colorCustomizations` | 要素の色を個別に変える（下の「色を個別に変えるとき」を参照） |
-| `hushmark.headingSize` | 見出しの大きさ。`body`（等倍。すべて本文と同じ大きさ）・`medium`（中、既定。h1 と h2 を本文の 2 行分の高さにする）・`large`（大。h1 を 3 行分、h2 と h3 を 2 行分の高さにする） |
-| `hushmark.fontFamily` | フォント（CSS の `font-family` の値）。空（既定）のときは VSCode のエディタのフォント（`editor.fontFamily`）を使う。例: `"HackGen Console NF", monospace` |
-| `hushmark.lineHeight` | 文字の大きさに対する行の高さの倍率。1 未満（既定 `0`）のときは `editor.lineHeight` に従う |
-| `hushmark.rightMargin` | エディタ右側にも、左と同じ幅の余白を空ける（既定 `true`） |
-| `hushmark.debugLog` | デバッグログを出力パネル「Hushmark」に書き出す |
+| `hushmark.previewStyle` | Preview style. `soft` (default) is a friendly look with rounded shapes and colored rules and fills; `minimal` uses almost no color or fills; `reference` labels headings with tags such as "H1" and frames tables and code |
+| `hushmark.previewColor` | Preview color: `green`, `cyan`, `blue`, `purple`, `pink`, `orange`, `sepia`, `mono` (monochrome, default), or `custom` |
+| `hushmark.previewColorScheme` | Light or dark preview. `auto` (default) follows the VS Code theme. `light` and `dark` fix a light or dark background |
+| `hushmark.previewCustomColor` | The color for `custom` (`#rrggbb`, default `#3366cc`). The colors of each element are derived from its hue and saturation |
+| `hushmark.colorCustomizations` | Overrides the colors of individual elements (see "Overriding individual colors" below) |
+| `hushmark.headingSize` | Heading size. `body` (all headings the same size as body text), `medium` (default; h1 and h2 take two body lines), or `large` (h1 takes three body lines; h2 and h3 take two) |
+| `hushmark.fontFamily` | Font (a CSS `font-family` value). When empty (default), VS Code's editor font (`editor.fontFamily`) is used. Example: `"HackGen Console NF", monospace` |
+| `hushmark.lineHeight` | Line height as a multiple of the font size. When less than 1 (default `0`), `editor.lineHeight` is used |
+| `hushmark.rightMargin` | Adds a margin on the right side of the editor as wide as the one on the left (default `true`) |
+| `hushmark.debugLog` | Writes debug logs to the "Hushmark" output panel |
 
-設定の変更はすぐに反映されます。
+Setting changes take effect immediately.
 
-VSCode のハイコントラストのテーマを使っているときは、どの設定でも VSCode のテーマの色を使います。
+With a VS Code high contrast theme, the colors of the VS Code theme are always used, regardless of these settings.
 
-### 色を個別に変えるとき
+### Overriding individual colors
 
-`hushmark.colorCustomizations` に、変えたい色を書きます。VSCode の `workbench.colorCustomizations` と同じく、`"[色の名前]"` の中に書いた色は、その色（`hushmark.previewColor`）を選んでいるときだけ使います。
+Write the colors to change in `hushmark.colorCustomizations`. As with VS Code's `workbench.colorCustomizations`, colors written inside `"[color name]"` are used only while that color (`hushmark.previewColor`) is selected.
 
 ```json
 "hushmark.colorCustomizations": {
@@ -158,49 +165,49 @@ VSCode のハイコントラストのテーマを使っているときは、ど�
 }
 ```
 
-変えられる色は次のとおりです。
+The following colors can be changed.
 
-| 名前 | 使うところ |
+| Name | Where it is used |
 |---|---|
-| `background` / `foreground` / `strongForeground` / `mutedForeground` | 背景、文字、見出しと太字の文字、記号と引用の文字 |
-| `border` / `strongBorder` | 細い線と、少し濃い線（どこに使うかはスタイルによる） |
-| `blockBackground` / `codeBackground` | コードブロックとフロントマターの背景、インラインコードの背景 |
-| `accent` / `softAccent` / `accentBackground` | アクセント（チェックボックス、編集中のセル、`soft` の箇条書きの記号など）、淡いアクセント（`soft` の線）、アクセントの背景（`soft` の引用や表の見出し） |
-| `link` | リンク |
-| `highlight` | 太字の下の蛍光ペン（`soft`） |
-| `selection` / `lineHighlight` | 選択範囲、カーソルのある行の背景 |
+| `background` / `foreground` / `strongForeground` / `mutedForeground` | Background, text, text of headings and bold, text of syntax and blockquotes |
+| `border` / `strongBorder` | Thin rules and slightly darker rules (where they are used depends on the style) |
+| `blockBackground` / `codeBackground` | Background of code blocks and front matter, background of inline code |
+| `accent` / `softAccent` / `accentBackground` | Accent (checkboxes, the cell being edited, bullets in `soft`, and so on), soft accent (rules in `soft`), accent background (blockquotes and table headers in `soft`) |
+| `link` | Links |
+| `highlight` | Highlighter under bold text (`soft`) |
+| `selection` / `lineHighlight` | Selection, background of the line with the cursor |
 
-## アンインストール
+## Uninstalling
 
-インストールすると、次のものができます。
+Installing the extension creates the following.
 
-| もの | 場所 |
+| Item | Location |
 |---|---|
-| インストールした拡張 | `~/.vscode/extensions/local.hushmark-<version>`（Remote-SSH の接続先では `~/.vscode-server/extensions/` の下） |
-| 自分で書いた設定 | ユーザー設定の `workbench.editorAssociations` と `hushmark.*` |
+| The installed extension | `~/.vscode/extensions/local.hushmark-<version>` (under `~/.vscode-server/extensions/` on a Remote - SSH host) |
+| Settings you wrote | `workbench.editorAssociations` and `hushmark.*` in your user settings |
 
-次のコマンドを実行し、ユーザー設定に `workbench.editorAssociations` の `"*.md": "hushmark.editor"` や `hushmark.*` を書いていれば消します。
+Run the following command, and remove `"*.md": "hushmark.editor"` from `workbench.editorAssociations` and any `hushmark.*` settings from your user settings.
 
 ```sh
 code --uninstall-extension local.hushmark
 ```
 
-開発のために作るもの（テストに使う Docker のイメージなど）は、[CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
+For what development creates (such as the Docker image used for tests), see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## 既知の制約
+## Known limitations
 
-- 記号が隠れた行で、太字の末尾などの境目をクリックすると、カーソルは記号の外側に入ります。記号が表示されてからもう一度クリックすると、狙った位置に置けます。
-- 見出しの上下に余白は足しません。空きが欲しいときは、ソースに空行を入れます。
-- 画像、Mermaid、数式は描画せず、ソースのまま表示します。
-- 取り消しの履歴は、このエディタの中だけのものです。分割表示した別の側や、テキストエディタで行った編集は、このエディタの Ctrl+Z では取り消せません。
-- 表のセルの中では、`[foo]` のような参照リンクをリンクにせず、文字のまま表示します。表のセルの中の画像も描画しません。
-- 表のセルで取り消すと、セルのカーソルは先頭に戻ります。
-- ほかのエディタでの変更が離れた 2 か所にあると、その間にあるカーソルが動くことがあります。
-- とても長い文書や大きな表では、入力やカーソルの移動が重くなることがあります。
-- 結合文字や絵文字を含む行では、↑ / ↓ で移るときの桁が少しずれることがあります。
+- On a line whose syntax is hidden, clicking at a boundary such as the end of bold text places the cursor outside the syntax. After the syntax appears, click again to place the cursor where you want.
+- No space is added above or below headings. Add blank lines to the source if you want space.
+- Images are not rendered in the document (they are shown only on hover). Mermaid diagrams and math are not rendered; they are shown as source.
+- The undo history belongs to this editor only. Edits made in the other side of a split view or in the text editor cannot be undone with Ctrl+Z in this editor.
+- Inside table cells, reference links such as `[foo]` are shown as plain text rather than links. Images in table cells are not rendered either.
+- After undo in a table cell, the cursor in the cell returns to the start.
+- When another editor changes two distant places, the cursor between them may move.
+- In very long documents or large tables, typing and cursor movement may become slow.
+- On lines with combining characters or emoji, the column may shift slightly when moving with ↑ / ↓.
 
-## ライセンス
+## License
 
-MIT ライセンスです（`LICENSE` を参照）。
+MIT License (see `LICENSE`).
 
-.vsix には CodeMirror などのパッケージを同梱しています。それぞれのライセンス文は、.vsix の中の `media/dist/THIRD_PARTY_LICENSES.txt` にあります（ビルドのときに作ります）。
+The .vsix bundles packages such as CodeMirror. Their license texts are in `media/dist/THIRD_PARTY_LICENSES.txt` inside the .vsix (generated at build time).

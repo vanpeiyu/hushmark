@@ -683,6 +683,50 @@ const anchorTarget = JSON.parse(await web(`JSON.stringify((() => {
 check('#見出し のリンク: 見出しにカーソルが移り、画面に出る', anchorTarget.text === '## 後の見出し（その2）' &&
   anchorTarget.top >= 0 && anchorTarget.top < anchorTarget.height, anchorTarget);
 
+// 23. 表の上のボタンは表の右端にそろえ、表が狭いときは左にはみ出さない
+const toolsLayout = () => web(`JSON.stringify((() => {
+  const box = (s) => document.querySelector(s).getBoundingClientRect();
+  return { tools: box('.cm-md-table-tools'), table: box('.cm-md-table'), content: box('.cm-content') };
+})())`).then(JSON.parse);
+await loadDoc(['| a | b |', '|---|---|', '| 1 | 2 |', '', '後']);
+const narrow = await toolsLayout();
+check('狭い表: ボタンが本文の左端からはみ出さない', narrow.tools.left >= narrow.content.left, narrow);
+await loadDoc([`| ${'長い見出し'.repeat(6)} | b |`, '|---|---|', '| 1 | 2 |', '', '後']);
+const wide = await toolsLayout();
+check('広い表: ボタンを表の右端にそろえる', Math.abs(wide.tools.right - wide.table.right) < 2, wide);
+
+// 24. 画像のリンクにマウスを載せると、画像を浮かせて表示する。読めない画像では何も出さない
+if (!remote) {
+  // 4×3 の赤い PNG
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAF0lEQVR4AWP8z8DwnwEJMDGgASYGNAAAYWsCBNgUK1IAAAAASUVORK5CYII=';
+  fs.writeFileSync(path.join(path.dirname(file), 'pic.png'), Buffer.from(png, 'base64'));
+  await loadDoc(['![red](pic.png) と ![none](missing.png)', '', '後']);
+  const hoverImage = async (index) => {
+    const at = await toPage(JSON.parse(await web(`JSON.stringify((() => { const r = document.querySelectorAll('.cm-md-image')[${index}].getBoundingClientRect(); return { x: r.left + 6, y: r.top + r.height / 2 }; })())`)));
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at.x, y: at.y });
+    await sleep(1000);
+    return JSON.parse(await web("JSON.stringify([...document.querySelectorAll('.cm-md-image-preview img')].map((i) => i.naturalWidth))"));
+  };
+  const shown = await hoverImage(0);
+  check('画像のリンクにマウスを載せると、画像を表示する', shown.length === 1 && shown[0] === 4, shown);
+  const missing = await hoverImage(1);
+  check('読めない画像では何も表示しない', missing.length === 0, missing);
+}
+
+// 25. 文字列を選んで URL を貼り付けると、リンクにする
+await loadDoc(['see docs here', '', '後']);
+await web(`(() => {
+  const v = __hushmarkView;
+  const from = v.state.doc.toString().indexOf('docs');
+  v.focus();
+  v.dispatch({ selection: { anchor: from, head: from + 4 } });
+  const data = new DataTransfer();
+  data.setData('text/plain', 'https://example.com/docs');
+  v.contentDOM.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+})()`);
+doc = await checkInSync('URL の貼り付け');
+check('文字列を選んで URL を貼り付けると、リンクにする', doc.startsWith('see [docs](https://example.com/docs) here'), doc);
+
 // 26. 画像を貼り付けると、文書と同じフォルダーに保存して画像のリンクを入れる。エクスプローラーから
 // ドロップしたファイルには、相対パスのリンクを入れる
 if (!remote) {
@@ -716,5 +760,4 @@ if (!remote) {
   doc = await checkInSync('ファイルのドロップ');
   check('ドロップしたファイルに、相対パスのリンクを入れる', doc.startsWith('落とす[other.md](<sub dir/other.md>)'), doc.split('\n')[0]);
 }
-
 finish();
