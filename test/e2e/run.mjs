@@ -771,4 +771,14 @@ await loadDoc(refTable(null));
 links = await cellLinks();
 check('表のセルの参照リンク: 定義を消すとただの文字に戻す', links.length === 0, links);
 
+// 30. 絵文字を含む行へ ↑ で移っても、桁（絵文字は 2 桁）を保つ
+await loadDoc(['😀😀abc', 'abcdefgh', '', '後']);
+const emojiLine2 = await web('__hushmarkView.state.doc.line(2).from');
+await clickPos(emojiLine2 + 6); // 2 行目の 6 桁目（f の前）
+await press(cdp, 'ArrowUp');
+await sleep(150);
+const emojiHead = await web('__hushmarkView.state.selection.main.head');
+// 1 行目の 6 桁目は「😀😀ab」の後ろ（UTF-16 で 6 文字目）
+check('絵文字を含む行へ ↑: 絵文字を 2 桁と数えて桁を保つ', emojiHead === 6, emojiHead);
+
 finish();

@@ -199,7 +199,6 @@ For what development creates (such as the Docker image used for tests), see [CON
 - Images are not rendered in the document (they are shown only on hover). Mermaid diagrams and math are not rendered; they are shown as source.
 - The undo history belongs to this editor only. Edits made in the other side of a split view or in the text editor cannot be undone with Ctrl+Z in this editor.
 - In very long documents or large tables, typing and cursor movement may become slow.
-- On lines with combining characters or emoji, the column may shift slightly when moving with ↑ / ↓.
 
 ## License
 
