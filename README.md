@@ -18,6 +18,7 @@
 - ほかのツールがファイルを書き換えると、表示に反映します。未保存の変更があるときは反映せずに通知し、通知の「Revert File」で未保存の変更を捨ててファイルの内容を読み込めます。
 - 書き込めない文書（git の過去の版など）は編集できません。ファイルの属性による読み取り専用は、VSCode と同じく、設定 `files.readonlyFromPermissions` が有効なときだけ効きます。`files.readonlyInclude` と `files.readonlyExclude` にも従います。
 - 画面の文言は、VSCode の表示言語に合わせて英語か日本語で表示します。
+- Web 版の VSCode（vscode.dev、github.dev）でも動きます。
 
 ## インストール
 

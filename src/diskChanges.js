@@ -1,7 +1,6 @@
 'use strict';
 
 const vscode = require('vscode');
-const path = require('path');
 
 /**
  * ディスク上のファイルが外で変更されたとき、文書に未保存の変更があれば通知する。
@@ -17,6 +16,11 @@ const path = require('path');
  *
  * 1 つの文書を複数のエディタで開くことがあるので、監視は文書ごとに 1 つにする（watchDiskChanges で参照を数える）。
  */
+/** URI のファイル名 */
+function basename(uri) {
+  return uri.path.slice(uri.path.lastIndexOf('/') + 1);
+}
+
 class DiskChangeWatcher {
   constructor(document, log) {
     this.document = document;
@@ -46,7 +50,7 @@ class DiskChangeWatcher {
       }),
     );
     const dir = vscode.Uri.joinPath(document.uri, '..');
-    const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(dir, path.posix.basename(document.uri.path)), false, false, true);
+    const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(dir, basename(document.uri)), false, false, true);
     // 書き込みは、変更の通知が続けて何回か届くことがあるので、まとめて 1 回調べる
     const schedule = () => {
       clearTimeout(this.timer);
@@ -105,7 +109,7 @@ class DiskChangeWatcher {
   async notify() {
     this.notifying = true;
     const revert = vscode.l10n.t('Revert File');
-    const name = path.posix.basename(this.document.uri.path);
+    const name = basename(this.document.uri);
     try {
       const choice = await vscode.window.showWarningMessage(
         vscode.l10n.t('Hushmark: {0} was changed on disk. It has unsaved changes, so the changes on disk were not loaded.', name),
