@@ -4,7 +4,8 @@
 //     full      編集・表・検索・同期などを細かく確かめる（run.mjs。Linux の CI で実行する）
 //     smoke     主な操作と OS ごとのキー操作を短く確かめる（smoke.mjs。macOS と Windows の CI で実行する）
 //     readonly  読み取り専用のファイルで編集できないことを確かめる（readonly.mjs）
-//     all       full と readonly
+//     restore   ウィンドウを再読み込みしても、カーソルとスクロールの位置が戻ることを確かめる（restore.mjs）
+//     all       full と readonly と restore
 //   オプション:
 //     --keep           最後のテストの後も VSCode を閉じない（screenshot.mjs などで続けて調べるとき）
 //     --vsix <path>    開発中のフォルダではなく、この .vsix をインストールして試す
@@ -35,8 +36,9 @@ const SUITES = {
   full: { script: 'run.mjs' },
   smoke: { script: 'smoke.mjs' },
   readonly: { script: 'readonly.mjs', readOnly: true, settings: { 'files.readonlyFromPermissions': true } },
+  restore: { script: 'restore.mjs' },
 };
-const names = positionals[0] === 'all' ? ['full', 'readonly'] : positionals;
+const names = positionals[0] === 'all' ? ['full', 'readonly', 'restore'] : positionals;
 if (names.length !== 1 && positionals[0] !== 'all') throw new Error(`テストを 1 つ指定する: ${Object.keys(SUITES).join(' | ')} | all`);
 for (const name of names) if (!SUITES[name]) throw new Error(`知らないテスト: ${name}`);
 if (options.remote && names.includes('readonly')) throw new Error('readonly は --remote では実行できない');
