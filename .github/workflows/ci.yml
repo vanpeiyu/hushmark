@@ -1,4 +1,5 @@
 # 単体テストと E2E テスト。E2E は Linux ではすべて、macOS と Windows ではスモークテストだけを実行する。
+# Web 版の VSCode でのスモークテストは Linux だけで実行する。
 name: CI
 
 on:
@@ -38,6 +39,15 @@ jobs:
       - name: E2E (all)
         if: runner.os == 'Linux'
         run: xvfb-run -a npm run test:e2e -- all
+      # Web 版の VSCode（vscode.dev など）で動くかを、ブラウザー版の VSCode で確かめる
+      - uses: actions/cache@v6
+        if: runner.os == 'Linux'
+        with:
+          path: .vscode-test-web
+          key: vscode-web-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Web (smoke)
+        if: runner.os == 'Linux'
+        run: npx playwright install-deps chromium && npm run test:web
       - name: E2E (smoke)
         if: runner.os != 'Linux'
         run: npm run test:e2e -- smoke
@@ -49,3 +59,5 @@ jobs:
           path: |
             .e2e/vscode.log
             .e2e/ud/logs
+            .e2e/web/failure.png
+            .e2e/web/console.log
