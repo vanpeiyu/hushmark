@@ -53,7 +53,8 @@
     "test:e2e:docker": "docker build -q -t hushmark-e2e -f test/e2e/Dockerfile . && docker run --rm --init --shm-size=1g hushmark-e2e",
     "vscode:prepublish": "npm run build",
     "package": "vsce package --no-dependencies",
-    "test:web": "npm run build && node test/web/smoke.mjs"
+    "test:web": "npm run build && node test/web/smoke.mjs",
+    "demo": "docker build -q -t hushmark-e2e -f test/e2e/Dockerfile . && mkdir -p docs/images && docker run --rm --init --shm-size=1g -v \"$PWD/docs/images:/out\" --entrypoint xvfb-run hushmark-e2e -a -s \"-screen 0 1600x1000x24\" sh -c \"npm run build && node test/demo/record.mjs --out /out/demo.gif\""
   },
   "contributes": {
     "customEditors": [
@@ -373,7 +374,10 @@
     "@vscode/test-electron": "^3.1.0",
     "@vscode/test-web": "^0.0.81",
     "@vscode/vsce": "^4.0.0",
-    "esbuild": "^0.25.0"
+    "esbuild": "^0.25.0",
+    "gifenc": "^1.0.3",
+    "omggif": "^1.0.10",
+    "pngjs": "^7.0.0"
   },
   "l10n": "./l10n"
 }

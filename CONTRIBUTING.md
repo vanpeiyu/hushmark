@@ -59,7 +59,8 @@ code --extensionDevelopmentPath="$PWD" <試す Markdown ファイル>
 npm run test:e2e -- full       # 編集・表・検索・同期などを細かく確かめる
 npm run test:e2e -- smoke      # 主な操作と、OS ごとに違うキー操作を短く確かめる
 npm run test:e2e -- readonly   # 読み取り専用のファイルで編集できないことを確かめる
-npm run test:e2e -- all        # full と readonly
+npm run test:e2e -- restore    # ウィンドウを再読み込みしても、カーソルとスクロールの位置が戻ることを確かめる
+npm run test:e2e -- all        # full と readonly と restore
 ```
 
 テストごとに VSCode を起動し、終わると閉じます。次のオプションがあります。
@@ -104,6 +105,12 @@ CI（GitHub Actions）では、Linux で `all` と Web 版のテストを、macO
 `npm run test:web`（`test/web/smoke.mjs`）は、@vscode/test-web でブラウザー版の VSCode を起動し、Playwright の Chromium（画面なし）で操作します。ファイルを開くこと、見出しと表の表示、追記と保存を確かめます。
 
 作業フォルダ（`.e2e/web`）は、VSCode からは読み取り専用に見えます。保存した内容はブラウザーの中に残り、ファイルには書き込まれません。そのため、ほかのツールでの変更の反映は確かめられません。失敗したときは、画面を `.e2e/web/failure.png` に、ブラウザーのエラーを `.e2e/web/console.log` に残します。
+
+## README の GIF
+
+README の GIF（`docs/images/demo.gif`）は、`npm run demo` で録り直します。E2E テストと同じく VSCode を起動して操作し（`test/demo/record.mjs`）、操作ごとに撮った画面をつないで GIF にします。フォントによって見た目が変わらないよう、E2E テストの Docker のイメージ（`hushmark-e2e`）の中で録ります。操作や文書を変えたときは、`--frames <フォルダ>` を付けて `node test/demo/record.mjs` を実行すると、撮った画面を PNG でも書き出すので、それで確かめます。
+
+README は英語（`README.md`）と日本語（`README.ja.md`）の 2 つです。内容を変えるときは両方を直します。
 
 ## 変更の取り込み
 

@@ -92,6 +92,9 @@ class LiveEditorProvider {
           case 'openLink': openLink(message.href, document.uri, webview, this); break;
           case 'log': log('[webview]', message.text); break;
           case 'findInFiles': findInFiles(message); break;
+          case 'resolveImage':
+            resolveImage(message.href, document.uri).then((src) => webview.postMessage({ type: 'image', id: message.id, src }));
+            break;
         }
       }),
       vscode.workspace.onDidChangeTextDocument((event) => {
@@ -385,6 +388,49 @@ async function findInFiles({ query, replace }) {
   await vscode.commands.executeCommand(command, query ? { query, triggerSearch: true } : undefined);
 }
 
+/** リンク先のファイルのパス（URL のエンコードのまま）を、文書からの相対パスか絶対パスとして URI にする */
+function fileTarget(rawFile, documentUri) {
+  const filePart = decodeURIComponent(rawFile);
+  if (!/^([a-z]:)?[\\/]/i.test(filePart)) return vscode.Uri.joinPath(documentUri, '..', filePart);
+  if (documentUri.scheme === 'file') return vscode.Uri.file(filePart);
+  // Remote-SSH などでは、文書と同じリモートの絶対パスとして開く
+  return documentUri.with({ path: filePart.replace(/\\/g, '/'), query: '', fragment: '' });
+}
+
+/** 画像の種類（拡張子ごと） */
+const IMAGE_TYPES = {
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
+  svg: 'image/svg+xml', bmp: 'image/bmp', ico: 'image/x-icon', avif: 'image/avif',
+};
+/** 浮かせて表示する画像の大きさの上限 */
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+
+/**
+ * 画像のリンク先を、Webview の img に渡せる形にする。https と data: はそのまま使う。ファイルは workspace.fs で
+ * 読んで data: URL にする（Remote-SSH や Web 版の VSCode でも、Webview から直接は読めない場所にあるため）。
+ * 表示できないもの（画像でないファイル、大きすぎるもの、読めないもの）は null
+ */
+async function resolveImage(rawHref, documentUri) {
+  if (typeof rawHref !== 'string') return null;
+  const href = normalizeHref(rawHref);
+  if (/^https:/i.test(href) || /^data:image\//i.test(href)) return href;
+  if (href === '' || (/^[a-z][a-z0-9+.-]*:/i.test(href) && !/^[a-z]:[\\/]/i.test(href))) return null;
+  try {
+    const target = fileTarget(href.split(/[?#]/)[0], documentUri);
+    const type = IMAGE_TYPES[(target.path.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase()];
+    if (!type) return null;
+    const stat = await vscode.workspace.fs.stat(target);
+    if (stat.size > MAX_IMAGE_BYTES) return null;
+    const bytes = await vscode.workspace.fs.readFile(target);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return `data:${type};base64,${btoa(binary)}`;
+  } catch (error) {
+    log('image not loaded', href, String(error));
+    return null;
+  }
+}
+
 /**
  * リンクを開く。#見出し は同じ Webview で見出しに移し、other.md#見出し は文書を開いてから見出しに移す
  * （Hushmark で開いたときだけ。テキストエディタは文書の先頭を表示する）
@@ -404,16 +450,7 @@ async function openLink(rawHref, documentUri, webview, provider) {
     }
     const [rawFile, ...rest] = href.split('#');
     const fragment = rest.join('#');
-    const filePart = decodeURIComponent(rawFile);
-    let target;
-    if (!/^([a-z]:)?[\\/]/i.test(filePart)) {
-      target = vscode.Uri.joinPath(documentUri, '..', filePart);
-    } else if (documentUri.scheme === 'file') {
-      target = vscode.Uri.file(filePart);
-    } else {
-      // Remote-SSH などでは、文書と同じリモートの絶対パスとして開く
-      target = documentUri.with({ path: filePart.replace(/\\/g, '/'), query: '', fragment: '' });
-    }
+    const target = fileTarget(rawFile, documentUri);
     if (fragment && /\.(md|markdown)$/i.test(target.path)) await provider.openWithAnchor(target, fragment);
     else await vscode.commands.executeCommand('vscode.open', target);
   } catch (error) {
@@ -434,7 +471,8 @@ function renderHtml(webview, media) {
     `style-src ${webview.cspSource} 'unsafe-inline'`,
     // 言語ごとの構文定義は分割したチャンクを動的に読み込む
     `script-src 'nonce-${nonce}' ${webview.cspSource}`,
-    `img-src ${webview.cspSource} data:`,
+    // 画像のリンクにマウスを載せたときの表示。ファイルは data: で渡し、Web 上の画像は https だけ読み込む
+    `img-src ${webview.cspSource} data: https:`,
     `font-src ${webview.cspSource}`,
   ].join('; ');
 

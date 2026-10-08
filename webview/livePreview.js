@@ -37,12 +37,13 @@ const previewField = StateField.define({
     return buildDecorations(state);
   },
   update(decorations, tr) {
-    if (tr.docChanged || tr.selection || tr.reconfigured ||
+    if (tr.docChanged || tr.reconfigured ||
         tr.effects.some((e) => e.is(setFocus)) ||
         tr.state.field(rawTables) !== tr.startState.field(rawTables) ||
         syntaxTree(tr.state) !== syntaxTree(tr.startState)) {
       return buildDecorations(tr.state);
     }
+    if (tr.selection) return rebuildAroundSelection(decorations, tr.startState, tr.state);
     return decorations;
   },
   provide: (field) => EditorView.decorations.from(field),
@@ -69,7 +70,71 @@ export function livePreview({ openLink } = {}) {
 // ---------------------------------------------------------------------------
 // 装飾の組み立て
 
-function buildDecorations(state) {
+/**
+ * カーソル（選択範囲）が動いただけのときは、動く前と後の行を含むブロックの装飾だけを作り直す。
+ * 記号を出すかどうかは、カーソルのある行と、それを含むブロック（コードブロックや表）で決まるため。
+ * 長い文書でも、カーソルの移動にかかる時間が文書の長さによらないようにする
+ */
+function rebuildAroundSelection(decorations, before, after) {
+  const spans = mergeSpans([...selectionSpans(before), ...selectionSpans(after)]);
+  const frontmatter = frontmatterRange(after.doc);
+  // フロントマターの行の装飾は、ブロックの単位では作り直せないので、全体を作り直す
+  if (frontmatter && spans.some((s) => s.from <= frontmatter.to)) return buildDecorations(after);
+  for (const span of spans) {
+    const rebuilt = [];
+    for (const cursor = buildDecorations(after, span).iter(); cursor.value; cursor.next()) {
+      rebuilt.push(cursor.value.range(cursor.from, cursor.to));
+    }
+    decorations = decorations.update({
+      filter: (from, to) => to < span.from || from > span.to,
+      filterFrom: span.from,
+      filterTo: span.to,
+      add: rebuilt,
+    });
+  }
+  return decorations;
+}
+
+/** 選択範囲のある行を含む、文書の直下のブロックの範囲。フォーカスがないときは、どの行も記号を出さないので空 */
+function selectionSpans(state) {
+  if (!state.field(focusField)) return [];
+  const tree = syntaxTree(state);
+  return state.selection.ranges.map((r) => {
+    let from = state.doc.lineAt(r.from).from;
+    let to = state.doc.lineAt(r.to).to;
+    for (const block of topLevelBlocks(tree, from, to)) {
+      from = Math.min(from, block.from);
+      to = Math.max(to, block.to);
+    }
+    return { from, to };
+  });
+}
+
+/** from から to に重なる、文書の直下のブロック */
+function topLevelBlocks(tree, from, to) {
+  const blocks = [];
+  for (let child = tree.topNode.firstChild; child; child = child.nextSibling) {
+    if (child.to < from) continue;
+    if (child.from > to) break;
+    blocks.push(child);
+  }
+  return blocks;
+}
+
+/** 重なる（接する）範囲をまとめる */
+function mergeSpans(spans) {
+  const sorted = spans.sort((a, b) => a.from - b.from);
+  const merged = [];
+  for (const span of sorted) {
+    const last = merged[merged.length - 1];
+    if (last && span.from <= last.to + 1) last.to = Math.max(last.to, span.to);
+    else merged.push({ ...span });
+  }
+  return merged;
+}
+
+/** 装飾を作る。span を渡したときは、その範囲にある文書の直下のブロックの装飾だけを作る */
+function buildDecorations(state, span = null) {
   const doc = state.doc;
   let linkDefinitionsCache = null;
   const definitions = () => (linkDefinitionsCache ??= linkDefinitions(state));
@@ -111,13 +176,17 @@ function buildDecorations(state) {
   };
   const nextIsSpace = (pos) => doc.sliceString(pos, pos + 1) === ' ';
 
-  const frontmatter = frontmatterRange(doc);
+  const frontmatter = span ? null : frontmatterRange(doc);
   if (frontmatter) lineClass(frontmatter.from, frontmatter.to, 'cm-md-frontmatter');
 
   syntaxTree(state).iterate({
+    from: span ? span.from : 0,
+    to: span ? span.to : doc.length,
     enter(ref) {
       const { name, from, to } = ref;
       if (name === 'Document') return;
+      // span の外のブロック（範囲の端に接するだけのもの）には入らない
+      if (span && (to < span.from || from > span.to)) return false;
       if (frontmatter && from < frontmatter.to) return false;
       const node = ref.node;
       const parentName = node.parent ? node.parent.name : '';
@@ -283,9 +352,21 @@ function buildDecorations(state) {
           return;
         }
 
-        case 'Image':
-          mark('cm-md-image', from, to);
+        case 'Image': {
+          // 画像は描かずにソースのまま出す。マウスを載せると浮かせて表示し（imagePreview.js）、Ctrl+クリックで開く
+          const url = node.getChild('URL');
+          let href = url ? doc.sliceString(url.from, url.to) : null;
+          if (!href) {
+            const label = node.getChild('LinkLabel');
+            const marks = node.getChildren('LinkMark');
+            const name = label && label.to - label.from > 2
+              ? doc.sliceString(label.from + 1, label.to - 1)
+              : marks.length >= 2 ? doc.sliceString(marks[0].to, marks[1].from) : '';
+            href = definitions().get(normalizeLabel(name)) ?? null;
+          }
+          mark('cm-md-image', from, to, href === null ? undefined : { 'data-image-src': href, 'data-href': href });
           return false;
+        }
 
         case 'Autolink': {
           const url = node.getChild('URL');

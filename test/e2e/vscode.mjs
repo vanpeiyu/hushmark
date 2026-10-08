@@ -32,10 +32,11 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * @param {string} [options.locale] VSCode の表示言語（例 'ja'）。言語パックをインストールして使う
  * @param {string} [options.remote] Remote-SSH の接続先（ssh のホスト名）。接続先の /tmp/hushmark-e2e/sample.md を開く。
  *   拡張は接続先にインストールしたものを使う
+ * @param {{ name: string, text: string }} [options.document] sample.md の代わりに開く文書（README の GIF を録るときなど）
  * @returns {Promise<{ sample: string, port: number, close: () => Promise<void> }>} sample は開いたファイルのパス
  *   （remote のときは接続先のパス）
  */
-export async function launch({ workDir, version = VSCODE_VERSION, readOnly = false, settings = {}, vsix, locale, remote }) {
+export async function launch({ workDir, version = VSCODE_VERSION, readOnly = false, settings = {}, vsix, locale, remote, document }) {
   const userDataDir = path.join(workDir, 'ud');
   const extensionsDir = path.join(workDir, 'ext');
   // VSCode はプロファイルのフォルダにソケットを作る。ソケットのパスの上限（macOS では 103 バイト）を超えると起動しない
@@ -66,8 +67,8 @@ export async function launch({ workDir, version = VSCODE_VERSION, readOnly = fal
   }, null, 2));
 
   // 改行を CRLF にして、保存しても改行コードが変わらないことを確かめる
-  const sample = path.join(docs, 'sample.md');
-  fs.writeFileSync(sample, fs.readFileSync(path.join(here, 'sample.md'), 'utf8').replace(/\r?\n/g, '\r\n'));
+  const sample = path.join(docs, document ? document.name : 'sample.md');
+  fs.writeFileSync(sample, (document ? document.text : fs.readFileSync(path.join(here, 'sample.md'), 'utf8')).replace(/\r?\n/g, '\r\n'));
   if (readOnly) fs.chmodSync(sample, 0o444);
 
   const installExtension = (id) => {
