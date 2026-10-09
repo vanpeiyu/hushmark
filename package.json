@@ -161,7 +161,7 @@
             "%config.previewColor.mono%",
             "%config.previewColor.custom%"
           ],
-          "default": "mono",
+          "default": "green",
           "order": 2,
           "description": "%config.previewColor%"
         },
