@@ -2,7 +2,7 @@
 
 const vscode = require('vscode');
 const { rebaseChanges } = require('./textMerge');
-const { normalizeHref } = require('./links');
+const { markdownPath, normalizeHref, relativePath } = require('./links');
 const { watchDiskChanges } = require('./diskChanges');
 
 const VIEW_TYPE = 'hushmark.editor';
@@ -17,13 +17,15 @@ function log(...args) {
 }
 
 function activate(context) {
+  const provider = new LiveEditorProvider(context);
   context.subscriptions.push(
-    vscode.window.registerCustomEditorProvider(VIEW_TYPE, new LiveEditorProvider(context), {
+    vscode.window.registerCustomEditorProvider(VIEW_TYPE, provider, {
       webviewOptions: { retainContextWhenHidden: true },
       supportsMultipleEditorsPerDocument: true,
     }),
     vscode.commands.registerCommand('hushmark.open', (uri) => reopenWith(uri, VIEW_TYPE)),
     vscode.commands.registerCommand('hushmark.openSource', (uri) => reopenWith(uri, 'default')),
+    vscode.commands.registerCommand('hushmark.goToHeading', () => provider.goToHeading()),
   );
 }
 
@@ -48,6 +50,47 @@ class LiveEditorProvider {
     this.webviews = new Map();
     /** 開こうとしている文書の、移す先の見出し。Webview の準備ができたときに渡す */
     this.pendingAnchors = new Map();
+  }
+
+  /**
+   * 見出しの一覧を出し、選んだ見出しに移る（テキストエディタの Go to Symbol in Editor に当たる）。
+   * 一覧で見出しを選んでいる間はその見出しを画面に出し、選ばずに閉じたら元の位置に戻す
+   */
+  async goToHeading() {
+    const entry = [...this.webviews.values()].flatMap((set) => [...set]).find((e) => e.panel.active);
+    if (!entry) return;
+    const webview = entry.panel.webview;
+    const id = this.nextRequestId = (this.nextRequestId || 0) + 1;
+    const headings = await new Promise((resolve) => {
+      entry.pending = { id, resolve };
+      webview.postMessage({ type: 'requestHeadings', id });
+      setTimeout(() => resolve(null), 3000);
+    });
+    if (!headings) return;
+    const minLevel = Math.min(...headings.map((h) => h.level));
+    const pick = vscode.window.createQuickPick();
+    pick.items = headings.map((h) => ({
+      label: `${'\u2003'.repeat(h.level - minLevel)}${h.text}`,
+      description: `H${h.level}`,
+      heading: h,
+    }));
+    pick.matchOnDescription = false;
+    let accepted = false;
+    pick.onDidChangeActive(([item]) => {
+      if (item) webview.postMessage({ type: 'revealPos', pos: item.heading.pos, focus: false });
+    });
+    pick.onDidAccept(() => {
+      const [item] = pick.selectedItems;
+      if (!item) return;
+      accepted = true;
+      webview.postMessage({ type: 'revealPos', pos: item.heading.pos, focus: true });
+      pick.hide();
+    });
+    pick.onDidHide(() => {
+      if (!accepted) webview.postMessage({ type: 'restoreView' });
+      pick.dispose();
+    });
+    pick.show();
   }
 
   /** 文書を開き、Hushmark で開いたときは見出しに移す */
@@ -90,10 +133,19 @@ class LiveEditorProvider {
             break;
           case 'edit': session.enqueue(message); break;
           case 'openLink': openLink(message.href, document.uri, webview, this); break;
+          case 'headings':
+            if (entry.pending && entry.pending.id === message.id) entry.pending.resolve(Array.isArray(message.items) ? message.items : []);
+            break;
           case 'log': log('[webview]', message.text); break;
           case 'findInFiles': findInFiles(message); break;
           case 'resolveImage':
             resolveImage(message.href, document.uri).then((src) => webview.postMessage({ type: 'image', id: message.id, src }));
+            break;
+          case 'pasteImages':
+            pasteImages(message.images, document.uri).then((text) => webview.postMessage({ type: 'insertResult', id: message.id, text }));
+            break;
+          case 'linkFiles':
+            webview.postMessage({ type: 'insertResult', id: message.id, text: linkFiles(message.uris, document.uri) });
             break;
         }
       }),
@@ -318,7 +370,7 @@ function editorOptions(document) {
 function styleOptions(config) {
   return {
     look: oneOf(config.get('previewStyle'), STYLES, 'soft'),
-    color: oneOf(config.get('previewColor'), COLORS, 'mono'),
+    color: oneOf(config.get('previewColor'), COLORS, 'green'),
     colorScheme: oneOf(config.get('previewColorScheme'), COLOR_SCHEMES, 'auto'),
     customColor: /^#[0-9a-f]{6}$/i.test(config.get('previewCustomColor') || '') ? config.get('previewCustomColor') : '#3366cc',
     colorCustomizations: plainObject(config.get('colorCustomizations')),
@@ -380,6 +432,70 @@ function webviewStrings() {
 function documentText(document) {
   const text = document.getText();
   return document.eol === vscode.EndOfLine.CRLF ? text.replace(/\r\n/g, '\n') : text;
+}
+
+/** 貼り付けた画像の種類ごとの拡張子 */
+const IMAGE_MIME_EXTENSIONS = {
+  'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/svg+xml': 'svg', 'image/bmp': 'bmp',
+};
+
+/**
+ * 貼り付けた（ドロップした）画像を文書と同じフォルダーに保存し、画像のリンクの Markdown を返す。
+ * VSCode の Markdown のテキストエディタの既定と同じく、名前は image.png（あれば image-1.png など）にする。
+ * 保存先のない文書（まだ保存していない文書）や、保存できなかったときは null
+ */
+async function pasteImages(images, documentUri) {
+  if (!Array.isArray(images) || documentUri.scheme === 'untitled') return null;
+  const dir = vscode.Uri.joinPath(documentUri, '..');
+  const links = [];
+  try {
+    for (const { data, type, name } of images) {
+      const ext = IMAGE_MIME_EXTENSIONS[type];
+      if (!ext || typeof data !== 'string') continue;
+      const base = (typeof name === 'string' && name.replace(/\.[^.]*$/, '').replace(/[\\/:*?"<>|]/g, '').trim()) || 'image';
+      let target;
+      for (let n = 0; ; n++) {
+        target = vscode.Uri.joinPath(dir, `${base}${n ? `-${n}` : ''}.${ext}`);
+        if (!(await exists(target))) break;
+      }
+      await vscode.workspace.fs.writeFile(target, Uint8Array.from(atob(data), (c) => c.charCodeAt(0)));
+      links.push(`![${base}](${markdownPath(relativePath(dir.path, target.path))})`);
+    }
+  } catch (error) {
+    log('paste image failed', String(error));
+    vscode.window.showWarningMessage(vscode.l10n.t('Could not save the pasted image: {0}', String(error.message || error)));
+  }
+  return links.length ? links.join(' ') : null;
+}
+
+async function exists(uri) {
+  try {
+    await vscode.workspace.fs.stat(uri);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** エクスプローラーからドロップしたファイルへのリンクの Markdown。画像は画像のリンクにする */
+function linkFiles(uris, documentUri) {
+  if (!Array.isArray(uris)) return null;
+  const dir = vscode.Uri.joinPath(documentUri, '..');
+  const links = [];
+  for (const raw of uris) {
+    let uri;
+    try {
+      uri = vscode.Uri.parse(String(raw).trim(), true);
+    } catch {
+      continue;
+    }
+    const sameRoot = uri.scheme === dir.scheme && uri.authority === dir.authority;
+    const target = markdownPath(sameRoot ? relativePath(dir.path, uri.path) : uri.toString());
+    const name = uri.path.slice(uri.path.lastIndexOf('/') + 1);
+    const ext = (name.match(/\.([a-z0-9]+)$/i) || [])[1];
+    links.push(ext && IMAGE_TYPES[ext.toLowerCase()] ? `![${name.replace(/\.[^.]*$/, '')}](${target})` : `[${name}](${target})`);
+  }
+  return links.length ? links.join(' ') : null;
 }
 
 /** Ctrl+Shift+F / Ctrl+Shift+H。テキストエディタと同じく、選択中の文字列を検索語にして開く */

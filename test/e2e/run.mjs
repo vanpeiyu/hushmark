@@ -6,6 +6,7 @@
 import { ALT, MOD, SHIFT, click, isMac, press, sleep, type } from './cdp.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { openSession } from './session.mjs';
 
 const {
@@ -781,4 +782,62 @@ const emojiHead = await web('__hushmarkView.state.selection.main.head');
 // 1 行目の 6 桁目は「😀😀ab」の後ろ（UTF-16 で 6 文字目）
 check('絵文字を含む行へ ↑: 絵文字を 2 桁と数えて桁を保つ', emojiHead === 6, emojiHead);
 
+// 32. Ctrl+Shift+O で見出しの一覧を出し、選んだ見出しに移る。選ばずに閉じたら元の位置に戻る
+await loadDoc(['# 最初', '', ...Array.from({ length: 60 }, (_, i) => `行 ${i + 1}`), '', '## 二つ目の見出し', '', '後']);
+await clickPos(0);
+const pickState = () => cdp.evaluateIn(mainCtx, `JSON.stringify((() => {
+  const w = document.querySelector('.quick-input-widget');
+  const open = !!w && getComputedStyle(w).display !== 'none';
+  return { open, items: open ? [...w.querySelectorAll('.monaco-list-row')].map((r) => r.textContent) : [] };
+})())`).then(JSON.parse);
+await press(cdp, 'o', MOD | SHIFT);
+await sleep(800);
+const picked = await pickState();
+check('Ctrl+Shift+O: 見出しの一覧を出す', picked.open && picked.items.length === 2 && picked.items[1].includes('二つ目の見出し'), picked);
+await press(cdp, 'Escape');
+await sleep(500);
+check('見出しの一覧を選ばずに閉じると、カーソルは元の位置', (await web('__hushmarkView.state.selection.main.head')) === 0);
+await press(cdp, 'o', MOD | SHIFT);
+await sleep(800);
+await type(cdp, '二つ目');
+await sleep(500);
+await press(cdp, 'Enter');
+await sleep(800);
+const headingLine = await web('__hushmarkView.state.doc.lineAt(__hushmarkView.state.selection.main.head).text');
+check('見出しの一覧で選ぶと、その見出しに移る', headingLine === '## 二つ目の見出し', headingLine);
+check('見出しに移った後は、エディタにフォーカスがある', await web('__hushmarkView.hasFocus'));
+
+// 33. 画像を貼り付けると、文書と同じフォルダーに保存して画像のリンクを入れる。エクスプローラーから
+// ドロップしたファイルには、相対パスのリンクを入れる
+if (!remote) {
+  const dir = path.dirname(file);
+  fs.rmSync(path.join(dir, 'shot.png'), { force: true });
+  await loadDoc(['貼る: ', '', '後']);
+  await web(`(() => {
+    const v = __hushmarkView;
+    v.focus();
+    v.dispatch({ selection: { anchor: v.state.doc.line(1).to } });
+    const data = new DataTransfer();
+    data.items.add(new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'shot.png', { type: 'image/png' }));
+    v.contentDOM.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  })()`);
+  await sleep(800);
+  doc = await checkInSync('画像の貼り付け');
+  check('画像を貼り付けると、保存して画像のリンクを入れる', doc.startsWith('貼る: ![shot](shot.png)') &&
+    fs.existsSync(path.join(dir, 'shot.png')), doc.split('\n')[0]);
+
+  fs.mkdirSync(path.join(dir, 'sub dir'), { recursive: true });
+  const dropped = pathToFileURL(path.join(dir, 'sub dir', 'other.md')).href;
+  await loadDoc(['落とす', '', '後']);
+  await web(`(() => {
+    const v = __hushmarkView;
+    const c = v.coordsAtPos(v.state.doc.line(1).to);
+    const data = new DataTransfer();
+    data.setData('text/uri-list', ${JSON.stringify(dropped)});
+    v.contentDOM.dispatchEvent(new DragEvent('drop', { dataTransfer: data, clientX: c.right + 2, clientY: (c.top + c.bottom) / 2, bubbles: true, cancelable: true }));
+  })()`);
+  await sleep(800);
+  doc = await checkInSync('ファイルのドロップ');
+  check('ドロップしたファイルに、相対パスのリンクを入れる', doc.startsWith('落とす[other.md](<sub dir/other.md>)'), doc.split('\n')[0]);
+}
 finish();

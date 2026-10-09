@@ -87,10 +87,13 @@ The keyboard shortcuts are the same as in the VS Code editor. Elsewhere in this 
 |---|---|---|
 | Ctrl+F / Ctrl+H | Cmd+F / Cmd+Option+F | Find / replace in the editor (see "Find" below) |
 | Ctrl+Shift+F / Ctrl+Shift+H | Cmd+Shift+F / Cmd+Shift+H | Search / replace in VS Code's folder. The selected text becomes the search term |
+| Ctrl+Shift+O | Cmd+Shift+O | Shows the list of headings and moves to the one you choose (like "Go to Symbol in Editor" in the text editor). The view follows the highlighted heading, and closing the list without choosing returns to the original position |
 | Ctrl+B | Cmd+B | Bold |
 | Ctrl+I | Cmd+I | Italic |
 | Alt+Z | Option+Z | Toggle word wrap |
 | Paste a URL over selected text | Same | Turns the selected text into a link to that URL (`[text](URL)`), as in VS Code's Markdown text editor |
+| Paste an image (Ctrl+V) | Same | Saves it as `image.png` (or `image-1.png` and so on if it exists) in the folder of the document and inserts an image link. When text was copied together with the image (such as Excel cells), the text is pasted |
+| Drop from the Explorer while holding Shift | Same | Inserts a link to the file with a relative path (an image link for images). Images dropped from your OS file manager are saved and linked in the same way as pasted images |
 | The key after Ctrl+K | The key after Cmd+K | Passed to VS Code as a chord (such as Ctrl+K Z) and not typed as a character |
 
 The same keys work while you edit a table cell.
@@ -138,7 +141,7 @@ Choose the look with two settings: the preview style and the color. Any combinat
 | Setting | Description |
 |---|---|
 | `hushmark.previewStyle` | Preview style. `soft` (default) is a friendly look with rounded shapes and colored rules and fills; `minimal` uses almost no color or fills; `reference` labels headings with tags such as "H1" and frames tables and code |
-| `hushmark.previewColor` | Preview color: `green`, `cyan`, `blue`, `purple`, `pink`, `orange`, `sepia`, `mono` (monochrome, default), or `custom` |
+| `hushmark.previewColor` | Preview color: `green` (default), `cyan`, `blue`, `purple`, `pink`, `orange`, `sepia`, `mono` (monochrome), or `custom` |
 | `hushmark.previewColorScheme` | Light or dark preview. `auto` (default) follows the VS Code theme. `light` and `dark` fix a light or dark background |
 | `hushmark.previewCustomColor` | The color for `custom` (`#rrggbb`, default `#3366cc`). The colors of each element are derived from its hue and saturation |
 | `hushmark.colorCustomizations` | Overrides the colors of individual elements (see "Overriding individual colors" below) |

@@ -1,6 +1,7 @@
 {
   "description": "A quiet Markdown live preview editor that expands only the elements your cursor touches",
   "command.open": "Open in Live Editor",
+  "command.goToHeading": "Go to Heading...",
   "command.openSource": "Open in Text Editor",
   "config.previewStyle": "Preview style.",
   "config.previewStyle.soft": "Soft",

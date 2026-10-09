@@ -87,10 +87,13 @@
 |---|---|---|
 | Ctrl+F / Ctrl+H | Cmd+F / Cmd+Option+F | エディタ内の検索 / 置換（下の「検索」を参照） |
 | Ctrl+Shift+F / Ctrl+Shift+H | Cmd+Shift+F / Cmd+Shift+H | VSCode のフォルダー内の検索 / 置換。選択中の文字列を検索語にする |
+| Ctrl+Shift+O | Cmd+Shift+O | 見出しの一覧を出し、選んだ見出しに移る（テキストエディタの「Go to Symbol in Editor」に当たる）。一覧で選んでいる間はその見出しを表示し、選ばずに閉じると元の位置に戻る |
 | Ctrl+B | Cmd+B | 太字 |
 | Ctrl+I | Cmd+I | 斜体 |
 | Alt+Z | Option+Z | 折り返しの切り替え |
 | 文字列を選んで URL を貼り付け | 同じ | 選んだ文字列を、その URL へのリンク（`[文字列](URL)`）にする（VSCode の Markdown のテキストエディタと同じ） |
+| 画像を貼り付け（Ctrl+V） | 同じ | 文書と同じフォルダーに `image.png`（あれば `image-1.png` など）として保存し、画像のリンクを入れる。文字列も一緒にコピーしたもの（Excel のセルなど）は、文字列として貼り付ける |
+| Shift を押しながらエクスプローラーからドロップ | 同じ | そのファイルへの相対パスのリンクを入れる（画像は画像のリンク）。OS のファイルマネージャーからドロップした画像は、貼り付けと同じく保存してリンクを入れる |
 | Ctrl+K の後のキー | Cmd+K の後のキー | VSCode の 2 つ打ちのキー（Ctrl+K Z など）として VSCode に渡し、文字としては入力しない |
 
 表のセルを編集している間も、同じキーを使えます。
@@ -138,7 +141,7 @@ VSCode のエディタの検索ウィジェットと同じく、右上に表示�
 | 設定 | 内容 |
 |---|---|
 | `hushmark.previewStyle` | プレビューのスタイル。`soft`（ソフト、既定）は丸い形と色の付いた線や面で親しみやすい見た目、`minimal`（ミニマル）は色と面をほとんど使わない見た目、`reference`（リファレンス）は見出しに「H1」などの札を付け、表やコードを枠で区切る見た目 |
-| `hushmark.previewColor` | プレビューの色。`green`（グリーン）・`cyan`（シアン）・`blue`（ブルー）・`purple`（パープル）・`pink`（ピンク）・`orange`（オレンジ）・`sepia`（セピア）・`mono`（モノクロ、既定）・`custom`（カスタム） |
+| `hushmark.previewColor` | プレビューの色。`green`（グリーン、既定）・`cyan`（シアン）・`blue`（ブルー）・`purple`（パープル）・`pink`（ピンク）・`orange`（オレンジ）・`sepia`（セピア）・`mono`（モノクロ）・`custom`（カスタム） |
 | `hushmark.previewColorScheme` | プレビューの明暗。`auto`（既定）は VSCode のテーマに合わせる。`light` と `dark` は、明るい地と暗い地に固定する |
 | `hushmark.previewCustomColor` | `custom` のときの色（`#rrggbb`、既定 `#3366cc`）。この色の色相と鮮やかさを基準に、各要素の色を作る |
 | `hushmark.colorCustomizations` | 要素の色を個別に変える（下の「色を個別に変えるとき」を参照） |

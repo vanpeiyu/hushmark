@@ -18,6 +18,11 @@ test('headingAnchors: 強調・コード・リンクの記号を除き、重な�
   assert.deepEqual(anchorsOf(doc), ['bold-code', 'link-here', 'setext', 'dup', 'dup-1', 'escaped']);
 });
 
+test('headingAnchors: 見出しの文字列（記号を除く）と階層', () => {
+  const state = parsedState({ doc: '# **C#** 入門 #\n\nSub\n---\n', extensions: [markdownSupport()] });
+  assert.deepEqual(headingAnchors(state).map((h) => [h.text, h.level]), [['C# 入門', 1], ['Sub', 2]]);
+});
+
 test('findAnchor: URL のエンコードと大文字を許す', () => {
   const state = parsedState({ doc: 'text\n\n## 日本語の見出し\n', extensions: [markdownSupport()] });
   assert.equal(findAnchor(state, encodeURIComponent('日本語の見出し')), 6);
