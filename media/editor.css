@@ -801,6 +801,10 @@ body.md-style-soft .cm-md-list-number {
 }
 
 /* 表は、見出しの行に淡いアクセントの面と、アクセントの下線 */
+body.md-style-soft {
+  --md-tdelim-band: var(--md-accent-bg);
+  --md-tdelim-rule: var(--md-accent-soft);
+}
 body.md-style-soft #editor .cm-line.cm-md-trow-head::before,
 body.md-style-soft #editor .cm-line.cm-md-trow-delim::before,
 body.md-style-soft .cm-md-trow-head > .cm-md-tcell,
@@ -871,6 +875,10 @@ body.md-style-minimal .cm-md-bullet::after {
 }
 
 /* 表は外枠と行の間の線を引かず、見出しの下の線だけ。見出しの行に面を敷かない */
+body.md-style-minimal {
+  --md-tdelim-band: transparent;
+  --md-tdelim-rule-width: 2px;
+}
 body.md-style-minimal .cm-md-table-block::after {
   content: none;
 }
@@ -948,6 +956,10 @@ body.md-style-reference .cm-md-trow > .cm-md-tpipe {
   background-size: 1px 100%;
   background-position: center;
   background-repeat: no-repeat;
+}
+body.md-style-reference #editor .cm-md-tdelim-hidden > .cm-md-tpipe {
+  background-image: linear-gradient(var(--md-border), var(--md-border)), var(--md-tdelim-fill);
+  background-size: 1px 100%, 100% 100%;
 }
 body.md-style-reference .cm-md-table-block > .cm-md-trow-body:nth-child(2n + 4)::before,
 body.md-style-reference .cm-md-table-block > .cm-md-trow-body:nth-child(2n + 4) > .cm-md-tcell,
@@ -1067,6 +1079,29 @@ body.md-style-reference .cm-md-table-block > .cm-md-trow-body:nth-child(2n + 4) 
 
 .cm-md-trow-last > .cm-md-tcell,
 .cm-md-trow-last > .cm-md-tpipe {
+  box-shadow: none;
+}
+
+/*
+ * カーソルがないときの区切りの行（|---|）。行の中ほどに太い線を引き、線より上を見出しの帯の色で塗る。
+ * 見出しの帯が 1 行半になり、見出しの文字が帯の上に寄って見えないようにする。
+ * 色と太さはスタイルごとに変数で決める（最後の節）。帯を塗らないスタイルは、線だけになる
+ */
+body {
+  --md-tdelim-band: var(--md-block-bg);
+  --md-tdelim-rule: var(--md-border-strong);
+  --md-tdelim-rule-width: 3px;
+  --md-tdelim-fill: linear-gradient(to bottom,
+    var(--md-tdelim-band) 0 calc(50% - var(--md-tdelim-rule-width) / 2),
+    var(--md-tdelim-rule) calc(50% - var(--md-tdelim-rule-width) / 2) calc(50% + var(--md-tdelim-rule-width) / 2),
+    transparent calc(50% + var(--md-tdelim-rule-width) / 2));
+}
+
+body #editor .cm-line.cm-md-trow-delim.cm-md-tdelim-hidden::before,
+#editor .cm-md-tdelim-hidden > .cm-md-tcell,
+#editor .cm-md-tdelim-hidden > .cm-md-tpipe {
+  background-color: transparent;
+  background-image: var(--md-tdelim-fill);
   box-shadow: none;
 }
 
