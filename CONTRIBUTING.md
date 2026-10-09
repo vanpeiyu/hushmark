@@ -117,7 +117,7 @@ README は英語（`README.md`）と日本語（`README.ja.md`）の 2 つです
 `main` には PR を通して取り込みます。ルールセットで、次の条件を満たさないとマージできないようにしています。
 
 - CI の 3 つのジョブ（`test (ubuntu-latest)`、`test (macos-latest)`、`test (windows-latest)`）が通っている
-- ブランチが `main` の先端を含んでいる（含んでいなければ、PR の「Update branch」で追従させ、CI を通し直す）
+- ブランチが `main` の先端を含んでいる（含んでいなければ、下のように rebase で追従させ、CI を通し直す）
 
 マージはマージコミットだけを使えるようにしています。マージした作業ブランチは自動で消えます。
 
@@ -128,6 +128,15 @@ git push -u origin <ブランチ>
 gh pr create --fill
 gh pr checks --watch
 gh pr merge --merge
+```
+
+ブランチを `main` に追従させるときは、`main` をマージせず、rebase します。`main` を取り込むマージコミットを作らず、`main` の履歴を PR ごとのマージコミットの並びに保つためです。PR の「Update branch」は `main` をマージするので使いません。
+
+```sh
+git fetch origin
+git rebase origin/main
+# 衝突したら、解消して git add し、git rebase --continue
+git push --force-with-lease
 ```
 
 ## リリース
