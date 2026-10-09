@@ -504,6 +504,39 @@ check('セルで Ctrl+F: セルで選んでいる文字列で検索を開く', c
 await press(cdp, 'Escape');
 await sleep(200);
 
+// 11b. Hushmark の操作のキーは、VSCode のキーボード ショートカットで変えられる（keybindings.json に書く）
+if (!remote) {
+  const keybindingsFile = path.join(path.dirname(file), '..', 'ud', 'User', 'keybindings.json');
+  fs.writeFileSync(keybindingsFile, JSON.stringify([{ key: 'ctrl+alt+u', mac: 'cmd+alt+u', command: 'hushmark.italic', when: 'hushmark.editorFocus' }]));
+  await sleep(1500); // VSCode がキーの設定を読み直すのを待つ
+  await loadDoc(['語を斜体に', '', '後']);
+  await selectText('斜体');
+  await press(cdp, 'u', MOD | ALT);
+  await sleep(300);
+  doc = await checkInSync('割り当てを変えたキー');
+  check('キーボード ショートカットで割り当てたキーで、Hushmark の操作を行う', doc.split('\n')[0] === '語を*斜体*に', doc.split('\n')[0]);
+  fs.writeFileSync(keybindingsFile, '[]');
+}
+
+// 11c. エディタの外（エクスプローラーなど）にフォーカスがあるときは、Ctrl+B は VSCode の操作（サイドバーの開閉）のまま
+await loadDoc(['太字にしない', '', '後']);
+await selectText('太字');
+const sidebarVisible = () => cdp.evaluateIn(mainCtx, "!!document.querySelector('.part.sidebar') && getComputedStyle(document.querySelector('.part.sidebar')).display !== 'none' && document.querySelector('.part.sidebar').getBoundingClientRect().width > 0");
+const sidebarBefore = await sidebarVisible();
+await cdp.evaluateIn(mainCtx, "document.querySelector('.part.statusbar').setAttribute('tabindex', '-1'), document.querySelector('.part.statusbar').focus()");
+await sleep(300);
+await press(cdp, 'b', MOD);
+await sleep(500);
+const sidebarAfter = await sidebarVisible();
+check('エディタの外にフォーカスがあるときの Ctrl+B: 文書は変えず、サイドバーを開閉する', (await webDoc()) === '太字にしない\n\n後' && sidebarAfter !== sidebarBefore, { sidebarBefore, sidebarAfter });
+// サイドバーを閉じると VSCode はフォーカスをエディタに戻すので、もう一度エディタの外に移してから元に戻す
+await cdp.evaluateIn(mainCtx, "document.querySelector('.part.statusbar').focus()");
+await sleep(300);
+await press(cdp, 'b', MOD);
+await sleep(500);
+check('サイドバーを元に戻しても、文書は変わらない', (await webDoc()) === '太字にしない\n\n後' && (await sidebarVisible()) === sidebarBefore);
+await clickPos(0);
+
 // 12. 長い表の中の文字列を検索すると、選んだ一致のセルが画面に見える（表の端へのスクロールにしない）
 const rows = Array.from({ length: 80 }, (_, i) => `| R${String(i + 1).padStart(2, '0')} | 行 ${i + 1} |`);
 const longTableDoc = ['# 長い表', '', '| 名前 | 内容 |', '|---|---|', ...rows, '', '後'];

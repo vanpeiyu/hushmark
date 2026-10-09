@@ -83,6 +83,8 @@ The keyboard shortcuts are the same as in the VS Code editor. Elsewhere in this 
 | Drop from the Explorer while holding Shift | Same | Inserts a link to the file with a relative path (an image link for images). Images dropped from your OS file manager are saved and linked in the same way as pasted images |
 | The key after Ctrl+K | The key after Cmd+K | Passed to VS Code as a chord (such as Ctrl+K Z) and not typed as a character |
 
+The keys for find, replace, bold, italic, and toggling word wrap can be changed in VS Code's Keyboard Shortcuts: search for "Hushmark".
+
 ### Find
 
 As with the find widget of the VS Code editor, it appears in the upper right.

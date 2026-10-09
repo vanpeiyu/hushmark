@@ -89,6 +89,41 @@
         "command": "hushmark.goToHeading",
         "title": "%command.goToHeading%",
         "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.bold",
+        "title": "%command.bold%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.italic",
+        "title": "%command.italic%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.toggleWordWrap",
+        "title": "%command.toggleWordWrap%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.find",
+        "title": "%command.find%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.replace",
+        "title": "%command.replace%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.findInFiles",
+        "title": "%command.findInFiles%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.replaceInFiles",
+        "title": "%command.replaceInFiles%",
+        "category": "Hushmark"
       }
     ],
     "menus": {
@@ -114,6 +149,34 @@
       "commandPalette": [
         {
           "command": "hushmark.goToHeading",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.bold",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.italic",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.toggleWordWrap",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.find",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.replace",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.findInFiles",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.replaceInFiles",
           "when": "activeCustomEditorId == hushmark.editor"
         }
       ]
@@ -371,6 +434,48 @@
         "key": "ctrl+shift+o",
         "mac": "cmd+shift+o",
         "when": "activeCustomEditorId == hushmark.editor"
+      },
+      {
+        "command": "hushmark.bold",
+        "key": "ctrl+b",
+        "mac": "cmd+b",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.italic",
+        "key": "ctrl+i",
+        "mac": "cmd+i",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.toggleWordWrap",
+        "key": "alt+z",
+        "mac": "alt+z",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.find",
+        "key": "ctrl+f",
+        "mac": "cmd+f",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.replace",
+        "key": "ctrl+h",
+        "mac": "cmd+alt+f",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.findInFiles",
+        "key": "ctrl+shift+f",
+        "mac": "cmd+shift+f",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.replaceInFiles",
+        "key": "ctrl+shift+h",
+        "mac": "cmd+shift+h",
+        "when": "hushmark.editorFocus"
       }
     ]
   },
