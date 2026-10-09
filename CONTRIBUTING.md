@@ -78,6 +78,8 @@ npm run test:e2e -- restore    # ウィンドウを再読み込みしても、�
 npm run test:e2e -- all        # full と readonly と restore
 ```
 
+起動する VSCode には、Hushmark と一緒に `test/e2e/fixture` の拡張機能を読み込みます。他の拡張機能（cSpell、markdownlint、Prettier など）の代わりに、決まった語に診断、クイックフィックス、補完、書式設定、リネーム、リンクを返します。Remote-SSH で試すときは読み込みません。
+
 テストごとに VSCode を起動し、終わると閉じます。次のオプションがあります。
 
 | オプション | 内容 |
