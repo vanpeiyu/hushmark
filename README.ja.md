@@ -27,21 +27,7 @@
 
 ## インストール
 
-[Releases](https://github.com/vanpeiyu/hushmark/releases) から `hushmark-<version>.vsix` をダウンロードしてインストールします。ソースから .vsix を作る方法は [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
-
-0.2.0 以前を入れている場合は、拡張の ID が `local.hushmark` から `vanpeiyu.hushmark` に変わったので、先に `code --uninstall-extension local.hushmark` でアンインストールします。設定はそのまま使えます。
-
-- 手元の VSCode には、コマンドパレットの「Extensions: Install from VSIX...」で .vsix を選ぶか、次のコマンドでインストールします。
-
-  ```sh
-  code --install-extension hushmark-<version>.vsix
-  ```
-
-- Remote-SSH で使う場合、拡張はファイルがあるリモート側で動くので、接続先にもインストールします。Remote-SSH で開いたウィンドウで「Extensions: Install from VSIX...」を使うか、接続先で次のコマンドを実行します（`<commit>` は `ls ~/.vscode-server/cli/servers/` で確かめます）。
-
-  ```sh
-  ~/.vscode-server/cli/servers/Stable-<commit>/server/bin/code-server --install-extension hushmark-<version>.vsix
-  ```
+[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=vanpeiyu.hushmark) または [Open VSX](https://open-vsx.org/extension/vanpeiyu/hushmark) からインストールします。
 
 ## 使い方
 
@@ -194,8 +180,6 @@ VSCode のハイコントラストのテーマを使っているときは、ど�
 ```sh
 code --uninstall-extension vanpeiyu.hushmark
 ```
-
-開発のために作るもの（テストに使う Docker のイメージなど）は、[CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
 
 ## 既知の制約
 

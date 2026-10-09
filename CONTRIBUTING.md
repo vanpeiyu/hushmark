@@ -19,6 +19,22 @@ npm run package    # .vsix を作る
 code --extensionDevelopmentPath="$PWD" <試す Markdown ファイル>
 ```
 
+## .vsix からのインストール
+
+開発中の版を試すときや、ストアを使えない環境では、`npm run package` で作った .vsix か、[Releases](https://github.com/vanpeiyu/hushmark/releases) の .vsix をインストールします。
+
+- 手元の VSCode には、コマンドパレットの「Extensions: Install from VSIX...」で .vsix を選ぶか、次のコマンドでインストールします。
+
+  ```sh
+  code --install-extension hushmark-<version>.vsix
+  ```
+
+- Remote-SSH で使う場合、拡張はファイルがあるリモート側で動くので、接続先にもインストールします。Remote-SSH で開いたウィンドウで「Extensions: Install from VSIX...」を使うか、接続先で次のコマンドを実行します（`<commit>` は `ls ~/.vscode-server/cli/servers/` で確かめます）。
+
+  ```sh
+  ~/.vscode-server/cli/servers/Stable-<commit>/server/bin/code-server --install-extension hushmark-<version>.vsix
+  ```
+
 ## 構成
 
 - `src/extension.js`：カスタムエディタの登録と、Webview と TextDocument の同期。デスクトップ版はこのまま読み込み、Web 版（vscode.dev など）は `dist/web/extension.js` にまとめたものを読み込む。Web 版でも動くよう、Node の API（`fs` など）は使わないか、使えないときの扱いを決めておく
