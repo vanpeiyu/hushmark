@@ -1086,6 +1086,7 @@ body.md-style-reference .cm-md-table tbody tr:nth-child(even) {
   display: flex;
   align-items: stretch;
   padding-left: 0;
+  padding-right: 0;
 }
 
 /*

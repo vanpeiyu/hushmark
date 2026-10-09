@@ -63,12 +63,16 @@ export function cellSpans(text) {
  */
 export function distributeWidths(columns, available) {
   const sumMax = columns.reduce((s, c) => s + c.max, 0);
-  if (!(available > 0) || sumMax <= available) return columns.map((c) => c.max);
+  if (!(available > 0) || sumMax <= available) return columns.map((c) => Math.ceil(c.max));
   const sumMin = columns.reduce((s, c) => s + c.min, 0);
-  if (sumMin >= available) return columns.map((c) => c.min);
+  if (sumMin >= available) return columns.map((c) => Math.ceil(c.min));
   const extra = available - sumMin;
   const flexible = sumMax - sumMin;
-  return columns.map((c) => c.min + (extra * (c.max - c.min)) / flexible);
+  // 整数の px にし、切り捨てた端数は最も広い列に足して、合計を表を置ける幅にそろえる（表の右端を行の右端に合わせる）
+  const widths = columns.map((c) => Math.floor(c.min + (extra * (c.max - c.min)) / flexible));
+  const widest = widths.indexOf(Math.max(...widths));
+  widths[widest] += Math.floor(available) - widths.reduce((s, w) => s + w, 0);
+  return widths;
 }
 
 /** 文書の中の表（引用やリストの中も含む） */
@@ -277,17 +281,14 @@ function availableWidth(view, layout) {
   const visible = view.scrollDOM.getBoundingClientRect().right - content.getBoundingClientRect().left;
   const inner = Math.min(content.clientWidth, visible) - padding;
   // 行の左右の余白と | の隙間の分を引く
-  // 表の行の左の余白は ::before の幅（editor.css）
+  // 表の行の左の余白は ::before の幅（editor.css）。右の余白は取らず、表が広いときは行の右端まで使う
   const line = content.querySelector('.cm-md-trow');
-  const lineStyle = line ? getComputedStyle(line) : null;
-  const linePad = lineStyle
-    ? parseFloat(lineStyle.paddingLeft) + parseFloat(lineStyle.paddingRight) + (parseFloat(getComputedStyle(line, '::before').width) || 0)
-    : 0;
+  const linePad = line ? parseFloat(getComputedStyle(line, '::before').width) || 0 : 0;
   const pipe = content.querySelector('.cm-md-tpipe');
   const pipeWidth = pipe ? pipe.getBoundingClientRect().width : 0;
   const head = layout.rows.find((r) => r.kind === 'head');
   const pipes = head ? head.pipes.length : layout.columns + 1;
-  return inner - linePad - pipes * pipeWidth - 1;
+  return inner - linePad - pipes * pipeWidth;
 }
 
 function computeWidths(view, layout) {
@@ -310,7 +311,7 @@ function computeWidths(view, layout) {
     // 短いセルしかない列は折り返さない
     columns.push({ min: short ? max : min, max });
   }
-  return distributeWidths(columns, availableWidth(view, layout)).map((w) => Math.ceil(w));
+  return distributeWidths(columns, availableWidth(view, layout));
 }
 
 const sameWidths = (a, b) => a && b && a.length === b.length && a.every((w, i) => w === b[i]);
