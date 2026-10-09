@@ -870,7 +870,10 @@ body.md-style-minimal .cm-md-bullet::after {
   content: "–";
 }
 
-/* 表は行の間の線を引かず、見出しの下の線だけ。見出しの行に面を敷かない */
+/* 表は外枠と行の間の線を引かず、見出しの下の線だけ。見出しの行に面を敷かない */
+body.md-style-minimal .cm-md-table-block::after {
+  content: none;
+}
 body.md-style-minimal #editor .cm-line.cm-md-trow-body::before,
 body.md-style-minimal .cm-md-trow-body > .cm-md-tcell,
 body.md-style-minimal .cm-md-trow-body > .cm-md-tpipe {
@@ -962,6 +965,30 @@ body.md-style-reference .cm-md-table-block > .cm-md-trow-body:nth-child(2n + 4) 
   align-items: stretch;
   padding-left: 0;
   padding-right: 0;
+  /* 表の文字は本文より少し小さくする。行の高さは本文と同じ */
+  font-size: 0.94em;
+}
+
+/* 表の外枠。角を丸めた細い線を、表の幅（--md-table-width、tableCells.js）で描く */
+.cm-md-table-block::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc(var(--md-table-width, 100%) + var(--md-line-pad));
+  max-width: 100%;
+  border-radius: var(--md-radius);
+  box-shadow: inset 0 0 0 1px var(--md-border);
+  pointer-events: none;
+}
+
+/* 見出しの行の面は、外枠の角に合わせて丸める */
+#editor .cm-line.cm-md-trow-head::before {
+  border-top-left-radius: var(--md-radius);
+}
+.cm-md-trow-head > span:last-of-type {
+  border-top-right-radius: var(--md-radius);
 }
 
 /*
@@ -1060,6 +1087,7 @@ body.md-style-reference .cm-md-table-block > .cm-md-trow-body:nth-child(2n + 4) 
  */
 .cm-md-tmeasure {
   position: absolute;
+  font-size: 0.94em;
   top: 0;
   left: 0;
   visibility: hidden;

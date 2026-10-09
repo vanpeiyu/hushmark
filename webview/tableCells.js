@@ -634,9 +634,9 @@ function moveRow(direction) {
     // セルの中身を選んでいるとき（Tab で移った後など）も、選んだ文字列を消さずにセルを移る
     const here = cellAt(state, sel.head);
     if (here && !sel.empty && state.doc.lineAt(sel.anchor).number !== here.row.line.number) return false;
-    if (!here || here.row.kind === 'delim') return false;
-    const { structure } = here;
-    const col = Math.max(0, here.col);
+    // セルの外（最後の | の後ろなど）では、テキストエディタと同じく改行する
+    if (!here || here.row.kind === 'delim' || here.col < 0) return false;
+    const { structure, col } = here;
     let index = here.rowIndex + direction;
     if (structure.rows[index] && structure.rows[index].kind === 'delim') index += direction;
     const target = structure.rows[index];

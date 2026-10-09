@@ -570,6 +570,12 @@ await clickPos(await cellPos('りんご', 3));
 for (let i = 0; i < 3; i++) await press(cdp, 'ArrowRight');
 await sleep(150);
 check('セルの末尾から → を 3 回: 次のセルの先頭（空白と | をまたぐ）', (await web('__hushmarkView.state.selection.main.head')) === (await cellPos('12')));
+// 最後の | の後ろで Enter を押すと、テキストエディタと同じく改行する（表の行を打ち足せる）
+await clickPos(await web('__hushmarkView.state.doc.line(3).to'));
+await press(cdp, 'Enter');
+await type(cdp, '| みかん | 3 |');
+doc = await checkInSync('表の行末で Enter');
+check('表の行末で Enter: 改行して次の行を打てる', doc.split('\n')[3] === '| みかん | 3 |' && doc.split('\n')[2] === '| りんご | 12 |', doc.split('\n').slice(2, 5));
 
 // 17. 表: ソースで省略されたセルは空の箱で列をそろえる。セルの中の裸の URL
 const sparseDoc = ['| h1 | h2 | h3 |', '|---|---|---|', '| https://example.com |', '', '後'];
