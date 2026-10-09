@@ -58,7 +58,7 @@
 
 | 設定 | 動き |
 |---|---|
-| `editor.fontFamily` | フォント |
+| `editor.fontFamily` / `editor.fontWeight` / `editor.fontLigatures` / `editor.letterSpacing` | フォント / 文字の太さ / 合字（既定の `false` では使わない） / 文字の間隔 |
 | `editor.fontSize` | 文字の大きさ |
 | `editor.lineHeight` | 行の高さ。`0`（既定）のときは、文字の大きさの 1.85 倍にする（日本語の文章に合わせ、VSCode の自動の 1.35 倍より広くする） |
 | `editor.lineNumbers` | 行番号。`off` で消え、`interval` で 10 行ごとになる。`relative` は `on` と同じ表示になる。表には、表の行ごとにその行の番号を出す |
@@ -70,6 +70,7 @@
 | `editor.multiCursorModifier` | カーソルを足すクリックの修飾キー。`alt`（既定）なら Alt+クリックでカーソルを足し、Ctrl+クリックでリンクを開く。`ctrlCmd` なら逆になる |
 | `editor.autoClosingBrackets` | `never` のとき、括弧（`(`、`[`、`{`、`<`）を自動で閉じない |
 | `editor.autoSurround` | 文字列を選んで記号（`*`、`` ` ``、`_`、`~`、括弧、引用符など）を打ったときに、選択範囲を囲むか |
+| `editor.cursorStyle` / `editor.cursorBlinking` / `editor.cursorWidth` / `editor.cursorSmoothCaretAnimation` | カーソルの形 / 点滅 / 太さ（`line` のとき） / 移動のアニメーション |
 | `editor.folding` / `editor.showFoldingControls` | 折りたたみ（見出しの節、リスト、引用、コードブロック）を使うか / 行番号の右の折りたたみの印をいつ出すか |
 
 キー操作は次のとおりで、VSCode のエディタと同じです。この README のほかの箇所では Windows と Linux のキーで書きます。macOS では、とくに断りがなければ Ctrl を Cmd に、Alt を Option に読み替えてください。

@@ -2,6 +2,7 @@
 
 ## 未リリース
 
+- VSCode のカーソルの設定（`editor.cursorStyle`、`editor.cursorBlinking`、`editor.cursorWidth`、`editor.cursorSmoothCaretAnimation`）と、文字の設定（`editor.fontWeight`、`editor.fontLigatures`、`editor.letterSpacing`）に従うようにしました。合字は、VSCode の既定と同じく既定では使いません。
 - 他の拡張機能の機能を使えるようにしました。診断（スペルミスなどの波線と、F8 での移動）、クイックフィックス（Ctrl+.）、補完、リネーム（F2）、ドキュメントの書式設定、ドキュメントリンクです。
 - 画像の貼り付けとファイルのドロップが、`markdown.copyFiles.destination` などの VSCode の Markdown の設定に従うようにしました。
 - VSCode のテキストエディタと同じキーで、行の操作（移動、コピー、削除、挿入、選択、インデント、コメント）、複数カーソル（Alt+クリック、Ctrl+D など）、矩形選択（Shift+Alt+ドラッグ）、選択範囲の拡大と縮小、折りたたみを使えるようにしました。
