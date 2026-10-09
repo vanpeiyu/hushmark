@@ -134,6 +134,10 @@ gh pr merge --merge
 
 `v` で始まるタグを push すると、`.github/workflows/release.yml` が .vsix を作り、Release に添付します。ノートは `CHANGELOG.md` の該当するバージョンの節から作ります。タグが `package.json` のバージョンと違う場合や、タグのコミットが `main` に含まれない場合は失敗します。
 
+GitHub の Secrets に `OVSX_PAT`（open-vsx.org の「Access Tokens」で作るトークン）があれば、同じ .vsix を Open VSX にも公開します（名前空間は `vanpeiyu`）。
+
+Visual Studio Marketplace へは、ワークフローが終わった後に、Release に付いた .vsix を publisher の管理画面（https://marketplace.visualstudio.com/manage/publishers/vanpeiyu ）に手で上げます。初めての公開は「New extension」の「Visual Studio Code」から、2 回目からは拡張の「...」の「Update」から上げます。自動で公開しないのは、トークン（Azure DevOps の Personal Access Token）が 2026 年 12 月 1 日に廃止され、代わりの Microsoft Entra ID での認証には Azure のサブスクリプションが要るためです。
+
 1. `package.json` と `package-lock.json` のバージョンを上げ（`npm version <version> --no-git-tag-version`）、`CHANGELOG.md` の `## 未リリース` の節を `## <version> - <日付>` に改めて、PR で `main` に取り込む。リリースまでの変更は、PR ごとに `## 未リリース` の節に書いておく
 2. `main` の先端にタグを付けて push する
 
@@ -142,6 +146,7 @@ gh pr merge --merge
    git tag -a v<version> -m "Hushmark <version>"
    git push origin v<version>
    ```
+3. ワークフローが終わったら、Release の .vsix を Visual Studio Marketplace の管理画面に上げる
 
 ## 開発で作るもの
 

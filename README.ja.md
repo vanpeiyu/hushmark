@@ -29,6 +29,8 @@
 
 [Releases](https://github.com/vanpeiyu/hushmark/releases) から `hushmark-<version>.vsix` をダウンロードしてインストールします。ソースから .vsix を作る方法は [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
 
+0.2.0 以前を入れている場合は、拡張の ID が `local.hushmark` から `vanpeiyu.hushmark` に変わったので、先に `code --uninstall-extension local.hushmark` でアンインストールします。設定はそのまま使えます。
+
 - 手元の VSCode には、コマンドパレットの「Extensions: Install from VSIX...」で .vsix を選ぶか、次のコマンドでインストールします。
 
   ```sh
@@ -182,13 +184,13 @@ VSCode のハイコントラストのテーマを使っているときは、ど�
 
 | もの | 場所 |
 |---|---|
-| インストールした拡張 | `~/.vscode/extensions/local.hushmark-<version>`（Remote-SSH の接続先では `~/.vscode-server/extensions/` の下） |
+| インストールした拡張 | `~/.vscode/extensions/vanpeiyu.hushmark-<version>`（Remote-SSH の接続先では `~/.vscode-server/extensions/` の下） |
 | 自分で書いた設定 | ユーザー設定の `workbench.editorAssociations` と `hushmark.*` |
 
 次のコマンドを実行し、ユーザー設定に `workbench.editorAssociations` の `"*.md": "hushmark.editor"` や `hushmark.*` を書いていれば消します。
 
 ```sh
-code --uninstall-extension local.hushmark
+code --uninstall-extension vanpeiyu.hushmark
 ```
 
 開発のために作るもの（テストに使う Docker のイメージなど）は、[CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。

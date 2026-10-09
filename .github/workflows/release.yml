@@ -1,4 +1,5 @@
 # v で始まるタグの push で、.vsix を作って Release に添付する。ノートは CHANGELOG.md の該当するバージョンの節から作る。
+# Secrets に OVSX_PAT があれば Open VSX にも公開する。Visual Studio Marketplace へは、Release の .vsix を手で上げる（CONTRIBUTING.md）。
 name: Release
 
 on:
@@ -11,6 +12,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # 公開の手順を、トークンがあるときだけ実行するため（if では secrets を直接参照できない）
+    env:
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -46,3 +50,6 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           gh release create "$GITHUB_REF_NAME" "hushmark-$version.vsix" --title "Hushmark $version" --notes-file notes.md --verify-tag
+      - name: Publish to Open VSX
+        if: env.OVSX_PAT != ''
+        run: npx --yes ovsx@1.2.0 publish "hushmark-${GITHUB_REF_NAME#v}.vsix" -p "$OVSX_PAT"
