@@ -111,9 +111,12 @@ const KEYS = {
   ArrowRight: { code: 'ArrowRight', keyCode: 39 },
   Escape: { code: 'Escape', keyCode: 27 },
   F1: { code: 'F1', keyCode: 112 },
+  F2: { code: 'F2', keyCode: 113 },
+  F8: { code: 'F8', keyCode: 119 },
   '[': { code: 'BracketLeft', keyCode: 219 },
   ']': { code: 'BracketRight', keyCode: 221 },
   '/': { code: 'Slash', keyCode: 191 },
+  '.': { code: 'Period', keyCode: 190 },
 };
 
 /** 修飾キーのビット */

@@ -110,6 +110,8 @@ export async function launch({ workDir, version = VSCODE_VERSION, readOnly = fal
     '--new-window',
     ...(locale ? [`--locale=${locale}`] : []),
     ...(vsix || remote ? [] : [`--extensionDevelopmentPath=${extensionRoot}`]),
+    // 他の拡張機能が Markdown に提供する機能の代わり（test/e2e/fixture）。Remote-SSH では手元に読み込まれないので使わない
+    ...(remote ? [] : [`--extensionDevelopmentPath=${path.join(here, 'fixture')}`]),
     ...target,
   ];
   const start = async () => {

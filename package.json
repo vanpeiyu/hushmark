@@ -249,6 +249,41 @@
         "command": "hushmark.gotoLine",
         "title": "%command.gotoLine%",
         "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.nextProblem",
+        "title": "%command.nextProblem%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.prevProblem",
+        "title": "%command.prevProblem%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.undefined",
+        "title": "%command.undefined%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.triggerSuggest",
+        "title": "%command.triggerSuggest%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.quickFix",
+        "title": "%command.quickFix%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.formatDocument",
+        "title": "%command.formatDocument%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.rename",
+        "title": "%command.rename%",
+        "category": "Hushmark"
       }
     ],
     "menus": {
@@ -403,6 +438,34 @@
         {
           "command": "hushmark.gotoLine",
           "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.nextProblem",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.prevProblem",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.undefined",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.triggerSuggest",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.quickFix",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.formatDocument",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.rename",
+          "when": "activeCustomEditorId == hushmark.editor"
         }
       ],
       "webview/context": [
@@ -420,6 +483,16 @@
           "command": "hushmark.bold",
           "when": "webviewId == 'hushmark.editor'",
           "group": "1_modification@1"
+        },
+        {
+          "command": "hushmark.rename",
+          "when": "webviewId == 'hushmark.editor'",
+          "group": "1_modification@4"
+        },
+        {
+          "command": "hushmark.formatDocument",
+          "when": "webviewId == 'hushmark.editor'",
+          "group": "1_modification@5"
         },
         {
           "command": "hushmark.italic",
@@ -693,6 +766,12 @@
         "when": "activeCustomEditorId == hushmark.editor"
       },
       {
+        "command": "hushmark.undefined",
+        "key": "ctrl+g",
+        "mac": "ctrl+g",
+        "when": "hushmark.editorFocus"
+      },
+      {
         "command": "hushmark.bold",
         "key": "ctrl+b",
         "mac": "cmd+b",
@@ -860,6 +939,61 @@
         "when": "hushmark.editorFocus"
       },
       {
+        "command": "hushmark.nextProblem",
+        "key": "f8",
+        "mac": "f8",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.nextProblem",
+        "key": "alt+f8",
+        "mac": "alt+f8",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.prevProblem",
+        "key": "shift+f8",
+        "mac": "shift+f8",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.prevProblem",
+        "key": "shift+alt+f8",
+        "mac": "shift+alt+f8",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.triggerSuggest",
+        "key": "ctrl+space",
+        "mac": "ctrl+space",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.gotoLine",
+        "key": "ctrl+g",
+        "mac": "ctrl+g",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.quickFix",
+        "key": "ctrl+.",
+        "mac": "cmd+.",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.formatDocument",
+        "key": "shift+alt+f",
+        "mac": "shift+alt+f",
+        "linux": "ctrl+shift+i",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.rename",
+        "key": "f2",
+        "mac": "f2",
+        "when": "hushmark.editorFocus"
+      },
+      {
         "command": "hushmark.fold",
         "key": "ctrl+shift+[",
         "mac": "cmd+alt+[",
@@ -881,12 +1015,6 @@
         "command": "hushmark.unfoldAll",
         "key": "ctrl+k ctrl+j",
         "mac": "cmd+k cmd+j",
-        "when": "hushmark.editorFocus"
-      },
-      {
-        "command": "hushmark.gotoLine",
-        "key": "ctrl+g",
-        "mac": "ctrl+g",
         "when": "hushmark.editorFocus"
       }
     ]

@@ -66,5 +66,11 @@
   "command.unfold": "Unfold",
   "command.foldAll": "Fold All",
   "command.unfoldAll": "Unfold All",
-  "command.gotoLine": "Go to Line..."
+  "command.gotoLine": "Go to Line...",
+  "command.nextProblem": "Go to Next Problem",
+  "command.prevProblem": "Go to Previous Problem",
+  "command.triggerSuggest": "Trigger Suggest",
+  "command.quickFix": "Quick Fix...",
+  "command.formatDocument": "Format Document",
+  "command.rename": "Rename Symbol"
 }

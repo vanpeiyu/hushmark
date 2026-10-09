@@ -938,4 +938,89 @@ const reopened = await cdp.findContext('!!window.__hushmarkView && __hushmarkVie
 const backHead = await cdp.evaluateIn(reopened, '(() => { const v = __hushmarkView; const h = v.state.selection.main.head; const l = v.state.doc.lineAt(h); return [l.number, h - l.from]; })()');
 check('このエディタで開き直すと、テキストエディタのカーソルの位置を引き継ぐ', JSON.stringify(backHead) === '[2,4]', backHead);
 
+// 36. 他の拡張機能の機能（test/e2e/fixture が代わりをする）。Remote-SSH では手元に読み込まれないので確かめない
+if (!remote) {
+  await loadDoc(['This is teh text.', '', 'Alpha and Alpha. See ISSUE-123.', '', 'trailing ', '', '後']);
+  for (let i = 0; i < 20 && (await web("document.querySelectorAll('.cm-md-diag').length")) === 0; i++) await sleep(500);
+  check('診断: 他の拡張機能の警告に波線を引く', (await web("[...document.querySelectorAll('.cm-md-diag-warning')].map((e) => e.textContent).join()")) === 'teh');
+  await clickPos(0);
+  await press(cdp, 'F8');
+  await sleep(400);
+  check('F8: 次の診断に移り、メッセージを出す', (await web("document.querySelector('.cm-md-diag-tooltip')?.textContent")) === "Did you mean 'the'? fixture(typo)" &&
+    (await web('__hushmarkView.state.selection.main.head')) === (await at('teh')));
+
+  // クイックフィックス（Ctrl+.）で選んだものを行う
+  await press(cdp, '.', MOD);
+  await sleep(800);
+  await press(cdp, 'Enter');
+  await sleep(500);
+  doc = await checkInSync('クイックフィックス');
+  check('Ctrl+.: 他の拡張機能のクイックフィックスを選んで行う', doc.split('\n')[0] === 'This is the text.', doc.split('\n')[0]);
+
+  // ドキュメントリンク
+  for (let i = 0; i < 10 && (await web("document.querySelectorAll('.cm-md-doclink').length")) === 0; i++) await sleep(300);
+  check('他の拡張機能のドキュメントリンクを、Ctrl+クリックで開けるようにする',
+    (await web("document.querySelector('.cm-md-doclink')?.getAttribute('data-href')")) === 'https://example.com/issues/123');
+
+  // リネーム（F2）
+  await clickPos(await at('Alpha', 1));
+  await press(cdp, 'F2');
+  await sleep(800);
+  await press(cdp, 'a', MOD);
+  await type(cdp, 'Beta');
+  await press(cdp, 'Enter');
+  await sleep(600);
+  doc = await checkInSync('リネーム');
+  check('F2: 他の拡張機能のリネームで書き換える', doc.split('\n')[2] === 'Beta and Beta. See ISSUE-123.', doc.split('\n')[2]);
+
+  // ドキュメントの書式設定
+  await clickPos(0);
+  await press(cdp, process.platform === 'linux' ? 'i' : 'f', process.platform === 'linux' ? CTRL | SHIFT : SHIFT | ALT);
+  await sleep(800);
+  doc = await checkInSync('書式設定');
+  check('ドキュメントの書式設定: 他の拡張機能の書式設定を当てる', doc.split('\n')[4] === 'trailing', JSON.stringify(doc.split('\n')[4]));
+
+  // 補完: 補完が始まる文字（@）を打つと、他の拡張機能の候補を出す
+  await clickPos(await web('__hushmarkView.state.doc.line(1).to'));
+  await type(cdp, ' @');
+  await sleep(200);
+  await type(cdp, 'fix');
+  for (let i = 0; i < 10 && (await web("document.querySelectorAll('.cm-tooltip-autocomplete li').length")) === 0; i++) await sleep(300);
+  check('補完: 他の拡張機能の候補を一覧に出す', (await web("[...document.querySelectorAll('.cm-tooltip-autocomplete li')].map((e) => e.textContent).join()")).includes('fixture-item'));
+  await press(cdp, 'Enter');
+  await sleep(300);
+  doc = await checkInSync('補完');
+  // 候補が範囲を指定していないので、VSCode の既定のとおり、カーソルの前の単語（fix）だけを置き換える
+  check('補完: 選んだ候補を入れる', doc.split('\n')[0] === 'This is the text. @fixture-item', doc.split('\n')[0]);
+
+  // 画像の貼り付けの保存先（markdown.copyFiles.destination）
+  const settingsFile = path.join(path.dirname(file), '..', 'ud', 'User', 'settings.json');
+  const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8').replace(/^﻿/, ''));
+  fs.writeFileSync(settingsFile, JSON.stringify({ ...settings, 'markdown.copyFiles.destination': { '**/*.md': 'assets/${documentBaseName}/${fileName}' } }, null, 2));
+  await sleep(1500);
+  await loadDoc(['貼る: ', '', '後']);
+  await web(`(() => {
+    const v = __hushmarkView;
+    v.focus();
+    v.dispatch({ selection: { anchor: v.state.doc.line(1).to } });
+    const data = new DataTransfer();
+    data.items.add(new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'pic.png', { type: 'image/png' }));
+    v.contentDOM.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  })()`);
+  await sleep(800);
+  doc = await checkInSync('保存先の設定');
+  const base = path.basename(file).replace(/\.[^.]*$/, '');
+  check('markdown.copyFiles.destination: 設定した場所に保存してリンクを入れる',
+    doc.startsWith(`貼る: ![pic](assets/${base}/pic.png)`) && fs.existsSync(path.join(path.dirname(file), 'assets', base, 'pic.png')), doc.split('\n')[0]);
+  // 保存時の書式設定（editor.formatOnSave）。VSCode の保存の処理が、このエディタで編集した文書にも書式設定を当てる
+  fs.writeFileSync(settingsFile, JSON.stringify({ ...settings, 'editor.formatOnSave': true }, null, 2));
+  await sleep(1500);
+  await loadDoc(['保存で整える ', '', '後']);
+  await clickPos(await web('__hushmarkView.state.doc.line(3).to'));
+  await type(cdp, '!');
+  doc = await checkInSync('保存時の書式設定');
+  check('editor.formatOnSave: 保存すると他の拡張機能の書式設定を当てる', readFile().replace(/\r\n/g, '\n').split('\n')[0] === '保存で整える', JSON.stringify(readFile().split(/\r?\n/)[0]));
+  fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+}
+
 finish();
