@@ -1,6 +1,6 @@
 # 変更履歴
 
-## 未リリース
+## 0.3.1 - 2026-10-09
 
 - README のインストールの節を、Visual Studio Marketplace と Open VSX からのインストールの案内にしました。.vsix からのインストールの手順は CONTRIBUTING.md に移しました。
 
