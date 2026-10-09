@@ -28,67 +28,72 @@ const { values: options } = parseArgs({
 /** 台本（文書と操作する箇所）。英語の README と日本語の README（README.ja.md）の GIF で使い分ける */
 const SCRIPTS = {
   en: {
-    name: 'notes.md',
-    text: `# Trip Notes
+    name: 'README.md',
+    text: `# Hushmark
 
-Markdown markers show up **only where your cursor is**.
-Everything else stays clean, like a *preview*.
+Touch **bold**, \`code\`, or a [link](#table) to see its markers.
+Other lines read like a *preview*.
 
-## Packing list
+## Features
 
-- [x] Passport
-- [ ] Charger
-- Snacks for the \`train\`
+- [x] Saves your Markdown as written
+- [ ] Works in VS Code for the Web
+- Click a cell to edit a table
 
-## Budget
+## Table
 
-| Item | Cost |
+| Setting | Default |
 |:--|--:|
-| Hotel | 240 |
-| Train | 85 |
+| Style | soft |
+| Color | green |
+| Heading size | medium |
+| Line height | 1.85 |
 
-> Write Markdown and see the result in the same place.
+> Opens the Markdown files you already have.
 
 `,
-    bold: ['only where', 3],
-    heading: ['Packing list', 4],
-    listEnd: ['`train`', 7],
-    newItem: 'Sunscreen *SPF 50*',
-    cellBackspaces: 2,
-    cellText: '92',
-    lastHeading: '## Ready to go!',
+    // 1 行に並んだ要素を順にクリックし、触れた要素だけ記号が出ることを見せる
+    inline: [['bold', 2], ['code', 2], ['link', 2]],
+    heading: ['Features', 4],
+    listEnd: ['edit a table', 12],
+    newItem: 'Pastes **images** and URLs as `links`',
+    cell: 'medium',
+    cellText: 'large',
+    lastHeading: '## Get started',
   },
-  // 日本語の文での強調（**「必須」**です のように、CommonMark では強調にならないもの）も見せる
+  // 日本語の文での強調（**「強調」**も のように、CommonMark では強調にならないもの）も見せる
   ja: {
-    name: 'メモ.md',
-    text: `# 旅のメモ
+    name: 'README.md',
+    text: `# Hushmark
 
-記号は**カーソルのある要素だけ**に出ます。
-ほかの記号は隠れて、*プレビュー*のように見えます。
+**太字**、\`コード\`、[リンク](#表)は、触れたときだけ記号が出ます。
+カーソルのない行は、*プレビュー*のように読めます。
 
-## 持ち物
+## できること
 
-- [x] パスポート
-- [ ] 充電器
-- 電車で食べる\`おやつ\`
+- [x] 書いた書式を変えずに保存する
+- [ ] Web 版の VSCode でも動く
+- 表はセルをクリックして編集する
 
-## 予算
+## 表
 
-| 項目 | 金額 |
+| 設定 | 既定 |
 |:--|--:|
-| ホテル | 24000 |
-| 電車 | 8500 |
+| スタイル | soft |
+| 色 | green |
+| 見出しの大きさ | medium |
+| 行の高さ | 1.85 |
 
-> Markdown を書いた場所で、そのまま結果を確かめられます。
+> VSCode の Markdown のファイルを、そのまま開けます。
 
 `,
-    bold: ['カーソルのある', 2],
-    heading: ['持ち物', 1],
-    listEnd: ['`おやつ`', 5],
-    newItem: '日焼け止めは**「必須」**です',
-    cellBackspaces: 4,
-    cellText: '9200',
-    lastHeading: '## 準備完了！',
+    inline: [['太字', 1], ['コード', 1], ['リンク', 1]],
+    heading: ['できること', 2],
+    listEnd: ['して編集する', 6],
+    newItem: '日本語の**「強調」**も効く',
+    cell: 'medium',
+    cellText: 'large',
+    lastHeading: '## はじめかた',
     locale: 'ja',
   },
 };
@@ -97,30 +102,46 @@ const SCRIPT = SCRIPTS[options.lang];
 if (!SCRIPT) throw new Error(`台本がない: ${options.lang}`);
 
 /** ページ（ワークベンチ）の大きさ。撮るのはエディタの部分だけ */
-const PAGE = { width: 760, height: 860 };
+const PAGE = { width: 760, height: 940 };
 
-const vscode = await launch({
-  workDir: path.resolve(options['work-dir']),
-  document: { name: SCRIPT.name, text: SCRIPT.text },
-  // 日本語の台本は、VSCode の表示言語も日本語にする（表のボタンなどの文言を日本語で見せる）
-  locale: SCRIPT.locale,
-  settings: {
-    'workbench.colorTheme': 'Default Light Modern',
-    'workbench.activityBar.location': 'hidden',
-    'workbench.secondarySideBar.defaultVisibility': 'hidden',
-    'workbench.statusBar.visible': false,
-    'workbench.layoutControl.enabled': false,
-    'window.commandCenter': false,
-    'editor.fontSize': 15,
-    'editor.lineNumbers': 'off',
-    'hushmark.previewColor': 'blue',
-    'hushmark.debugLog': false,
-  },
-});
+/** VSCode を起動してつなぐ */
+async function start() {
+  const vscode = await launch({
+    workDir: path.resolve(options['work-dir']),
+    document: { name: SCRIPT.name, text: SCRIPT.text },
+    // 日本語の台本は、VSCode の表示言語も日本語にする（表のボタンなどの文言を日本語で見せる）
+    locale: SCRIPT.locale,
+    settings: {
+      'workbench.colorTheme': 'Default Light Modern',
+      'workbench.activityBar.location': 'hidden',
+      'workbench.secondarySideBar.defaultVisibility': 'hidden',
+      'workbench.statusBar.visible': false,
+      'workbench.layoutControl.enabled': false,
+      'window.commandCenter': false,
+      'hushmark.debugLog': false,
+    },
+  });
+  const cdp = await connect(vscode.port);
+  await cdp.send('Emulation.setDeviceMetricsOverride', { ...PAGE, deviceScaleFactor: 1, mobile: false });
+  const mainCtx = await cdp.findContext("!!document.querySelector('.monaco-workbench')");
+  return { vscode, cdp, mainCtx };
+}
 
-const cdp = await connect(vscode.port);
-await cdp.send('Emulation.setDeviceMetricsOverride', { ...PAGE, deviceScaleFactor: 1, mobile: false });
-const mainCtx = await cdp.findContext("!!document.querySelector('.monaco-workbench')");
+// 明るいテーマで撮る。表示言語を変えて起動し直したときなどに、設定のテーマが当たらず暗いテーマで
+// 起動することがあるので、そのときは起動し直す
+let vscode;
+let cdp;
+let mainCtx;
+for (let attempt = 1; ; attempt++) {
+  ({ vscode, cdp, mainCtx } = await start());
+  const isDark = () => cdp.evaluateIn(mainCtx, "document.querySelector('.monaco-workbench').classList.contains('vs-dark')");
+  for (let i = 0; i < 20 && (await isDark()); i++) await sleep(500);
+  if (!(await isDark())) break;
+  cdp.close();
+  await vscode.close();
+  if (attempt === 3) throw new Error('VSCode が明るいテーマで起動しない');
+  console.log('暗いテーマで起動したので、起動し直す');
+}
 const main = (expr) => cdp.evaluateIn(mainCtx, expr);
 await sleep(3000);
 const webCtx = await liveEditorContext(cdp);
@@ -193,8 +214,12 @@ async function clickAt(target, { modifiers = 0 } = {}) {
 
 /** 文書の中の文字列（after 文字目）をクリックする */
 async function clickText(text, after = 0) {
-  const c = JSON.parse(await web(`JSON.stringify((() => { const v = __hushmarkView; const c = v.coordsAtPos(v.state.doc.toString().indexOf(${JSON.stringify(text)}) + ${after}); return { x: c.left + 1, y: (c.top + c.bottom) / 2 }; })())`));
+  const pos = await web(`__hushmarkView.state.doc.toString().indexOf(${JSON.stringify(text)}) + ${after}`);
+  const c = JSON.parse(await web(`JSON.stringify((() => { const c = __hushmarkView.coordsAtPos(${pos}); return { x: c.left + 1, y: (c.top + c.bottom) / 2 }; })())`));
   await clickAt(await toPage(c));
+  // クリックがエディタに届かないことがあるので、カーソルが狙った位置になければ置き直す
+  await web(`(() => { const v = __hushmarkView; if (v.state.selection.main.head !== ${pos}) { v.focus(); v.dispatch({ selection: { anchor: ${pos} } }); } })()`);
+  await sleep(100);
 }
 
 /** 要素の中央をクリックする */
@@ -216,9 +241,11 @@ async function typeSlowly(text) {
 await web('(() => { const v = __hushmarkView; v.focus(); v.dispatch({ selection: { anchor: v.state.doc.length } }); })()');
 await shot(1800);
 
-// 太字の中をクリックすると、その太字の記号だけが出る
-await clickText(...SCRIPT.bold);
-await shot(1600);
+// 同じ行の太字、コード、リンクを順にクリックすると、触れた要素の記号だけが出て、ほかは隠れたまま
+for (const target of SCRIPT.inline) {
+  await clickText(...target);
+  await shot(1300);
+}
 
 // 見出しをクリックすると、# が左の余白に出る
 await clickText(...SCRIPT.heading);
@@ -239,10 +266,11 @@ await press(cdp, 'ArrowDown');
 await shot(1400);
 
 // 表のセルをクリックして編集する
-await clickElement('.cm-md-table td', 3);
+const cellIndex = await web(`[...document.querySelectorAll('.cm-md-table td')].findIndex((e) => e.textContent.trim() === ${JSON.stringify(SCRIPT.cell)})`);
+await clickElement('.cm-md-table td', cellIndex);
 await shot(500);
 await press(cdp, 'End');
-for (let i = 0; i < SCRIPT.cellBackspaces; i++) {
+for (let i = 0; i < SCRIPT.cell.length; i++) {
   await press(cdp, 'Backspace');
   await shot(150);
 }
