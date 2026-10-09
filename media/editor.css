@@ -21,7 +21,7 @@
 /* ================================================================ 寸法 */
 
 :root {
-  /* フォントは VSCode のエディタのフォント（editor.fontFamily）に合わせる。設定 hushmark.fontFamily で変えられる */
+  /* フォントは VSCode のエディタのフォント（editor.fontFamily）に合わせる。Markdown だけの指定（"[markdown]"）は metrics.js が入れる */
   --md-font: var(--vscode-editor-font-family, monospace);
   /* 文字の大きさと本文の行の高さ（整数の px）。VSCode の editor.fontSize と editor.lineHeight から metrics.js が入れる */
   --md-font-size: 15px;
@@ -103,6 +103,8 @@ body.md-no-right-margin .cm-md-quote {
   --md-match: var(--vscode-editor-findMatchHighlightBackground, rgba(255, 213, 0, 0.3));
   --md-match-current: var(--vscode-editor-findMatchBackground, rgba(255, 150, 0, 0.45));
   --md-error: var(--vscode-errorForeground, #f14c4c);
+  --md-line-number: var(--vscode-editorLineNumber-foreground, var(--vscode-descriptionForeground));
+  --md-line-number-active: var(--vscode-editorLineNumber-activeForeground, var(--vscode-editor-foreground));
 
   --md-tok-keyword: var(--vscode-symbolIcon-keywordForeground, #c586c0);
   --md-tok-string: var(--vscode-debugTokenExpression-string, #ce9178);
@@ -170,20 +172,18 @@ body {
 
 #editor .cm-gutters {
   background: var(--md-bg);
-  color: var(--md-muted);
+  color: var(--md-line-number);
   border-right: none;
   font-size: var(--md-font-size);
 }
 
 #editor .cm-lineNumbers .cm-gutterElement {
   padding: 0 0.5ch 0 1.5ch;
-  opacity: 0.6;
 }
 
 #editor .cm-lineNumbers .cm-gutterElement.cm-activeLineGutter {
   background: transparent;
-  color: var(--md-fg);
-  opacity: 1;
+  color: var(--md-line-number-active);
 }
 
 #editor .cm-gutterElement.cm-md-gutter-heading {

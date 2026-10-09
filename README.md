@@ -58,8 +58,9 @@ The following VS Code editor settings (their values for Markdown) are respected.
 
 | Setting | Behavior |
 |---|---|
+| `editor.fontFamily` | Font |
 | `editor.fontSize` | Font size |
-| `editor.lineHeight` | Line height. Used when `hushmark.lineHeight` is less than 1. When `0` (default), 1.85 times the font size, which is wider than VS Code's automatic 1.35 times to suit CJK text |
+| `editor.lineHeight` | Line height. When `0` (default), 1.85 times the font size, which is wider than VS Code's automatic 1.35 times to suit CJK text |
 | `editor.lineNumbers` | Line numbers. `off` hides them and `interval` shows every 10th line. `relative` is shown the same as `on`. For tables, each row shows the number of its line |
 | `editor.wrappingIndent` | Indentation of wrapped lines. Except for `none`, the second and later lines of list items and blockquotes are aligned with the start of the text |
 | `editor.tabSize` | Tab width |
@@ -122,12 +123,10 @@ Choose the look with two settings: the preview style and the color. Any combinat
 |---|---|
 | `hushmark.previewStyle` | Preview style. `soft` (default) is a friendly look with rounded shapes and colored rules and fills; `minimal` uses almost no color or fills; `reference` labels headings with tags such as "H1" and frames tables and code |
 | `hushmark.previewColor` | Preview color: `green` (default), `cyan`, `blue`, `purple`, `pink`, `orange`, `sepia`, `mono` (monochrome), or `custom` |
-| `hushmark.previewColorScheme` | Light or dark preview. `auto` (default) follows the VS Code theme. `light` and `dark` fix a light or dark background |
+| `hushmark.previewColorScheme` | Base colors of the preview (background, text, selection, cursor, line numbers, and so on). `theme` (default) uses the colors of the VS Code theme, and the colors of headings, tables, and so on are made to suit the theme's background. `auto` becomes `light` or `dark` to match the brightness of the theme. `light` and `dark` use light or dark colors made from the preview color |
 | `hushmark.previewCustomColor` | The color for `custom` (`#rrggbb`, default `#3366cc`). The colors of each element are derived from its hue and saturation |
 | `hushmark.colorCustomizations` | Overrides the colors of individual elements (see "Overriding individual colors" below) |
 | `hushmark.headingSize` | Heading size. `body` (all headings the same size as body text), `medium` (default; h1 and h2 take two body lines), or `large` (h1 takes three body lines; h2 and h3 take two) |
-| `hushmark.fontFamily` | Font (a CSS `font-family` value). When empty (default), VS Code's editor font (`editor.fontFamily`) is used. Example: `"HackGen Console NF", monospace` |
-| `hushmark.lineHeight` | Line height as a multiple of the font size. When less than 1 (default `0`), `editor.lineHeight` is used |
 | `hushmark.rightMargin` | Adds a margin on the right side of the editor as wide as the one on the left (default `true`) |
 | `hushmark.debugLog` | Writes debug logs to the "Hushmark" output panel |
 
@@ -159,6 +158,8 @@ The following colors can be changed.
 | `link` | Links |
 | `highlight` | Highlighter under bold text (`soft`) |
 | `selection` / `lineHighlight` | Selection, background of the line with the cursor |
+
+When `hushmark.previewColorScheme` is `theme`, the background, text, selection, and line highlight use the colors of the theme. To change them, use VS Code's `workbench.colorCustomizations`. If you set `background`, `foreground`, `selection`, or `lineHighlight` here, they take precedence over the theme in this editor only.
 
 ## Uninstalling
 

@@ -344,7 +344,7 @@ async function isReadOnly(document) {
 /** Webview に渡す設定（editorOptions） */
 const OPTION_SETTINGS = [
   'hushmark',
-  'editor.lineNumbers', 'editor.fontSize', 'editor.lineHeight', 'editor.wrappingIndent', 'editor.tabSize',
+  'editor.lineNumbers', 'editor.fontFamily', 'editor.fontSize', 'editor.lineHeight', 'editor.wrappingIndent', 'editor.tabSize',
   'editor.wordWrap', 'editor.renderLineHighlight', 'editor.renderLineHighlightOnlyWhenFocus',
 ];
 
@@ -355,14 +355,14 @@ function editorOptions(document) {
   return {
     lineNumbers: editor.get('lineNumbers', 'on'),
     fontSize: editor.get('fontSize', 14),
-    // hushmark.lineHeight（文字の大きさに対する倍率）が 0 のときは、VSCode の editor.lineHeight に従う
-    lineHeight: lineHeightMultiplier(hushmark) || editor.get('lineHeight', 0),
+    lineHeight: editor.get('lineHeight', 0),
     wrappingIndent: editor.get('wrappingIndent', 'same'),
     tabSize: editor.get('tabSize', 4),
     wordWrap: editor.get('wordWrap', 'off'),
     renderLineHighlight: editor.get('renderLineHighlight', 'line'),
     renderLineHighlightOnlyWhenFocus: editor.get('renderLineHighlightOnlyWhenFocus', false),
-    style: styleOptions(hushmark),
+    // "[markdown]" の中の editor.fontFamily も、テキストエディタと同じく効かせる（document を渡して読む）
+    style: { ...styleOptions(hushmark), fontFamily: safeFontFamily(editor.get('fontFamily')) },
   };
 }
 
@@ -371,30 +371,23 @@ function styleOptions(config) {
   return {
     look: oneOf(config.get('previewStyle'), STYLES, 'soft'),
     color: oneOf(config.get('previewColor'), COLORS, 'green'),
-    colorScheme: oneOf(config.get('previewColorScheme'), COLOR_SCHEMES, 'auto'),
+    colorScheme: oneOf(config.get('previewColorScheme'), COLOR_SCHEMES, 'theme'),
     customColor: /^#[0-9a-f]{6}$/i.test(config.get('previewCustomColor') || '') ? config.get('previewCustomColor') : '#3366cc',
     colorCustomizations: plainObject(config.get('colorCustomizations')),
     headingSize: oneOf(config.get('headingSize'), HEADING_SIZES, 'medium'),
     rightMargin: config.get('rightMargin', true) !== false,
-    fontFamily: safeFontFamily(config.get('fontFamily')),
   };
 }
 
 /** 選択肢（package.json の enum と同じ） */
 const STYLES = ['soft', 'minimal', 'reference'];
 const COLORS = ['green', 'cyan', 'blue', 'purple', 'pink', 'orange', 'sepia', 'mono', 'custom'];
-const COLOR_SCHEMES = ['auto', 'light', 'dark'];
+const COLOR_SCHEMES = ['theme', 'auto', 'light', 'dark'];
 const HEADING_SIZES = ['body', 'medium', 'large'];
 
 /** 選択肢にない値は既定にする */
 function oneOf(value, choices, fallback) {
   return choices.includes(value) ? value : fallback;
-}
-
-/** hushmark.lineHeight。範囲の外や 0 のときは 0（editor.lineHeight に従う） */
-function lineHeightMultiplier(config) {
-  const value = Number(config.get('lineHeight', 0));
-  return Number.isFinite(value) && value >= 1 && value <= 4 ? value : 0;
 }
 
 /** Webview に送れる、文字列と入れ子のオブジェクトだけからなる値にする（色の値は Webview で確かめる） */

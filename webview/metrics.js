@@ -1,5 +1,5 @@
 // 文字の大きさと行の高さ、ほかの見た目の設定。文字の大きさは VSCode の editor.fontSize に、行の高さは
-// hushmark.lineHeight（0 のときは editor.lineHeight）に合わせる。
+// editor.lineHeight に合わせる（0 のときは日本語の文章に合う倍率にする）。
 //
 // 行の高さは整数の px にそろえる。見出しの行の高さを本文の行の整数倍にし（editor.css）、
 // 表の行も本文の行に合わせるので、端数があると下の行ほどずれていくため。
@@ -32,6 +32,7 @@ export function applyMetrics(options) {
  * - look: プレビューのスタイル（body.md-style-*）
  * - headingSize: 見出しの大きさ（body.md-heading-*）
  * - rightMargin: 右の余白を出すか（出さないときは body.md-no-right-margin）
+ * - fontFamily: フォント（editor.fontFamily。"[markdown]" の中の指定も効く）
  * - color・colorScheme・customColor・colorCustomizations: 配色（theme.js）
  */
 function applyStyle(style) {

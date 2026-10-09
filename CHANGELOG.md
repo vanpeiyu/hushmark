@@ -7,6 +7,8 @@
 - 表のセルの中は、`editor.wordWrap` が `off` でも折り返すようにしました。
 - 表の「ソース」ボタンをなくしました。揃え位置（`:--:`）は、区切りの行にカーソルを置いて変更します。
 - 表の中での Esc（表の下の行に出る）をなくしました。表のセルの中の画像と文字参照は、本文と同じくソースのまま表示します。
+- プレビューの基本の色（`hushmark.previewColorScheme`）に `theme` を加え、既定にしました。背景、文字、選択範囲、カーソル、行の背景、行番号、検索の一致に VSCode のテーマの色を使い、見出しや表などの色はテーマの背景色に合わせて作ります。これまでの見た目にするには、`"hushmark.previewColorScheme": "auto"` を設定してください。
+- `hushmark.fontFamily` と `hushmark.lineHeight` をなくしました。VSCode の `editor.fontFamily` と `editor.lineHeight` を使います。Markdown にだけ適用するときは、`"[markdown]": { ... }` の中に書いてください（`editor.fontFamily` も、`"[markdown]"` の中の指定が効くようになりました）。
 
 ## 0.3.1 - 2026-10-09
 

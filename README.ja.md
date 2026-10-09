@@ -58,8 +58,9 @@
 
 | 設定 | 動き |
 |---|---|
+| `editor.fontFamily` | フォント |
 | `editor.fontSize` | 文字の大きさ |
-| `editor.lineHeight` | 行の高さ。`hushmark.lineHeight` が 1 未満のときに使う。`0`（既定）のときは、文字の大きさの 1.85 倍にする（日本語の文章に合わせ、VSCode の自動の 1.35 倍より広くする） |
+| `editor.lineHeight` | 行の高さ。`0`（既定）のときは、文字の大きさの 1.85 倍にする（日本語の文章に合わせ、VSCode の自動の 1.35 倍より広くする） |
 | `editor.lineNumbers` | 行番号。`off` で消え、`interval` で 10 行ごとになる。`relative` は `on` と同じ表示になる。表には、表の行ごとにその行の番号を出す |
 | `editor.wrappingIndent` | 折り返した行の字下げ。`none` 以外では、箇条書きや引用の 2 行目以降を本文の先頭の桁にそろえる |
 | `editor.tabSize` | タブの幅 |
@@ -122,12 +123,10 @@ VSCode のエディタの検索ウィジェットと同じく、右上に表示�
 |---|---|
 | `hushmark.previewStyle` | プレビューのスタイル。`soft`（ソフト、既定）は丸い形と色の付いた線や面で親しみやすい見た目、`minimal`（ミニマル）は色と面をほとんど使わない見た目、`reference`（リファレンス）は見出しに「H1」などの札を付け、表やコードを枠で区切る見た目 |
 | `hushmark.previewColor` | プレビューの色。`green`（グリーン、既定）・`cyan`（シアン）・`blue`（ブルー）・`purple`（パープル）・`pink`（ピンク）・`orange`（オレンジ）・`sepia`（セピア）・`mono`（モノクロ）・`custom`（カスタム） |
-| `hushmark.previewColorScheme` | プレビューの明暗。`auto`（既定）は VSCode のテーマに合わせる。`light` と `dark` は、明るい地と暗い地に固定する |
+| `hushmark.previewColorScheme` | プレビューの基本の色（背景、文字、選択範囲、カーソル、行番号など）。`theme`（既定）は VSCode のテーマの色を使い、見出しや表などの色はテーマの背景色に合わせて作る。`auto` はテーマの明暗に合わせて `light` か `dark` になる。`light` と `dark` は、プレビューの色から作った明るい配色と暗い配色を使う |
 | `hushmark.previewCustomColor` | `custom` のときの色（`#rrggbb`、既定 `#3366cc`）。この色の色相と鮮やかさを基準に、各要素の色を作る |
 | `hushmark.colorCustomizations` | 要素の色を個別に変える（下の「色を個別に変えるとき」を参照） |
 | `hushmark.headingSize` | 見出しの大きさ。`body`（等倍。すべて本文と同じ大きさ）・`medium`（中、既定。h1 と h2 を本文の 2 行分の高さにする）・`large`（大。h1 を 3 行分、h2 と h3 を 2 行分の高さにする） |
-| `hushmark.fontFamily` | フォント（CSS の `font-family` の値）。空（既定）のときは VSCode のエディタのフォント（`editor.fontFamily`）を使う。例: `"HackGen Console NF", monospace` |
-| `hushmark.lineHeight` | 文字の大きさに対する行の高さの倍率。1 未満（既定 `0`）のときは `editor.lineHeight` に従う |
 | `hushmark.rightMargin` | エディタ右側にも、左と同じ幅の余白を空ける（既定 `true`） |
 | `hushmark.debugLog` | デバッグログを出力パネル「Hushmark」に書き出す |
 
@@ -159,6 +158,8 @@ VSCode のハイコントラストのテーマを使っているときは、ど�
 | `link` | リンク |
 | `highlight` | 太字の下の蛍光ペン（`soft`） |
 | `selection` / `lineHighlight` | 選択範囲、カーソルのある行の背景 |
+
+`hushmark.previewColorScheme` が `theme` のとき、背景、文字、選択範囲、カーソルのある行の背景はテーマの色です。テーマの色を変えるときは VSCode の `workbench.colorCustomizations` に書きます。ここで `background`・`foreground`・`selection`・`lineHighlight` を書くと、このエディタでだけ、テーマの色より優先します。
 
 ## アンインストール
 
