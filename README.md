@@ -6,7 +6,7 @@ A live preview Markdown editor for VS Code that shows Markdown syntax only for t
 
 Line-level syntax, such as headings and blockquotes, is shown on the line with the cursor. Inline syntax, such as `code`, *emphasis*, and links, is shown only while the cursor touches that element. All other syntax is hidden and the text is styled.
 
-![Hushmark: clicking bold text shows its markers, clicking a heading shows its # in the margin, then a task is checked, a list item is typed, a table cell is edited, and a heading is typed](docs/images/demo.gif)
+![Hushmark: on a line with bold text, inline code, and a link, clicking each element shows only that element's markers while the others stay hidden; clicking a heading shows its # in the margin; then a task is checked, a list item is typed, a table cell is edited, and a heading is typed](docs/images/demo.gif)
 
 ## Features
 

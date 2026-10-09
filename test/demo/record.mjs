@@ -31,8 +31,8 @@ const SCRIPTS = {
     name: 'notes.md',
     text: `# Trip Notes
 
-Markdown markers show up **only where your cursor is**.
-Everything else stays clean, like a *preview*.
+Pack **light**, bring \`cables\`, check the [map](https://osm.org).
+Markers show up only for the element under the *cursor*.
 
 ## Packing list
 
@@ -50,10 +50,11 @@ Everything else stays clean, like a *preview*.
 > Write Markdown and see the result in the same place.
 
 `,
-    bold: ['only where', 3],
+    // 1 行に並んだ要素を順にクリックし、触れた要素だけ記号が出ることを見せる
+    inline: [['light', 2], ['cables', 3], ['map', 1]],
     heading: ['Packing list', 4],
     listEnd: ['`train`', 7],
-    newItem: 'Sunscreen *SPF 50*',
+    newItem: 'Sunscreen **SPF 50** and a `hat`',
     cellBackspaces: 2,
     cellText: '92',
     lastHeading: '## Ready to go!',
@@ -63,8 +64,8 @@ Everything else stays clean, like a *preview*.
     name: 'メモ.md',
     text: `# 旅のメモ
 
-記号は**カーソルのある要素だけ**に出ます。
-ほかの記号は隠れて、*プレビュー*のように見えます。
+荷物は**軽く**、\`ケーブル\`はまとめて、[天気](https://wttr.in)も見ておく。
+記号は、カーソルのある*要素だけ*に出ます。
 
 ## 持ち物
 
@@ -82,10 +83,10 @@ Everything else stays clean, like a *preview*.
 > Markdown を書いた場所で、そのまま結果を確かめられます。
 
 `,
-    bold: ['カーソルのある', 2],
+    inline: [['軽く', 1], ['ケーブル', 2], ['天気', 1]],
     heading: ['持ち物', 1],
     listEnd: ['`おやつ`', 5],
-    newItem: '日焼け止めは**「必須」**です',
+    newItem: '日焼け止めは**「必須」**、`帽子`も',
     cellBackspaces: 4,
     cellText: '9200',
     lastHeading: '## 準備完了！',
@@ -216,9 +217,11 @@ async function typeSlowly(text) {
 await web('(() => { const v = __hushmarkView; v.focus(); v.dispatch({ selection: { anchor: v.state.doc.length } }); })()');
 await shot(1800);
 
-// 太字の中をクリックすると、その太字の記号だけが出る
-await clickText(...SCRIPT.bold);
-await shot(1600);
+// 同じ行の太字、コード、リンクを順にクリックすると、触れた要素の記号だけが出て、ほかは隠れたまま
+for (const target of SCRIPT.inline) {
+  await clickText(...target);
+  await shot(1300);
+}
 
 // 見出しをクリックすると、# が左の余白に出る
 await clickText(...SCRIPT.heading);
