@@ -17,13 +17,15 @@ function log(...args) {
 }
 
 function activate(context) {
+  const provider = new LiveEditorProvider(context);
   context.subscriptions.push(
-    vscode.window.registerCustomEditorProvider(VIEW_TYPE, new LiveEditorProvider(context), {
+    vscode.window.registerCustomEditorProvider(VIEW_TYPE, provider, {
       webviewOptions: { retainContextWhenHidden: true },
       supportsMultipleEditorsPerDocument: true,
     }),
     vscode.commands.registerCommand('hushmark.open', (uri) => reopenWith(uri, VIEW_TYPE)),
     vscode.commands.registerCommand('hushmark.openSource', (uri) => reopenWith(uri, 'default')),
+    vscode.commands.registerCommand('hushmark.goToHeading', () => provider.goToHeading()),
   );
 }
 
@@ -48,6 +50,47 @@ class LiveEditorProvider {
     this.webviews = new Map();
     /** 開こうとしている文書の、移す先の見出し。Webview の準備ができたときに渡す */
     this.pendingAnchors = new Map();
+  }
+
+  /**
+   * 見出しの一覧を出し、選んだ見出しに移る（テキストエディタの Go to Symbol in Editor に当たる）。
+   * 一覧で見出しを選んでいる間はその見出しを画面に出し、選ばずに閉じたら元の位置に戻す
+   */
+  async goToHeading() {
+    const entry = [...this.webviews.values()].flatMap((set) => [...set]).find((e) => e.panel.active);
+    if (!entry) return;
+    const webview = entry.panel.webview;
+    const id = this.nextRequestId = (this.nextRequestId || 0) + 1;
+    const headings = await new Promise((resolve) => {
+      entry.pending = { id, resolve };
+      webview.postMessage({ type: 'requestHeadings', id });
+      setTimeout(() => resolve(null), 3000);
+    });
+    if (!headings) return;
+    const minLevel = Math.min(...headings.map((h) => h.level));
+    const pick = vscode.window.createQuickPick();
+    pick.items = headings.map((h) => ({
+      label: `${'\u2003'.repeat(h.level - minLevel)}${h.text}`,
+      description: `H${h.level}`,
+      heading: h,
+    }));
+    pick.matchOnDescription = false;
+    let accepted = false;
+    pick.onDidChangeActive(([item]) => {
+      if (item) webview.postMessage({ type: 'revealPos', pos: item.heading.pos, focus: false });
+    });
+    pick.onDidAccept(() => {
+      const [item] = pick.selectedItems;
+      if (!item) return;
+      accepted = true;
+      webview.postMessage({ type: 'revealPos', pos: item.heading.pos, focus: true });
+      pick.hide();
+    });
+    pick.onDidHide(() => {
+      if (!accepted) webview.postMessage({ type: 'restoreView' });
+      pick.dispose();
+    });
+    pick.show();
   }
 
   /** 文書を開き、Hushmark で開いたときは見出しに移す */
@@ -90,6 +133,9 @@ class LiveEditorProvider {
             break;
           case 'edit': session.enqueue(message); break;
           case 'openLink': openLink(message.href, document.uri, webview, this); break;
+          case 'headings':
+            if (entry.pending && entry.pending.id === message.id) entry.pending.resolve(Array.isArray(message.items) ? message.items : []);
+            break;
           case 'log': log('[webview]', message.text); break;
           case 'findInFiles': findInFiles(message); break;
           case 'resolveImage':

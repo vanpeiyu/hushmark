@@ -3,9 +3,18 @@
   "displayName": "Hushmark",
   "description": "%description%",
   "version": "0.2.0",
-  "publisher": "local",
+  "publisher": "vanpeiyu",
   "private": true,
   "license": "MIT",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#41664B",
+    "theme": "dark"
+  },
+  "homepage": "https://github.com/vanpeiyu/hushmark#readme",
+  "bugs": {
+    "url": "https://github.com/vanpeiyu/hushmark/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/vanpeiyu/hushmark.git"
@@ -16,7 +25,25 @@
   "categories": [
     "Other"
   ],
+  "keywords": [
+    "markdown",
+    "live preview",
+    "wysiwyg",
+    "editor",
+    "inline preview",
+    "typora",
+    "obsidian",
+    "cjk",
+    "japanese",
+    "table editor"
+  ],
   "main": "./src/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
   "browser": "./dist/web/extension.js",
   "scripts": {
     "build": "node build.mjs",
@@ -57,6 +84,11 @@
         "title": "%command.openSource%",
         "category": "Hushmark",
         "icon": "$(go-to-file)"
+      },
+      {
+        "command": "hushmark.goToHeading",
+        "title": "%command.goToHeading%",
+        "category": "Hushmark"
       }
     ],
     "menus": {
@@ -77,6 +109,12 @@
           "command": "hushmark.open",
           "when": "resourceLangId == markdown",
           "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "hushmark.goToHeading",
+          "when": "activeCustomEditorId == hushmark.editor"
         }
       ]
     },
@@ -332,7 +370,15 @@
           "description": "%config.debugLog%"
         }
       }
-    }
+    },
+    "keybindings": [
+      {
+        "command": "hushmark.goToHeading",
+        "key": "ctrl+shift+o",
+        "mac": "cmd+shift+o",
+        "when": "activeCustomEditorId == hushmark.editor"
+      }
+    ]
   },
   "devDependencies": {
     "@codemirror/commands": "^6.8.0",

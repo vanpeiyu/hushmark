@@ -29,6 +29,8 @@ Line-level syntax, such as headings and blockquotes, is shown on the line with t
 
 Download `hushmark-<version>.vsix` from [Releases](https://github.com/vanpeiyu/hushmark/releases) and install it. To build a .vsix from source, see [CONTRIBUTING.md](CONTRIBUTING.md) (in Japanese).
 
+If you installed version 0.2.0 or earlier, the extension ID has changed from `local.hushmark` to `vanpeiyu.hushmark`. Uninstall the old one first with `code --uninstall-extension local.hushmark`. Your settings keep working.
+
 - For your local VS Code, run "Extensions: Install from VSIX..." from the Command Palette and select the .vsix, or run:
 
   ```sh
@@ -85,6 +87,7 @@ The keyboard shortcuts are the same as in the VS Code editor. Elsewhere in this 
 |---|---|---|
 | Ctrl+F / Ctrl+H | Cmd+F / Cmd+Option+F | Find / replace in the editor (see "Find" below) |
 | Ctrl+Shift+F / Ctrl+Shift+H | Cmd+Shift+F / Cmd+Shift+H | Search / replace in VS Code's folder. The selected text becomes the search term |
+| Ctrl+Shift+O | Cmd+Shift+O | Shows the list of headings and moves to the one you choose (like "Go to Symbol in Editor" in the text editor). The view follows the highlighted heading, and closing the list without choosing returns to the original position |
 | Ctrl+B | Cmd+B | Bold |
 | Ctrl+I | Cmd+I | Italic |
 | Alt+Z | Option+Z | Toggle word wrap |
@@ -183,13 +186,13 @@ Installing the extension creates the following.
 
 | Item | Location |
 |---|---|
-| The installed extension | `~/.vscode/extensions/local.hushmark-<version>` (under `~/.vscode-server/extensions/` on a Remote - SSH host) |
+| The installed extension | `~/.vscode/extensions/vanpeiyu.hushmark-<version>` (under `~/.vscode-server/extensions/` on a Remote - SSH host) |
 | Settings you wrote | `workbench.editorAssociations` and `hushmark.*` in your user settings |
 
 Run the following command, and remove `"*.md": "hushmark.editor"` from `workbench.editorAssociations` and any `hushmark.*` settings from your user settings.
 
 ```sh
-code --uninstall-extension local.hushmark
+code --uninstall-extension vanpeiyu.hushmark
 ```
 
 For what development creates (such as the Docker image used for tests), see [CONTRIBUTING.md](CONTRIBUTING.md).

@@ -15,7 +15,7 @@ export function slugify(text) {
   return text.trim().toLowerCase().replace(/[^\p{L}\p{M}\p{N}\p{Pc} -]/gu, '').replace(/ /g, '-');
 }
 
-/** 文書の見出しのアンカーと位置。同じアンカーが続くときは、GitHub と同じく 2 つ目から -1、-2 を付ける */
+/** 文書の見出しのアンカー、位置、文字列（記号を除いたもの）、階層。同じアンカーが続くときは、GitHub と同じく 2 つ目から -1、-2 を付ける */
 export function headingAnchors(state) {
   const tree = ensureSyntaxTree(state, state.doc.length, 1000) || syntaxTree(state);
   const anchors = [];
@@ -43,10 +43,11 @@ export function headingAnchors(state) {
         },
       });
       text += state.sliceDoc(pos, node.to);
-      const base = slugify(text.replace(/\n/g, ' '));
+      const plain = text.replace(/\n/g, ' ').trim();
+      const base = slugify(plain);
       const count = used.get(base) || 0;
       used.set(base, count + 1);
-      anchors.push({ anchor: count === 0 ? base : `${base}-${count}`, from: node.from });
+      anchors.push({ anchor: count === 0 ? base : `${base}-${count}`, from: node.from, text: plain, level: Number(node.name.slice(-1)) });
       return false;
     },
   });

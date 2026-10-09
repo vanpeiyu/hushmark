@@ -20,7 +20,7 @@ import { diffHunks, toLineChanges } from './sync.js';
 import { hasMod } from './platform.js';
 import { setStrings } from './strings.js';
 import { imagePreview } from './imagePreview.js';
-import { revealAnchor } from './anchors.js';
+import { headingAnchors, revealAnchor } from './anchors.js';
 import { pasteLink } from './pasteLink.js';
 import { fileInsert } from './fileInsert.js';
 
@@ -195,6 +195,22 @@ function restoreViewState() {
   });
 }
 
+/** 見出しの一覧（Go to Heading）を開いたときの、カーソルとスクロールの位置。一覧を閉じたら戻す */
+let headingPeekOrigin = null;
+
+/** 位置の行を画面の上端に出す。focus のときはカーソルも置く */
+function revealPos(pos, focus) {
+  const at = Math.min(Math.max(Number(pos) || 0, 0), view.state.doc.length);
+  view.dispatch({
+    ...(focus ? { selection: EditorSelection.cursor(at) } : {}),
+    effects: EditorView.scrollIntoView(at, { y: 'start' }),
+  });
+  if (focus) {
+    headingPeekOrigin = null;
+    view.focus();
+  }
+}
+
 /** 拡張機能本体に頼んで、文書に入れる Markdown を受け取る（fileInsert.js） */
 const insertRequests = new Map();
 let nextInsertId = 1;
@@ -321,6 +337,26 @@ window.addEventListener('message', (event) => {
     case 'image':
       imageRequests.get(message.id)?.(message.src);
       imageRequests.delete(message.id);
+      break;
+    case 'requestHeadings':
+      // 見出しの一覧（Go to Heading）を出す間に動かすので、元の位置を覚えておく
+      headingPeekOrigin = view && { selection: view.state.selection, scrollTop: view.scrollDOM.scrollTop };
+      vscode.postMessage({
+        type: 'headings',
+        id: message.id,
+        items: view ? headingAnchors(view.state).map((h) => ({ text: h.text, level: h.level, pos: h.from, line: view.state.doc.lineAt(h.from).number })) : [],
+      });
+      break;
+    case 'revealPos':
+      if (view) revealPos(message.pos, message.focus);
+      break;
+    case 'restoreView':
+      if (view && headingPeekOrigin) {
+        view.dispatch({ selection: headingPeekOrigin.selection });
+        view.scrollDOM.scrollTop = headingPeekOrigin.scrollTop;
+        view.focus();
+      }
+      headingPeekOrigin = null;
       break;
     case 'insertResult':
       insertRequests.get(message.id)?.(message.text);
