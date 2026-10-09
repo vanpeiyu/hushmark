@@ -2,6 +2,7 @@
 
 ## 未リリース
 
+- 拡張の ID を `local.hushmark` から `vanpeiyu.hushmark` に変えました（Marketplace に公開するため）。0.2.0 以前を入れている場合は、`code --uninstall-extension local.hushmark` でアンインストールしてから入れ直してください。設定はそのまま使えます。
 - 文書内のリンク（`#見出し`）を Ctrl+クリックすると、その見出しに移るようにしました。`other.md#見出し` は、開いた文書がこのエディタで開いたときに見出しに移ります。
 - Web 版の VSCode（vscode.dev、github.dev）で動くようにしました。
 - ウィンドウを再読み込みしたり VSCode を起動し直したりしても、カーソルとスクロールの位置を保つようにしました。
