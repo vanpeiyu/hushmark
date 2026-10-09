@@ -4,7 +4,7 @@
 // 明るさは用途ごとにここで決める。どの色を指定されても、地と文字の明るさの差は一定に保たれる。
 // さらに、文字に使う色は、地の色との WCAG のコントラスト比が 4.5 以上になるまで明るさを調整する。
 
-/** プレビューの色（hushmark.previewColor）ごとの元の色。mono は無彩色の地に、既定のアクセント（青）を使う */
+/** プレビューの色（hushmark.previewColor）ごとの元の色。mono は元の色を持たず、地もアクセントも無彩色にする */
 export const COLOR_SEEDS = {
   green: '#16a34a',
   cyan: '#0891b2',
@@ -90,9 +90,9 @@ const FIXED = {
  */
 export function buildPalette({ color, customColor, mode }) {
   const seedHex = color === 'custom' ? (parseHex(customColor) ? customColor : DEFAULT_ACCENT) : COLOR_SEEDS[color];
-  const accentSeed = toOklch(parseHex(seedHex || DEFAULT_ACCENT));
-  // モノクロでは、地の色に色を付けない
-  const tintSeed = seedHex ? accentSeed : { l: 0, c: 0, h: 0 };
+  // モノクロでは、地にもアクセント（リンク、チェックボックスなど）にも色を付けない
+  const accentSeed = seedHex ? toOklch(parseHex(seedHex)) : { l: 0, c: 0, h: 0 };
+  const tintSeed = accentSeed;
   const levels = LEVELS[mode];
 
   const derive = (seed, { l, c, max }) => ({ l, c: Math.min(seed.c * c, max), h: seed.h });
@@ -117,7 +117,8 @@ export function buildPalette({ color, customColor, mode }) {
     ...hex,
     codeFg: hex.fg,
     link: hex.accent,
-    linkLine: alpha('accent', 0.4),
+    // モノクロではリンクの色が本文の色と近いので、下線を濃くして見分けられるようにする
+    linkLine: alpha('accent', seedHex ? 0.4 : 0.85),
     highlight: hex.accentSoft,
     selection: alpha('accent', dark ? 0.32 : 0.2),
     caret: hex.fg,
