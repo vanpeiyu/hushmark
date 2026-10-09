@@ -29,6 +29,8 @@ Line-level syntax, such as headings and blockquotes, is shown on the line with t
 
 Download `hushmark-<version>.vsix` from [Releases](https://github.com/vanpeiyu/hushmark/releases) and install it. To build a .vsix from source, see [CONTRIBUTING.md](CONTRIBUTING.md) (in Japanese).
 
+If you installed version 0.2.0 or earlier, the extension ID has changed from `local.hushmark` to `vanpeiyu.hushmark`. Uninstall the old one first with `code --uninstall-extension local.hushmark`. Your settings keep working.
+
 - For your local VS Code, run "Extensions: Install from VSIX..." from the Command Palette and select the .vsix, or run:
 
   ```sh
@@ -181,13 +183,13 @@ Installing the extension creates the following.
 
 | Item | Location |
 |---|---|
-| The installed extension | `~/.vscode/extensions/local.hushmark-<version>` (under `~/.vscode-server/extensions/` on a Remote - SSH host) |
+| The installed extension | `~/.vscode/extensions/vanpeiyu.hushmark-<version>` (under `~/.vscode-server/extensions/` on a Remote - SSH host) |
 | Settings you wrote | `workbench.editorAssociations` and `hushmark.*` in your user settings |
 
 Run the following command, and remove `"*.md": "hushmark.editor"` from `workbench.editorAssociations` and any `hushmark.*` settings from your user settings.
 
 ```sh
-code --uninstall-extension local.hushmark
+code --uninstall-extension vanpeiyu.hushmark
 ```
 
 For what development creates (such as the Docker image used for tests), see [CONTRIBUTING.md](CONTRIBUTING.md).
