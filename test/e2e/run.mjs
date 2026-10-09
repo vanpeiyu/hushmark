@@ -17,6 +17,14 @@ const {
 const original = await webDoc();
 check('初期表示: ファイルと表示が一致', original === readFile().replace(/\r\n/g, '\n'));
 
+// 既定（hushmark.previewColorScheme が theme）では、背景と文字に VSCode のテーマの色を使う
+const themeColors = JSON.parse(await web(`JSON.stringify((() => {
+  const css = (el, name) => getComputedStyle(el).getPropertyValue(name).trim().toLowerCase();
+  return { bg: css(document.body, '--md-bg'), fg: css(document.body, '--md-fg'),
+    themeBg: css(document.documentElement, '--vscode-editor-background'), themeFg: css(document.documentElement, '--vscode-editor-foreground') };
+})())`));
+check('配色: 背景と文字はテーマの色', themeColors.bg === themeColors.themeBg && themeColors.fg === themeColors.themeFg, themeColors);
+
 // 縦の位置はソースの行に合わせる。見出しの行は本文の行の整数倍、表はソースの行数分の高さにする
 const heights = JSON.parse(await web(`JSON.stringify((() => {
   const line = __hushmarkView.defaultLineHeight;

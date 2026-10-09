@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MIN_CONTRAST, COLOR_SEEDS, buildPalette, contrast, parseHex } from '../webview/palette.js';
+import { MIN_CONTRAST, COLOR_SEEDS, buildPalette, contrast, modeOf, parseHex } from '../webview/palette.js';
 
 /** テストに使う元の色。色相を一周させ、鮮やかさと明るさの極端なもの（白・黒・純色）も含める */
 function sampleColors() {
@@ -67,4 +67,46 @@ test('色ごとの配色と、モノクロの配色', () => {
 test('custom の色が不正なときは、既定のアクセントを使う', () => {
   const invalid = buildPalette({ color: 'custom', customColor: 'red; }', mode: 'light' });
   assert.deepEqual(invalid, buildPalette({ color: 'custom', customColor: '#0969da', mode: 'light' }));
+});
+
+// VSCode のテーマの背景色と文字色（editor.background と editor.foreground）
+const THEMES = {
+  'Light Modern': { bg: '#ffffff', fg: '#3b3b3b' },
+  'Dark Modern': { bg: '#1f1f1f', fg: '#cccccc' },
+  'Solarized Light': { bg: '#fdf6e3', fg: '#657b83' },
+  'Solarized Dark': { bg: '#002b36', fg: '#839496' },
+  Monokai: { bg: '#272822', fg: '#f8f8f2' },
+};
+
+test('テーマの色を使うときは、背景と文字にテーマの色をそのまま使い、選択範囲などはテーマに任せる', () => {
+  for (const [name, base] of Object.entries(THEMES)) {
+    const p = buildPalette({ color: 'green', base });
+    assert.equal(p.bg, base.bg, name);
+    assert.equal(p.fg, base.fg, name);
+    for (const key of ['selection', 'caret', 'lineHighlight', 'lineNumber', 'match', 'matchCurrent']) {
+      assert.ok(!(key in p), `${name}: ${key}`);
+    }
+  }
+});
+
+test('テーマの色を使うときも、Hushmark が作る文字の色は地の色に対して読みやすさの基準を満たす', () => {
+  const failures = [];
+  for (const [name, base] of Object.entries(THEMES)) {
+    for (const color of ['green', 'pink', 'mono', 'sepia']) {
+      const p = buildPalette({ color, base });
+      for (const text of ['strongFg', 'muted', 'accent']) {
+        for (const surface of ['bg', 'blockBg', 'codeBg', 'accentBg']) {
+          const ratio = contrast(rgb(p[text]), rgb(p[surface]));
+          if (ratio < MIN_CONTRAST) failures.push(`${name} ${color} ${text}/${surface} ${ratio.toFixed(2)}`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(failures, []);
+});
+
+test('明るい地か暗い地かは、テーマの背景色の明るさで決める', () => {
+  assert.equal(modeOf(THEMES['Solarized Light'].bg), 'light');
+  assert.equal(modeOf(THEMES['Solarized Dark'].bg), 'dark');
+  assert.equal(modeOf(THEMES.Monokai.bg), 'dark');
 });

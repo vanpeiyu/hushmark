@@ -168,18 +168,26 @@
         "hushmark.previewColorScheme": {
           "type": "string",
           "enum": [
+            "theme",
             "auto",
             "light",
             "dark"
           ],
           "enumItemLabels": [
+            "%config.previewColorScheme.theme%",
             "%config.previewColorScheme.auto%",
             "%config.previewColorScheme.light%",
             "%config.previewColorScheme.dark%"
           ],
-          "default": "auto",
+          "default": "theme",
           "order": 3,
-          "description": "%config.previewColorScheme%"
+          "description": "%config.previewColorScheme%",
+          "enumDescriptions": [
+            "%config.previewColorScheme.theme.description%",
+            "%config.previewColorScheme.auto.description%",
+            "%config.previewColorScheme.light.description%",
+            "%config.previewColorScheme.dark.description%"
+          ]
         },
         "hushmark.previewCustomColor": {
           "type": "string",
@@ -343,30 +351,16 @@
           "order": 6,
           "description": "%config.headingSize%"
         },
-        "hushmark.fontFamily": {
-          "type": "string",
-          "default": "",
-          "order": 7,
-          "markdownDescription": "%config.fontFamily%"
-        },
-        "hushmark.lineHeight": {
-          "type": "number",
-          "default": 0,
-          "minimum": 0,
-          "maximum": 4,
-          "order": 8,
-          "markdownDescription": "%config.lineHeight%"
-        },
         "hushmark.rightMargin": {
           "type": "boolean",
           "default": true,
-          "order": 9,
+          "order": 7,
           "description": "%config.rightMargin%"
         },
         "hushmark.debugLog": {
           "type": "boolean",
           "default": false,
-          "order": 10,
+          "order": 8,
           "description": "%config.debugLog%"
         }
       }

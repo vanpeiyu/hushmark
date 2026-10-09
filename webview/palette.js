@@ -85,14 +85,21 @@ const FIXED = {
  * @param {object} options
  * @param {string} options.color プレビューの色（hushmark.previewColor）。mono は無彩色
  * @param {string} [options.customColor] color が custom のときの元の色（#rrggbb）
- * @param {'light' | 'dark'} options.mode 明るい地か暗い地か
+ * @param {'light' | 'dark'} [options.mode] 明るい地か暗い地か。base を渡したときは、base の背景色から決める
+ * @param {{ bg: string, fg: string }} [options.base] VSCode のテーマの背景色と文字色（#rrggbb）。
+ *   渡したときは、背景と文字にこの色を使い、ほかの色はこの背景色からの明るさの差で作る（hushmark.previewColorScheme の theme）。
+ *   選択範囲、カーソル、行の背景、行番号、検索の一致の色は返さず、テーマの色に任せる
  * @returns {Record<string, string>} 用途ごとの色（CSS の色の値）
  */
-export function buildPalette({ color, customColor, mode }) {
+export function buildPalette({ color, customColor, mode, base }) {
   const seedHex = color === 'custom' ? (parseHex(customColor) ? customColor : DEFAULT_ACCENT) : COLOR_SEEDS[color];
   // モノクロでは、地にもアクセント（リンク、チェックボックスなど）にも色を付けない
   const accentSeed = seedHex ? toOklch(parseHex(seedHex)) : { l: 0, c: 0, h: 0 };
   const tintSeed = accentSeed;
+  const theme = base && parseHex(base.bg) && parseHex(base.fg)
+    ? { bg: toOklch(parseHex(base.bg)), fg: toOklch(parseHex(base.fg)) }
+    : null;
+  if (theme) mode = theme.bg.l < 0.6 ? 'dark' : 'light';
   const levels = LEVELS[mode];
 
   const derive = (seed, { l, c, max }) => ({ l, c: Math.min(seed.c * c, max), h: seed.h });
@@ -101,33 +108,64 @@ export function buildPalette({ color, customColor, mode }) {
     colors[name] = derive(tintSeed, levels[name]);
   }
   for (const name of ['accent', 'accentSoft', 'accentBg']) colors[name] = derive(accentSeed, levels[name]);
+  if (theme) {
+    // 面と線は、Hushmark の配色で地の色から離している明るさの差を、テーマの背景色に当てて作る
+    const clamp = (l) => Math.min(1, Math.max(0, l));
+    for (const name of ['blockBg', 'codeBg', 'border', 'borderStrong', 'accentSoft', 'accentBg']) {
+      colors[name] = { ...colors[name], l: clamp(theme.bg.l + levels[name].l - levels.bg.l) };
+    }
+    // 太字の文字はテーマの文字色より少し強く、薄い文字は背景色と文字色の間の同じ割合の明るさにする
+    colors.strongFg = { ...colors.strongFg, l: clamp(theme.fg.l + levels.strongFg.l - levels.fg.l) };
+    const ratio = (levels.muted.l - levels.bg.l) / (levels.fg.l - levels.bg.l);
+    colors.muted = { ...colors.muted, l: clamp(theme.bg.l + (theme.fg.l - theme.bg.l) * ratio) };
+    colors.bg = theme.bg;
+    colors.fg = theme.fg;
+  }
 
-  // 文字に使う色は、文字を置く地の色のどれに対しても読める明るさにする
+  // 文字に使う色は、文字を置く地の色のどれに対しても読める明るさにする（テーマの文字色は変えない）
   const surfaces = ['bg', 'blockBg', 'codeBg', 'accentBg'].map((name) => colors[name]);
-  for (const name of ['fg', 'strongFg', 'muted', 'accent']) {
+  for (const name of theme ? ['strongFg', 'muted', 'accent'] : ['fg', 'strongFg', 'muted', 'accent']) {
     colors[name] = ensureContrast(colors[name], surfaces, mode);
   }
   // 太字の下の蛍光ペン（accentSoft）の上にも本文の文字を置く
   colors.accentSoft = ensureContrast(colors.accentSoft, [colors.fg, colors.strongFg], mode === 'light' ? 'dark' : 'light');
 
   const hex = Object.fromEntries(Object.entries(colors).map(([name, color]) => [name, toHex(color)]));
+  if (theme) Object.assign(hex, { bg: base.bg.toLowerCase(), fg: base.fg.toLowerCase() });
   const alpha = (name, a) => withAlpha(hex[name], a);
   const dark = mode === 'dark';
-  return {
+  const palette = {
     ...hex,
     codeFg: hex.fg,
     link: hex.accent,
     // モノクロではリンクの色が本文の色と近いので、下線を濃くして見分けられるようにする
     linkLine: alpha('accent', seedHex ? 0.4 : 0.85),
     highlight: hex.accentSoft,
-    selection: alpha('accent', dark ? 0.32 : 0.2),
-    caret: hex.fg,
     hover: alpha('fg', dark ? 0.08 : 0.06),
-    lineHighlight: alpha('fg', dark ? 0.05 : 0.04),
-    lineHighlightBorder: 'transparent',
     tokVariable: hex.fg,
     ...FIXED[mode],
   };
+  if (theme) {
+    // テーマの色に任せる（editor.css の既定値が VSCode のテーマの色を使う）
+    delete palette.match;
+    delete palette.matchCurrent;
+    return palette;
+  }
+  return {
+    ...palette,
+    selection: alpha('accent', dark ? 0.32 : 0.2),
+    caret: hex.fg,
+    lineHighlight: alpha('fg', dark ? 0.05 : 0.04),
+    lineHighlightBorder: 'transparent',
+    lineNumber: alpha('muted', 0.6),
+    lineNumberActive: hex.fg,
+  };
+}
+
+/** VSCode のテーマの背景色の明るさから、明るい地か暗い地か */
+export function modeOf(bgHex) {
+  const rgb = parseHex(bgHex);
+  return rgb && toOklch(rgb).l < 0.6 ? 'dark' : 'light';
 }
 
 /**
