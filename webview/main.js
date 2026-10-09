@@ -22,6 +22,7 @@ import { setStrings } from './strings.js';
 import { imagePreview } from './imagePreview.js';
 import { headingAnchors, revealAnchor } from './anchors.js';
 import { pasteLink } from './pasteLink.js';
+import { fileInsert } from './fileInsert.js';
 
 const vscode = acquireVsCodeApi();
 
@@ -134,6 +135,7 @@ function createEditor(text, options) {
       // livePreview の「↑↓ で表に入る」より後、CodeMirror の基本のキーより前に置く
       verticalMove(),
       pasteLink,
+      fileInsert(requestInsert),
       findWidget(),
       keymap.of([...searchKeymap, indentWithTab, ...defaultKeymap]),
       EditorView.contentAttributes.of({ spellcheck: 'false', autocorrect: 'off', autocapitalize: 'off' }),
@@ -207,6 +209,17 @@ function revealPos(pos, focus) {
     headingPeekOrigin = null;
     view.focus();
   }
+}
+
+/** 拡張機能本体に頼んで、文書に入れる Markdown を受け取る（fileInsert.js） */
+const insertRequests = new Map();
+let nextInsertId = 1;
+function requestInsert(message) {
+  const id = nextInsertId++;
+  return new Promise((resolve) => {
+    insertRequests.set(id, resolve);
+    vscode.postMessage({ ...message, id });
+  });
 }
 
 function sendLocalChanges(update) {
@@ -344,6 +357,10 @@ window.addEventListener('message', (event) => {
         view.focus();
       }
       headingPeekOrigin = null;
+      break;
+    case 'insertResult':
+      insertRequests.get(message.id)?.(message.text);
+      insertRequests.delete(message.id);
       break;
     case 'revealAnchor':
       if (view) revealAnchor(view, message.fragment);

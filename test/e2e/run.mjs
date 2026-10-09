@@ -6,6 +6,7 @@
 import { ALT, MOD, SHIFT, click, isMac, press, sleep, type } from './cdp.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { openSession } from './session.mjs';
 
 const {
@@ -806,4 +807,37 @@ const headingLine = await web('__hushmarkView.state.doc.lineAt(__hushmarkView.st
 check('見出しの一覧で選ぶと、その見出しに移る', headingLine === '## 二つ目の見出し', headingLine);
 check('見出しに移った後は、エディタにフォーカスがある', await web('__hushmarkView.hasFocus'));
 
+// 33. 画像を貼り付けると、文書と同じフォルダーに保存して画像のリンクを入れる。エクスプローラーから
+// ドロップしたファイルには、相対パスのリンクを入れる
+if (!remote) {
+  const dir = path.dirname(file);
+  fs.rmSync(path.join(dir, 'shot.png'), { force: true });
+  await loadDoc(['貼る: ', '', '後']);
+  await web(`(() => {
+    const v = __hushmarkView;
+    v.focus();
+    v.dispatch({ selection: { anchor: v.state.doc.line(1).to } });
+    const data = new DataTransfer();
+    data.items.add(new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'shot.png', { type: 'image/png' }));
+    v.contentDOM.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  })()`);
+  await sleep(800);
+  doc = await checkInSync('画像の貼り付け');
+  check('画像を貼り付けると、保存して画像のリンクを入れる', doc.startsWith('貼る: ![shot](shot.png)') &&
+    fs.existsSync(path.join(dir, 'shot.png')), doc.split('\n')[0]);
+
+  fs.mkdirSync(path.join(dir, 'sub dir'), { recursive: true });
+  const dropped = pathToFileURL(path.join(dir, 'sub dir', 'other.md')).href;
+  await loadDoc(['落とす', '', '後']);
+  await web(`(() => {
+    const v = __hushmarkView;
+    const c = v.coordsAtPos(v.state.doc.line(1).to);
+    const data = new DataTransfer();
+    data.setData('text/uri-list', ${JSON.stringify(dropped)});
+    v.contentDOM.dispatchEvent(new DragEvent('drop', { dataTransfer: data, clientX: c.right + 2, clientY: (c.top + c.bottom) / 2, bubbles: true, cancelable: true }));
+  })()`);
+  await sleep(800);
+  doc = await checkInSync('ファイルのドロップ');
+  check('ドロップしたファイルに、相対パスのリンクを入れる', doc.startsWith('落とす[other.md](<sub dir/other.md>)'), doc.split('\n')[0]);
+}
 finish();
