@@ -13,7 +13,9 @@ function decorate(doc, cursor) {
     state = state.update({ selection: EditorSelection.cursor(cursor), effects: setFocus.of(true) }).state;
   }
   const out = [];
+  // ビューが要る装飾（表のセルの箱、tableCells.js）は関数で入っているので、ここでは見ない
   for (const set of state.facet(EditorView.decorations)) {
+    if (typeof set === 'function') continue;
     set.between(0, doc.length, (from, to, deco) => {
       const spec = deco.spec;
       out.push({

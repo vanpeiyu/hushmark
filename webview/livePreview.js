@@ -13,8 +13,9 @@ import { EditorSelection, StateEffect, StateField } from '@codemirror/state';
 import { Decoration, EditorView, WidgetType, keymap } from '@codemirror/view';
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { linkAttributes, normalizeLabel, openLinkHandler } from './inline.js';
-import { TableWidget, enterTableByKeyboard, isRawTable, rawTables, tableScrollHandler, tableSearchHighlight, toggleRawTable } from './tableWidget.js';
-import { buildTableModel, splitRow } from './tableModel.js';
+import { rawTables, toggleRawTable } from './tableWidget.js';
+import { splitRow } from './tableModel.js';
+import { tableCells } from './tableCells.js';
 import { hasMod } from './platform.js';
 
 /** エディタのフォーカスの変化。テストからも使う。 */
@@ -56,9 +57,7 @@ export function livePreview({ openLink } = {}) {
     EditorView.focusChangeEffect.of((_state, focusing) => setFocus.of(focusing)),
     rawTables,
     previewField,
-    enterTableByKeyboard,
-    tableSearchHighlight,
-    tableScrollHandler,
+    tableCells(),
     EditorView.domEventHandlers({ mousedown: handleLinkClick }),
     keymap.of([
       { key: 'Tab', run: moveTableCell(1) },
@@ -464,27 +463,7 @@ function buildDecorations(state, span = null) {
           }
           return;
 
-        case 'Table': {
-          const first = doc.lineAt(from);
-          const last = doc.lineAt(to);
-          // ソース表示は「ソース」ボタンで選んだときだけ。カーソルが入っただけでは切り替えない
-          if (isRawTable(state, first.from, last.to) && isActive(first.from, last.to)) {
-            lineClass(first.from, last.to, 'cm-md-table-src');
-            return false;
-          }
-          const lines = [];
-          for (let child = node.firstChild; child; child = child.nextSibling) {
-            if (child.name === 'TableHeader' || child.name === 'TableRow' || child.name === 'TableDelimiter') {
-              lines.push({ text: doc.sliceString(child.from, child.to), from: child.from - first.from });
-            }
-          }
-          const source = doc.sliceString(first.from, last.to);
-          decorations.push(Decoration.replace({
-            widget: new TableWidget(buildTableModel(lines), source, definitions()),
-            block: true,
-          }).range(first.from, last.to));
-          return false;
-        }
+        // 表は tableCells.js が行とセルの箱を付ける。セルの中の強調やリンクは、ここで本文と同じく装飾する
       }
     },
   });

@@ -1076,3 +1076,103 @@ body.md-style-reference .cm-md-table th,
 body.md-style-reference .cm-md-table tbody tr:nth-child(even) {
   background-color: var(--md-block-bg);
 }
+
+/*
+ * ================================================================ 表（試作：tableCells.js）
+ * 表のソースの 1 行をエディタの 1 行のまま flex にし、セル（| と | の間）を幅の決まった箱にして列をそろえる。
+ * | は 1 文字分の隙間にし、カーソルのある行だけ薄く見せる。線は高さを変えないよう、inset の影で描く
+ */
+#editor .cm-line.cm-md-trow {
+  display: flex;
+  align-items: stretch;
+}
+
+.cm-md-trow > .cm-md-tcell,
+.cm-md-trow > .cm-md-tpipe {
+  flex: none;
+  box-shadow: inset 0 -1px 0 var(--md-border);
+}
+
+.cm-md-tcell {
+  display: inline-block;
+  box-sizing: border-box;
+  vertical-align: top;
+  white-space: pre-wrap;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.cm-md-tpipe {
+  display: inline-block;
+  width: 1ch;
+  overflow: hidden;
+  color: transparent;
+}
+
+.cm-md-tpipe.cm-md-tpipe-shown {
+  color: var(--md-muted);
+}
+
+.cm-md-trow-head > .cm-md-tcell {
+  color: var(--md-strong-fg);
+  font-weight: 700;
+}
+
+.cm-md-trow-head > .cm-md-tcell,
+.cm-md-trow-head > .cm-md-tpipe,
+.cm-md-trow-delim > .cm-md-tcell,
+.cm-md-trow-delim > .cm-md-tpipe {
+  background-color: var(--md-block-bg);
+  box-shadow: none;
+}
+
+.cm-md-trow-delim > .cm-md-tcell,
+.cm-md-trow-delim > .cm-md-tpipe {
+  box-shadow: inset 0 -1px 0 var(--md-border-strong);
+}
+
+.cm-md-tdelim-hidden > .cm-md-tcell,
+.cm-md-tdelim-hidden > .cm-md-tpipe {
+  color: transparent;
+}
+
+.cm-md-trow-last > .cm-md-tcell,
+.cm-md-trow-last > .cm-md-tpipe {
+  box-shadow: none;
+}
+
+.cm-md-tcell-center { text-align: center; }
+.cm-md-tcell-right { text-align: right; }
+
+.cm-md-tcell-extra {
+  color: var(--md-muted);
+}
+
+/* 列の幅を測る、画面の外の箱 */
+.cm-md-tmeasure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.cm-md-tmeasure-cell {
+  display: block;
+}
+
+.cm-md-tmeasure-head {
+  font-weight: 700;
+}
+
+/* インラインコードの ` は透明にして幅を残すので、その分を測る箱でも足す */
+.cm-md-tmeasure code {
+  padding: 0 1ch;
+}
+
+body.md-style-soft .cm-md-trow-head > .cm-md-tcell,
+body.md-style-soft .cm-md-trow-head > .cm-md-tpipe,
+body.md-style-soft .cm-md-trow-delim > .cm-md-tcell,
+body.md-style-soft .cm-md-trow-delim > .cm-md-tpipe {
+  background-color: var(--md-accent-bg);
+}

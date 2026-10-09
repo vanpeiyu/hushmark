@@ -11,6 +11,7 @@
 import { Annotation, EditorSelection } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { columnsOf, posAtColumn } from './textWidth.js';
+import { tableAt } from './tableWidget.js';
 
 
 /** 最後に動かした先と、そのときに保っていた桁。続けて動かすときは、短い行を通っても元の桁に戻る */
@@ -46,6 +47,8 @@ function moveRange(view, range, forward) {
   const number = line.number + (forward ? 1 : -1);
   if (number < 1 || number > state.doc.lines) return null;
   const target = state.doc.line(number);
+  // 表の行では、セルが横に並ぶので桁は使えない。CodeMirror のとおり見た目の位置で動く
+  if (tableAt(state, line.from) || tableAt(state, target.from)) return null;
   const column = sticky && sticky.pos === range.head
     ? sticky.column
     : columnsOf(state.sliceDoc(rowStart, range.head), state.tabSize);
