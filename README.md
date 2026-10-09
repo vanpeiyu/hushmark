@@ -45,11 +45,11 @@ Install it from the [Visual Studio Marketplace](https://marketplace.visualstudio
 |---|---|---|
 | Heading | Hides `#`. Depending on the style, shows a mark for the level in the left margin. A line with only `##` is not a heading | ― |
 | Emphasis, link | Hides the syntax together with its width. A reference link such as `[foo]` becomes a link only when the document defines `[foo]: URL` (as in CommonMark) | Ctrl+Click (Cmd+Click on macOS) opens the link. A link to `#heading` moves to that heading (anchors follow the same rules as GitHub). For `other.md#heading`, the cursor moves to the heading when the file opens in this editor |
-| Image | Not rendered in the document; the source is shown in a muted color (rendering it would break the alignment with source lines). Inside table cells, the alt text is shown | Hover to show the image in a popup. Ctrl+Click opens the image file |
+| Image | Not rendered in the document; the source is shown in a muted color (rendering it would break the alignment with source lines). The same applies inside table cells | Hover to show the image in a popup. Ctrl+Click opens the image file |
 | Inline code | Hides `` ` `` and uses its width as padding of the background | ― |
 | Two trailing spaces (line break) | Shows a faint dot where the spaces are | ― |
 | List, task | Shows a bullet in place of `-` and a checkbox in place of `[ ]` | Click a checkbox to toggle between `[ ]` and `[x]` |
-| Table | Shows a table | See "Editing tables" below |
+| Table | Shows a table with aligned columns. On the line with the cursor, `\|` is shown faintly | See "Editing tables" below |
 | Code block | Hides ` ``` ` and uses those lines as space above and below (the language name is shown at the start of the line). Highlights syntax for each language | ― |
 | Blockquote, horizontal rule | Hides the syntax | ― |
 | Front matter | No styling | ― |
@@ -82,8 +82,6 @@ The keyboard shortcuts are the same as in the VS Code editor. Elsewhere in this 
 | Drop from the Explorer while holding Shift | Same | Inserts a link to the file with a relative path (an image link for images). Images dropped from your OS file manager are saved and linked in the same way as pasted images |
 | The key after Ctrl+K | The key after Cmd+K | Passed to VS Code as a chord (such as Ctrl+K Z) and not typed as a character |
 
-The same keys work while you edit a table cell.
-
 ### Find
 
 As with the find widget of the VS Code editor, it appears in the upper right.
@@ -97,28 +95,24 @@ As with the find widget of the VS Code editor, it appears in the upper right.
 | Ctrl+H, or › at the left | Cmd+Option+F, or › at the left | Shows the replace field. In the replace field, Enter replaces one match and Ctrl+Alt+Enter (Cmd+Option+Enter on macOS) replaces all |
 | Esc | Same | Closes it and returns to the editor |
 
-Matches inside a table are shown by highlighting the cells that contain them.
-
 When you open a result of Search (Ctrl+Shift+F) with a double-click or Enter, this editor receives focus, but the cursor does not move to the match, because VS Code does not pass the position to custom editors.
 
 ### Editing tables
 
-Tables are shown as tables, and only the cell you click is edited as source. Inside a cell, bold and link syntax is shown only while the cursor touches it, and long content wraps at the cell width. Column widths are fixed at their width just before editing starts and are recalculated when you leave the cell.
+Each line of a table's source stays one line, and the columns are aligned so that it looks like a table. You edit cell text as you edit other text, and you can select across cells or from outside a table into it. Inside a cell, bold and link syntax is shown only while the cursor touches it, and long content wraps at the cell width (even when `editor.wordWrap` is `off`).
+
+Column widths are chosen to keep the table short and to avoid wrapping short cells. They stay fixed while the cursor is in the table and are recalculated when it leaves.
 
 | Action | Behavior |
 |---|---|
-| Click a cell | Edits that cell from the clicked position |
-| ↑ / ↓ on the line above or below a table | Edits a cell in the nearest row of the table |
-| Tab / Shift+Tab | Next / previous cell. Tab in the last cell adds a row |
-| Enter / Shift+Enter | Cell below / above. At the edge of the table, leaves the table |
-| ↑ / ↓ | Moves between wrapped lines in a cell. ↑ on the first line or ↓ on the last line first moves to the start or end of the cell, and pressing it again moves to the cell above or below |
-| Esc | Stops editing and moves to the line below the table |
-| Type `\|` | Escapes it as `\|` so that it does not split the cell |
+| Tab / Shift+Tab | Selects the content of the next / previous cell. Tab in the last cell adds a row |
+| Enter / Shift+Enter | Moves to the cell in the same column of the row below / above. At the edge of the table, leaves the table |
+| ↑ / ↓ | Moves up / down by position on the screen, including between wrapped lines in a cell |
+| Type `\|` in a cell | Escapes it as `\|` so that it does not split the cell |
 
-When you hover over a table, the following buttons appear in its upper right.
+To change alignment (`:--:`), put the cursor on the delimiter row (`|---|`), which is then shown as source. Delete rows and columns by editing the source.
 
-- "+ Row" and "+ Column": add a row or a column
-- "Source": shows the whole table as Markdown source. It returns to the table view when the cursor leaves the table. Change alignment (`:--:`) or delete rows and columns here
+When you hover over a table, "+ Row" and "+ Column" buttons appear in its upper right. They add a row or a column at the end.
 
 ## Settings
 
@@ -161,7 +155,7 @@ The following colors can be changed.
 | `background` / `foreground` / `strongForeground` / `mutedForeground` | Background, text, text of headings and bold, text of syntax and blockquotes |
 | `border` / `strongBorder` | Thin rules and slightly darker rules (where they are used depends on the style) |
 | `blockBackground` / `codeBackground` | Background of code blocks and front matter, background of inline code |
-| `accent` / `softAccent` / `accentBackground` | Accent (checkboxes, the cell being edited, bullets in `soft`, and so on), soft accent (rules in `soft`), accent background (blockquotes and table headers in `soft`) |
+| `accent` / `softAccent` / `accentBackground` | Accent (checkboxes, bullets in `soft`, and so on), soft accent (rules in `soft`), accent background (blockquotes and table headers in `soft`) |
 | `link` | Links |
 | `highlight` | Highlighter under bold text (`soft`) |
 | `selection` / `lineHighlight` | Selection, background of the line with the cursor |

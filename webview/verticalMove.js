@@ -11,7 +11,7 @@
 import { Annotation, EditorSelection } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { columnsOf, posAtColumn } from './textWidth.js';
-import { tableAt } from './tableWidget.js';
+import { tableAt } from './tableCells.js';
 
 
 /** 最後に動かした先と、そのときに保っていた桁。続けて動かすときは、短い行を通っても元の桁に戻る */
@@ -19,7 +19,10 @@ let sticky = null;
 /** ↑ / ↓ で動かした選択に付ける印。ほかの操作でカーソルが動いたら、保っていた桁を捨てる */
 const verticalMoved = Annotation.define();
 const forgetSticky = EditorView.updateListener.of((update) => {
-  if (sticky && update.transactions.some((tr) => tr.selection && !tr.annotation(verticalMoved))) sticky = null;
+  if (update.transactions.some((tr) => tr.selection && !tr.annotation(verticalMoved))) {
+    sticky = null;
+    tableGoal = null;
+  }
 });
 
 const rowBoundary = (view, pos, assoc, forward) =>
@@ -47,8 +50,6 @@ function moveRange(view, range, forward) {
   const number = line.number + (forward ? 1 : -1);
   if (number < 1 || number > state.doc.lines) return null;
   const target = state.doc.line(number);
-  // 表の行では、セルが横に並ぶので桁は使えない。CodeMirror のとおり見た目の位置で動く
-  if (tableAt(state, line.from) || tableAt(state, target.from)) return null;
   const column = sticky && sticky.pos === range.head
     ? sticky.column
     : columnsOf(state.sliceDoc(rowStart, range.head), state.tabSize);
@@ -58,9 +59,38 @@ function moveRange(view, range, forward) {
   return { head: posAtColumn(state.sliceDoc(from, to), from, column, state.tabSize), column };
 }
 
+/**
+ * 表の行（tableCells.js）とその上下の行では、画面上の位置で動く。セルは editor.wordWrap によらず折り返すが、
+ * 折り返さない設定の CodeMirror は 1 行を 1 つの見た目の行とみなすため。横位置は、続けて動く間は保つ
+ */
+let tableGoal = null;
+function moveInTable(view, range, forward) {
+  const { state } = view;
+  const line = state.doc.lineAt(range.head);
+  const next = line.number + (forward ? 1 : -1);
+  const near = tableAt(state, line.from) || (next >= 1 && next <= state.doc.lines && tableAt(state, state.doc.line(next).from));
+  if (!near) return undefined;
+  const c = view.coordsAtPos(range.head, range.assoc || 1);
+  if (!c) return undefined;
+  const x = tableGoal && tableGoal.pos === range.head ? tableGoal.x : c.left;
+  const y = (c.top + c.bottom) / 2 + (forward ? 1 : -1) * view.defaultLineHeight;
+  const pos = view.posAtCoords({ x, y }, false);
+  if (pos === range.head) return undefined;
+  return { head: pos, x };
+}
+
 function move(forward, extend) {
   return (view) => {
     const { state } = view;
+    const inTable = state.selection.ranges.map((range) => moveInTable(view, range, forward));
+    if (inTable.every((m) => m)) {
+      const ranges = state.selection.ranges.map((range, i) =>
+        (extend ? EditorSelection.range(range.anchor, inTable[i].head) : EditorSelection.cursor(inTable[i].head)));
+      const selection = EditorSelection.create(ranges, state.selection.mainIndex);
+      view.dispatch({ selection, scrollIntoView: true, userEvent: 'select', annotations: verticalMoved.of(true) });
+      tableGoal = { pos: selection.main.head, x: inTable[state.selection.mainIndex].x };
+      return true;
+    }
     const moved = state.selection.ranges.map((range) => moveRange(view, range, forward));
     // どれか 1 つでも行の中の移動なら、CodeMirror の動き（見た目）に任せる
     if (moved.some((m) => m === null)) return false;

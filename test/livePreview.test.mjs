@@ -4,7 +4,7 @@ import { EditorSelection } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { markdownSupport } from '../webview/markdownSetup.js';
 import { livePreview, setFocus } from '../webview/livePreview.js';
-import { tableAt, toggleRawTable } from '../webview/tableWidget.js';
+import { cellSpans, tableAt, visibleText } from '../webview/tableCells.js';
 import { parsedState } from './parsedState.mjs';
 
 function decorate(doc, cursor) {
@@ -58,42 +58,29 @@ test('インライン要素の記号は、その要素にカーソルがある�
   assert.deepEqual(hiddenTexts(doc, decorate(doc, doc.indexOf('ode'))), ['*', '*', '[', '](https://x)']);
 });
 
-test('カーソルのない表はブロックのウィジェットに置き換える', () => {
-  const doc = 'intro\n\n| a | b |\n|---|---|\n| 1 |  |\n\nafter';
-  const table = decorate(doc, 0).find((d) => d.kind === 'TableWidget');
-  assert.ok(table && table.block);
-  assert.equal(doc.slice(table.from, table.to), '| a | b |\n|---|---|\n| 1 |  |');
+test('表のセルの中の強調やリンクも、本文と同じく装飾する', () => {
+  const doc = '| a | b |\n|---|---|\n| **太字** | [リンク](https://example.com) |';
+  const out = decorate(doc);
+  assert.ok(out.some((d) => d.cls === 'cm-md-strong' && doc.slice(d.from, d.to) === '太字'));
+  assert.ok(out.some((d) => d.cls === 'cm-md-link' && doc.slice(d.from, d.to) === 'リンク'));
 });
 
-test('カーソルが表に入っても、表は HTML のまま', () => {
-  const doc = 'intro\n\n| a | b |\n|---|---|\n| 1 |  |\n\nafter';
-  const decos = decorate(doc, doc.indexOf('| 1'));
-  assert.ok(decos.some((d) => d.kind === 'TableWidget'));
+test('cellSpans: | で行をセルに分け、\\| では分けない。外側の空白だけの部分はセルにしない', () => {
+  const text = '| a | b \\| c |  ';
+  const { pipes, spans } = cellSpans(text);
+  assert.deepEqual(pipes, [0, 4, 13]);
+  assert.deepEqual(spans.map((s) => text.slice(s.from, s.to)), [' a ', ' b \\| c ']);
+  assert.ok(spans.every((s) => s.closed));
+  // 行頭と行末の | がない行
+  const bare = 'a | b';
+  assert.deepEqual(cellSpans(bare).spans.map((s) => [bare.slice(s.from, s.to), s.closed]), [['a ', false], [' b', false]]);
 });
 
-test('「ソース」を選んだ表は、カーソルがある間だけソースを等幅で表示する', () => {
-  const doc = 'intro\n\n| a | b |\n|---|---|\n| 1 |  |\n\nafter';
-  const tableFrom = doc.indexOf('| a');
-  const extensions = [markdownSupport(), livePreview()];
-  let state = parsedState({ doc, extensions });
-  state = state.update({
-    selection: EditorSelection.cursor(tableFrom),
-    effects: [setFocus.of(true), toggleRawTable.of(tableFrom)],
-  }).state;
-  const kinds = () => {
-    const out = [];
-    for (const set of state.facet(EditorView.decorations)) {
-      set.between(0, doc.length, (_f, _t, deco) => out.push(deco.spec.widget ? deco.spec.widget.constructor.name : deco.spec.class));
-    }
-    return out;
-  };
-  assert.equal(kinds().filter((k) => k === 'cm-md-table-src').length, 3);
-  assert.ok(!kinds().includes('TableWidget'));
-
-  // 表から出たら HTML に戻り、もう一度入っても HTML のまま
-  state = state.update({ selection: EditorSelection.cursor(doc.length) }).state;
-  state = state.update({ selection: EditorSelection.cursor(tableFrom) }).state;
-  assert.ok(kinds().includes('TableWidget'));
+test('visibleText: 幅ごと隠す記号を除き、インラインコードの ` は残す', () => {
+  assert.equal(visibleText('**太字**と`code`'), '太字と`code`');
+  assert.equal(visibleText('[リンク](https://example.com) の \\| と ~~線~~'), 'リンク の | と 線');
+  assert.equal(visibleText('<https://example.com>'), 'https://example.com');
+  assert.equal(visibleText('![alt](a.png)'), '![alt](a.png)');
 });
 
 test('末尾のコードブロックはカーソルがなければフェンスを隠し、あれば表示する', () => {

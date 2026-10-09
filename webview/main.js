@@ -7,8 +7,7 @@ import { languages } from '@codemirror/language-data';
 import { syntaxHighlighting } from '@codemirror/language';
 import { classHighlighter } from '@lezer/highlight';
 import { searchKeymap } from '@codemirror/search';
-import { findWidget, openFind, openFindWith, openReplace } from './findWidget.js';
-import { cellKeymap } from './cellEditor.js';
+import { findWidget, openFind, openReplace } from './findWidget.js';
 import { livePreview } from './livePreview.js';
 import { lineNumberGutter, reconfigureLineNumbers } from './lineNumbers.js';
 import { applyMetrics } from './metrics.js';
@@ -92,20 +91,6 @@ const editorKeymap = [
   ownKeys('Alt-z', toggleWrapping),
 ];
 
-/**
- * 表のセルのエディタでも使うショートカット。キーはセルのエディタで呼ばれる（target はセルのエディタ）。
- * 取り消しと、セルの移動のキーは表のウィジェット（tableWidget.js）の側で入れる
- */
-const cellKeys = [
-  ownKeys('Mod-f', (cell) => openFindWith(view, selectedLine(cell), false)),
-  ownKeys('Mod-h', (cell) => openFindWith(view, selectedLine(cell), true), 'Mod-Alt-f'),
-  ownKeys('Mod-Shift-f', searchInFiles(false)),
-  ownKeys('Mod-Shift-h', searchInFiles(true)),
-  ownKeys('Mod-b', toggleWrap('**')),
-  ownKeys('Mod-i', toggleWrap('*')),
-  ownKeys('Alt-z', toggleWrapping),
-];
-
 function createEditor(text, options) {
   lastWordWrap = options.wordWrap;
   wrapOn = options.wordWrap !== 'off';
@@ -113,7 +98,6 @@ function createEditor(text, options) {
     doc: text,
     extensions: [
       keymap.of(editorKeymap),
-      cellKeymap.of(cellKeys),
       blockLocalEdits,
       readOnlyState.of(EditorState.readOnly.of(readOnly)),
       history(),

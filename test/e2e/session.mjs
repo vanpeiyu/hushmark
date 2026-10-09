@@ -61,10 +61,10 @@ export async function openSession(file = process.argv[2]) {
 
   /** 表の上のボタンを押す。ボタンは表にマウスを載せている間だけ押せるので、表から順にマウスを動かす */
   async function clickTableTool(index) {
-    await web(`document.querySelector('.cm-md-table').scrollIntoView({ block: 'center' })`);
+    await web(`document.querySelector('.cm-md-table-block').scrollIntoView({ block: 'center' })`);
     await sleep(100);
     const center = (selector, i) => web(`(() => { const r = document.querySelectorAll(${JSON.stringify(selector)})[${i}].getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
-    const table = await toPage(await center('.cm-md-table', 0));
+    const table = await toPage(await center('.cm-md-trow-head', 0));
     const button = await toPage(await center('.cm-md-table-tools button', index));
     await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: table.x, y: table.y });
     await sleep(250);

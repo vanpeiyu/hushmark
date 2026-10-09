@@ -21,7 +21,7 @@ check('初期表示: ファイルと表示が一致', original === readFile().re
 const heights = JSON.parse(await web(`JSON.stringify((() => {
   const line = __hushmarkView.defaultLineHeight;
   const headings = [...document.querySelectorAll('.cm-md-heading')].map((e) => e.getBoundingClientRect().height / line);
-  const table = document.querySelector('.cm-md-table-wrap').getBoundingClientRect().height / line;
+  const table = document.querySelector('.cm-md-table-block').getBoundingClientRect().height / line;
   return { line, headings, table };
 })())`));
 check('見出しの行の高さは本文の行の整数倍', heights.headings.length > 0 &&
@@ -98,40 +98,42 @@ await press(cdp, 'Backspace');
 await sleep(150);
 doc = await checkInSync('Ctrl+K M の後');
 
-// 2. 表: 触ったセルだけが小さなエディタになり、表そのものは HTML のまま
+// 2. 表: ソースの行のまま、セルを箱にして列をそろえる。セルの文字は本文と同じく編集する
 const tableState = () => web(`(() => {
-  const input = document.querySelector('.cm-md-cell-input');
-  const cell = input && input.closest('th, td');
+  const v = __hushmarkView;
+  const head = v.state.selection.main.head;
+  const rows = [...document.querySelectorAll('.cm-md-trow')];
+  // 列ごとのセルの箱の左端。そろっていれば、どの行でも同じ
+  const lefts = rows.filter((r) => !r.classList.contains('cm-md-trow-delim'))
+    .map((r) => [...r.querySelectorAll(':scope > .cm-md-tcell')].map((c) => Math.round(c.getBoundingClientRect().left)));
   return {
-    tables: document.querySelectorAll('.cm-md-table').length,
-    source: document.querySelectorAll('.cm-md-table-src').length,
-    inputs: document.querySelectorAll('.cm-md-cell-input').length,
-    value: input ? input.mdCellView.state.doc.toString() : null,
-    row: cell ? Number(cell.dataset.row) : null,
-    col: cell ? Number(cell.dataset.col) : null,
-    focused: !!input && input.contains(document.activeElement),
-    strong: document.querySelectorAll('.cm-md-table strong').length,
+    rows: rows.length,
+    aligned: lefts.every((l) => l.every((x, i) => x === lefts[0][i])),
+    widths: rows.length ? [...rows[0].querySelectorAll(':scope > .cm-md-tcell')].map((c) => Math.round(c.getBoundingClientRect().width)) : [],
+    shownPipes: document.querySelectorAll('.cm-md-tpipe-shown').length,
+    line: v.state.doc.lineAt(head).number,
+    selected: v.state.sliceDoc(v.state.selection.main.from, v.state.selection.main.to),
+    focused: v.hasFocus,
   };
 })()`);
 
-check('表: カーソルがなければ HTML の表', (await tableState()).tables === 1);
-await clickSelector('.cm-md-table td', 1); // 「120」
 let ts = await tableState();
-check('表: クリックしたセルだけが入力欄になる', ts.tables === 1 && ts.source === 0 && ts.inputs === 1 && ts.value === '120' && ts.focused, ts);
-check('表のセルの編集中は、本文の行の背景を出さない', (await highlighted()).length === 0, await highlighted());
-const cellCaretColor = await web("getComputedStyle(document.querySelector('.cm-md-cell-input .cm-line')).caretColor");
-check('表のセルの編集中は、カーソルが見える（透明でない）', !/rgba\(0, 0, 0, 0\)|transparent/.test(cellCaretColor), cellCaretColor);
-// クリックした位置にカーソルが入るので、末尾に動かしてから打つ
-await press(cdp, 'End');
+check('表: 4 行をそれぞれ表の行にし、列をそろえる', ts.rows === 4 && ts.aligned && ts.shownPipes === 0, ts);
+const widthsBefore = ts.widths;
+const cellPos = (text, offset = 0) => web(`__hushmarkView.state.doc.toString().indexOf(${JSON.stringify(text)}) + ${offset}`);
+await clickPos(await cellPos('120', 3));
+ts = await tableState();
+check('表: クリックした行だけ | を出す', ts.line === 9 && ts.shownPipes === 4 && ts.focused, ts);
+check('表: | を出しても列の位置は動かない', ts.aligned && ts.widths.join() === widthsBefore.join(), { ts, widthsBefore });
 await type(cdp, '0');
 doc = await checkInSync('表のセル編集');
 check('表のセル編集: 文書に反映された', doc.includes('| りんご | 1200 |'), doc.split('\n')[8]);
 ts = await tableState();
-check('表のセル編集: 保存の後も同じセルを編集中', ts.inputs === 1 && ts.value === '1200' && ts.focused, ts);
+check('表のセル編集: 打っている間は列の幅を変えない', ts.widths.join() === widthsBefore.join(), { ts, widthsBefore });
 
 await press(cdp, 'Tab');
 ts = await tableState();
-check('Tab: 次のセルはソース（**旬**）のまま入力欄に出る', ts.value === '**旬**' && ts.col === 2, ts);
+check('Tab: 次のセルの中身（**旬**）を選ぶ', ts.selected === '**旬**', ts);
 await type(cdp, '旬!');
 doc = await checkInSync('Tab で次のセル');
 check('Tab: 次のセルの内容を選択して置き換えた', doc.split('\n')[8] === '| りんご | 1200 | 旬! |', doc.split('\n')[8]);
@@ -154,45 +156,35 @@ check('セルに | を打つ: \\| にエスケープされる', doc.split('\n')[
 await press(cdp, 'z', MOD);
 await sleep(200);
 doc = await checkInSync('セルの中で Ctrl+Z');
-ts = await tableState();
-check('セルの中で Ctrl+Z: 取り消せて、入力欄も戻る', doc.split('\n')[10] === '| ぶどう |  |  |' && ts.value === 'ぶどう' && ts.focused, { line: doc.split('\n')[10], ts });
-// セルの途中で打って取り消すと、カーソルは取り消したところに戻る（セルの先頭に戻らない）
-const undoCellCaret = () => web("document.querySelector('.cm-md-cell-input').mdCellView.state.selection.main.head");
-await press(cdp, 'Home');
-await press(cdp, 'ArrowRight');
-await sleep(600); // 取り消しの単位を分ける
-await type(cdp, 'x');
-await sleep(300);
-await press(cdp, 'z', MOD);
-await sleep(300);
-const undoCaret = await undoCellCaret();
-check('セルの途中で打って Ctrl+Z: カーソルは取り消したところ', undoCaret === 1 && (await tableState()).value === 'ぶどう', undoCaret);
-await press(cdp, 'End');
+check('セルの中で Ctrl+Z: 取り消せる', doc.split('\n')[10] === '| ぶどう |  |  |', doc.split('\n')[10]);
 
-await press(cdp, 'Escape');
-await sleep(150);
+await press(cdp, 'Enter', SHIFT);
 ts = await tableState();
-check('Escape: 編集をやめて表の下の行に出る', ts.inputs === 0 && (await web('__hushmarkView.hasFocus && __hushmarkView.state.doc.lineAt(__hushmarkView.state.selection.main.head).number')) === 12, ts);
+check('Shift+Enter: 上の行の同じ列のセルに移る', ts.line === 10 && (await web('__hushmarkView.state.selection.main.head')) === (await cellPos('みかん', 3)), ts);
+await press(cdp, 'Enter');
+await press(cdp, 'Enter');
+ts = await tableState();
+doc = await webDoc();
+check('Enter: 表の最後の行では、表の下の行に出る（表は壊さない）', ts.line === 12 && doc.split('\n')[10] === '| ぶどう |  |  |', { ts, line: doc.split('\n')[10] });
 
 await press(cdp, 'ArrowUp');
-await sleep(200);
+await sleep(150);
 ts = await tableState();
-check('下の行から ↑: 表の最後の行のセルを編集する', ts.inputs === 1 && ts.row === 3 && ts.col === 0 && ts.focused, ts);
-await press(cdp, 'Escape');
+check('下の行から ↑: 表の最後の行に入る', ts.line === 11, ts);
 
 await clickTableTool(1); // ＋列
 await type(cdp, '新列');
 doc = await checkInSync('＋列');
-check('＋列: 右端に列が増えて見出しを編集できる', doc.split('\n')[6] === '| 項目 | 値 | 備考 | 新列 |' && doc.split('\n')[7] === '|:--|--:|---|---|', doc.split('\n').slice(6, 8));
-await press(cdp, 'Escape');
+check('＋列: 右端に列が増えて見出しに打てる', doc.split('\n')[6] === '| 項目 | 値 | 備考 | 新列 |' && doc.split('\n')[7] === '|:--|--:|---|---|', doc.split('\n').slice(6, 8));
 
-await clickTableTool(2); // ソース
-ts = await tableState();
-check('ソース: 表全体をソースで表示する', ts.tables === 0 && ts.source === 5, ts);
+await clickTableTool(0); // ＋行
+await type(cdp, '末尾');
+doc = await checkInSync('＋行');
+check('＋行: 最後に行が増えて先頭のセルに打てる', doc.split('\n')[11] === '| 末尾 |  |  |  |', doc.split('\n').slice(10, 12));
 
 // 3. ファイル末尾のコードブロックの後ろに書く。末尾付近で打っても位置がずれない
 await clickPos(await web('__hushmarkView.state.doc.length'));
-check('末尾: 表はカーソルが離れると HTML に戻る', (await tableState()).tables === 1);
+check('末尾: 表から出ると | を隠す', (await tableState()).shownPipes === 0);
 await type(cdp, 'コードの後');
 await press(cdp, 'Enter');
 for (const word of ['一', '二', '三']) {
@@ -221,7 +213,7 @@ const findState = async () => JSON.parse(await web(`JSON.stringify({
   selected: __hushmarkView.state.sliceDoc(__hushmarkView.state.selection.main.from, __hushmarkView.state.selection.main.to),
   replaceShown: !!document.querySelector('.cm-md-find-replace-row:not([hidden])'),
   caseOn: document.querySelector('.cm-md-find-toggle')?.getAttribute('aria-pressed') === 'true',
-  tableCurrent: document.querySelectorAll('.cm-md-cell-match-current').length,
+  tableCurrent: document.querySelectorAll('.cm-md-trow .cm-searchMatch-selected').length,
 })`));
 const selectText = (text) => web(`(() => { const v = __hushmarkView; const f = v.state.doc.toString().indexOf(${JSON.stringify(text)}); v.focus(); v.dispatch({ selection: { anchor: f, head: f + ${text.length} } }); })()`);
 
@@ -231,7 +223,7 @@ await press(cdp, 'f', MOD);
 await sleep(300);
 let fs1 = await findState();
 check('Ctrl+F: 選択中の文字列を検索語にして、入力欄にフォーカスする', fs1.open && fs1.value === 'みかん' && fs1.focused && fs1.count === '1 / 1', fs1);
-check('Ctrl+F: 表の中の一致はセルに色を付ける', fs1.tableCurrent === 1, fs1);
+check('Ctrl+F: 表の中の一致にも色を付ける', fs1.tableCurrent === 1, fs1);
 
 await press(cdp, 'a', MOD);
 await type(cdp, 'ん');
@@ -391,8 +383,7 @@ const insideBold = await web("__hushmarkView.state.doc.toString().indexOf('字**
 await clickPos(insideBold);
 await clickPos(insideBold);
 await compose(['か', 'かな'], '仮名');
-await clickSelector('.cm-md-table td', 1);
-await press(cdp, 'End');
+await clickPos(await web("__hushmarkView.state.doc.toString().indexOf('| 2 |') + 3"));
 await compose(['さ', 'さん'], '三');
 doc = await checkInSync('IME');
 check('IME: 見出しの行に確定した文字が入った', doc.split('\n')[0] === '# 見出し日本', doc.split('\n')[0]);
@@ -402,84 +393,52 @@ check('IME: 表のセルに確定した文字が入った', doc.split('\n')[6] =
 // 9. 中身が長いセルの編集。列の幅は編集の前のまま、セルの中で折り返し、記号はカーソルが触れたときだけ出す
 const longCell = 'セルの中で折り返す**長い備考**です。折り返すと行の高さが本文の行の倍数で伸び、[行番号](https://example.com)もその行の 1 行目にそろうかを確かめます。';
 const longDoc = ['# 長いセル', '', '| 項目 | 備考 |', '|---|---|', `| みかん | ${longCell} |`, '', '後'];
-// IME の確かめで編集していたセルから出る。表が文書の末尾なので改行が足される。その書き込みを待ってから書き換える
-await press(cdp, 'Escape');
+await clickPos(0);
 await checkInSync('表から出る');
 await loadDoc(longDoc);
 
-/** 表のセルの中の文字 text の左端をクリックする */
-async function clickCellText(text) {
-  const c = JSON.parse(await web(`JSON.stringify((() => {
-    for (const td of document.querySelectorAll('.cm-md-table td')) {
-      const walker = document.createTreeWalker(td, NodeFilter.SHOW_TEXT);
-      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-        const i = n.data.indexOf(${JSON.stringify(text)});
-        if (i < 0) continue;
-        const range = document.createRange();
-        range.setStart(n, i);
-        range.setEnd(n, i + 1);
-        const r = range.getBoundingClientRect();
-        return { x: r.left + 2, y: (r.top + r.bottom) / 2 };
-      }
-    }
-  })())`));
-  const p = await toPage(c);
-  await click(cdp, p.x, p.y);
-  await sleep(250);
-}
+/** 文書の中の文字 text の左端をクリックする */
+const clickCellText = async (text) => clickPos(await cellPos(text));
 const tableLayout = () => web(`JSON.stringify((() => {
-  const table = document.querySelector('.cm-md-table');
-  const editor = document.querySelector('.cm-md-cell-input');
-  const v = editor && editor.mdCellView;
+  const v = __hushmarkView;
+  const block = document.querySelector('.cm-md-table-block');
+  const row = [...document.querySelectorAll('.cm-md-trow-body')][0];
   return {
-    widths: [...table.rows[0].cells].map((c) => Math.round(c.getBoundingClientRect().width)),
-    height: Math.round(table.getBoundingClientRect().height),
-    fixed: table.style.tableLayout === 'fixed',
-    marks: editor ? [...editor.querySelectorAll('.cm-md-mark')].map((e) => e.textContent) : null,
-    caret: v ? v.state.sliceDoc(v.state.selection.main.head, v.state.selection.main.head + 2) : null,
+    widths: [...document.querySelector('.cm-md-trow-head').querySelectorAll(':scope > .cm-md-tcell')].map((c) => Math.round(c.getBoundingClientRect().width)),
+    height: Math.round(block.getBoundingClientRect().height),
+    rowLines: Math.round(row.getBoundingClientRect().height / v.defaultLineHeight),
+    marks: [...row.querySelectorAll('.cm-md-mark')].map((e) => e.textContent),
+    caret: v.state.sliceDoc(v.state.selection.main.head, v.state.selection.main.head + 2),
+    line: v.state.doc.lineAt(v.state.selection.main.head).number,
   };
 })())`).then(JSON.parse);
 const beforeEdit = await tableLayout();
+check('長いセル: セルの中で折り返し、行の高さが本文の行の倍数で伸びる', beforeEdit.rowLines >= 2, beforeEdit);
 await clickCellText('伸び');
 let duringEdit = await tableLayout();
 check('長いセル: クリックした位置にカーソルが入る', duringEdit.caret === '伸び', duringEdit);
-check('長いセル: 編集を始めても列の幅と表の高さが変わらない',
-  duringEdit.widths.join() === beforeEdit.widths.join() && duringEdit.height === beforeEdit.height, { beforeEdit, duringEdit });
-check('長いセル: カーソルが触れていない太字とリンクの記号は出さない', duringEdit.marks && duringEdit.marks.length === 0, duringEdit);
-await clickCellText('備考');
+check('長いセル: カーソルが入っても列の幅は変わらない', duringEdit.widths.join() === beforeEdit.widths.join(), { beforeEdit, duringEdit });
+check('長いセル: カーソルが触れていない太字とリンクの記号は出さない', duringEdit.marks.length === 0, duringEdit);
+await clickCellText('備考**');
 duringEdit = await tableLayout();
-check('長いセル: カーソルが触れた太字の記号だけ出す', duringEdit.marks && duringEdit.marks.join(' ') === '** **', duringEdit);
+check('長いセル: カーソルが触れた太字の記号だけ出す', duringEdit.marks.join(' ') === '** **', duringEdit);
 await type(cdp, 'とても長くなった');
 doc = await checkInSync('長いセル');
 duringEdit = await tableLayout();
-check('長いセル: 打っても列の幅は編集の前のまま', duringEdit.fixed && duringEdit.widths.join() === beforeEdit.widths.join(), { beforeEdit, duringEdit });
+check('長いセル: 打っても列の幅は編集の前のまま', duringEdit.widths.join() === beforeEdit.widths.join(), { beforeEdit, duringEdit });
 check('長いセル: 打った文字が文書に入った', doc.split('\n')[4].includes('**長いとても長くなった備考**'), doc.split('\n')[4]);
-await press(cdp, 'Escape');
-await sleep(200);
-check('長いセル: セルから出たら列の幅の固定をやめる', (await tableLayout()).fixed === false);
 
-// 最初の行の途中で ↑ を押すと、まずセルの先頭に動く。もう一度押すと上のセルに移る
+// 折り返したセルの中では、↑ / ↓ は見た目の行の間を動く。最初の見た目の行で ↑ を押すと上の行に移る
+await clickCellText('折り返す');
+await press(cdp, 'ArrowDown');
+await sleep(150);
+duringEdit = await tableLayout();
+check('長いセル: ↓ はセルの中の次の見た目の行に動く', duringEdit.line === 5, duringEdit);
 await clickCellText('折り返す');
 await press(cdp, 'ArrowUp');
 await sleep(150);
-const caretAt = () => web("(() => { const e = document.querySelector('.cm-md-cell-input'); return e ? e.mdCellView.state.selection.main.head : null; })()");
-ts = await tableState();
-check('長いセル: 最初の行で ↑ を押すとセルの先頭に動く', ts.row === 1 && (await caretAt()) === 0, { ts, caret: await caretAt() });
-await press(cdp, 'ArrowUp');
-await sleep(150);
-ts = await tableState();
-check('長いセル: セルの先頭で ↑ を押すと上のセルに移る', ts.row === 0 && ts.col === 1, ts);
-// 「伸び」の位置から ↓ を押していくと、最後の行で一度セルの末尾に止まる（折り返しの行数は画面の幅による）
-await clickCellText('伸び');
-const cellLength = () => web("(() => { const e = document.querySelector('.cm-md-cell-input'); return e ? e.mdCellView.state.doc.length : -1; })()");
-for (let i = 0; i < 4 && (await caretAt()) !== (await cellLength()); i++) {
-  await press(cdp, 'ArrowDown');
-  await sleep(150);
-}
-check('長いセル: 最後の行で ↓ を押すとセルの末尾に動く',
-  (await tableState()).row === 1 && (await caretAt()) === (await web("document.querySelector('.cm-md-cell-input').mdCellView.state.doc.length")),
-  { ts: await tableState(), caret: await caretAt() });
-await press(cdp, 'Escape');
+duringEdit = await tableLayout();
+check('長いセル: 最初の見た目の行で ↑ を押すと上の行（区切りの行）に移る', duringEdit.line === 4, duringEdit);
 
 // 10. 行頭で「## 」と打ってから変換すると、変換中から見出しの大きさで出て、確定しても位置が動かない
 const headingDoc = ['本文', '', ''];
@@ -520,14 +479,12 @@ check('「## 」の後の変換: 見出しが文書に入った', doc.endsWith('
 // 11. 表のセルの中でも、本文と同じショートカットが効く
 const shortcutDoc = ['| 果物 | 値 |', '|---|---|', '| りんご | 1 |', '', '後'];
 await loadDoc(shortcutDoc);
-await clickCellText('りんご');
-ts = await tableState();
-check('セルのショートカット: クリックしたセルを編集している', ts.inputs === 1 && ts.value === 'りんご' && ts.focused, ts);
-await press(cdp, 'a', MOD);
+await selectText('りんご');
 await press(cdp, 'b', MOD);
 await sleep(200);
 doc = await checkInSync('セルで Ctrl+B');
-check('セルで Ctrl+A → Ctrl+B: セルの中身を太字にする', doc.split('\n')[2] === '| **りんご** | 1 |', doc.split('\n')[2]);
+check('セルで Ctrl+B: 選んだ文字列を太字にする', doc.split('\n')[2] === '| **りんご** | 1 |', doc.split('\n')[2]);
+await selectText('りんご');
 await press(cdp, 'f', MOD);
 await sleep(300);
 const cellFind = JSON.parse(await web(`JSON.stringify({
@@ -550,7 +507,7 @@ await sleep(200);
 await type(cdp, 'R40');
 await sleep(500);
 const currentCellVisible = () => web(`JSON.stringify((() => {
-  const el = document.querySelector('.cm-md-cell-match-current');
+  const el = document.querySelector('.cm-md-trow .cm-searchMatch-selected');
   const box = __hushmarkView.scrollDOM.getBoundingClientRect();
   const r = el && el.getBoundingClientRect();
   return { cell: el ? el.textContent : null, visible: !!r && r.top >= box.top && r.bottom <= box.bottom };
@@ -606,45 +563,26 @@ const spaceWidth = await web("Math.round(document.querySelector('.cm-md-heading-
 check('見出しの空白の前後: 描かれるカーソルが空白の幅だけ動く', Math.abs(beforeText - afterMarks - spaceWidth) <= 2 && spaceWidth > 0 &&
   afterMarks > betweenMarks, { beforeText, afterMarks, betweenMarks, spaceWidth });
 
-// 16. 表のセルの端で ← / → を押すと、隣のセルに移る
+// 16. 表のセルの端で → を押していくと、| をまたいで次のセルに入る（テキストエディタと同じくソースの順に動く）
 const arrowTableDoc = ['| 果物 | 値 |', '|---|---|', '| りんご | 12 |', '', '後'];
 await loadDoc(arrowTableDoc);
-await clickCellText('りんご');
-await press(cdp, 'End');
-await press(cdp, 'ArrowRight');
+await clickPos(await cellPos('りんご', 3));
+for (let i = 0; i < 3; i++) await press(cdp, 'ArrowRight');
 await sleep(150);
-ts = await tableState();
-let cellCaret = await web("document.querySelector('.cm-md-cell-input').mdCellView.state.selection.main.head");
-check('セルの末尾で →: 次のセルの先頭に移る', ts.row === 1 && ts.col === 1 && cellCaret === 0, { ts, cellCaret });
-await press(cdp, 'ArrowLeft');
-await sleep(150);
-ts = await tableState();
-cellCaret = await web("document.querySelector('.cm-md-cell-input').mdCellView.state.selection.main.head");
-check('セルの先頭で ←: 前のセルの末尾に移る', ts.row === 1 && ts.col === 0 && cellCaret === 3, { ts, cellCaret });
-await press(cdp, 'ArrowLeft');
-await sleep(150);
-ts = await tableState();
-check('セルの途中の ←: セルの中で動く', ts.row === 1 && ts.col === 0, ts);
-await press(cdp, 'Escape');
+check('セルの末尾から → を 3 回: 次のセルの先頭（空白と | をまたぐ）', (await web('__hushmarkView.state.selection.main.head')) === (await cellPos('12')));
 
-// 17. 表: ソースで省略されたセルへの入力、セルの中の裸の URL
+// 17. 表: ソースで省略されたセルは空の箱で列をそろえる。セルの中の裸の URL
 const sparseDoc = ['| h1 | h2 | h3 |', '|---|---|---|', '| https://example.com |', '', '後'];
 await loadDoc(sparseDoc);
-const bareUrl = await web("[...document.querySelectorAll('.cm-md-table td .cm-md-link')].map((e) => e.textContent).join()");
+const bareUrl = await web("[...document.querySelectorAll('.cm-md-trow .cm-md-link')].map((e) => e.textContent).join()");
 check('表のセルの裸の URL をリンクとして描く', bareUrl === 'https://example.com', bareUrl);
-await clickSelector('.cm-md-table td', 2); // 3 列目（ソースでは省略されている）
-await type(cdp, 'X');
-doc = await checkInSync('省略されたセル');
-check('省略されたセルに打つと、手前の省略されたセルも補って 3 列目に入る', doc.split('\n')[2] === '| https://example.com |  | X |', doc.split('\n')[2]);
-await press(cdp, 'Escape');
-await sleep(200);
+check('ソースで省略されたセルは、空の箱で列をそろえる', (await web("document.querySelectorAll('.cm-md-tcell-missing').length")) === 2 && (await tableState()).aligned);
 
-// 18. 引用の中の表でも「ソース」で表全体のソースを出せる
+// 18. 引用の中の表も、表の行として描く
 const quotedDoc = ['前', '', '> | a | b |', '> |---|---|', '> | 1 | 2 |', '', '後'];
 await loadDoc(quotedDoc);
-await clickTableTool(2); // ソース
 ts = await tableState();
-check('引用の中の表: 「ソース」で表全体をソースで表示する', ts.tables === 0 && ts.source === 3, ts);
+check('引用の中の表: 表の行にして列をそろえる', ts.rows === 3 && ts.aligned, ts);
 
 // 19. ↑ / ↓ で保った桁は、ほかの操作でカーソルが動いたら捨てる
 const stickyDoc = ['abcdefghij', 'x', 'abcdefghij'];
@@ -671,12 +609,6 @@ await press(cdp, 'Escape'); // 開いたメニューを閉じる
 await sleep(300);
 check('チェックボックスを右クリックしても切り替えない', (await webDoc()) === taskDoc.join('\n'), await webDoc());
 
-// 21. 表のセルの文字参照は元の文字にする。定義のない名前はそのまま出す
-const entityDoc = ['| a | b |', '|---|---|', '| &copy; &#169; &#x41; | &notit; &amp; |', '', '後'];
-await loadDoc(entityDoc);
-const entityCells = JSON.parse(await web("JSON.stringify([...document.querySelectorAll('.cm-md-table td')].map((e) => e.textContent))"));
-check('表のセルの文字参照を元の文字にする', entityCells.join('|') === '© © A|&notit; &', entityCells);
-
 // 22. 文書内のリンク（#見出し）を Ctrl+クリックすると、その見出しに移る
 const anchorDoc = ['[後の見出しへ](#後の見出しその2)', '', ...Array.from({ length: 80 }, (_, i) => `行 ${i + 1}`), '', '## 後の見出し（その2）', '', '後'];
 await loadDoc(anchorDoc);
@@ -700,7 +632,8 @@ check('#見出し のリンク: 見出しにカーソルが移り、画面に出
 // 23. 表の上のボタンは表の右端にそろえ、表が狭いときは左にはみ出さない
 const toolsLayout = () => web(`JSON.stringify((() => {
   const box = (s) => document.querySelector(s).getBoundingClientRect();
-  return { tools: box('.cm-md-table-tools'), table: box('.cm-md-table'), content: box('.cm-content') };
+  const right = Math.max(...[...document.querySelector('.cm-md-trow-head').children].map((e) => e.getBoundingClientRect().right));
+  return { tools: box('.cm-md-table-tools'), table: { right }, content: box('.cm-content') };
 })())`).then(JSON.parse);
 await loadDoc(['| a | b |', '|---|---|', '| 1 | 2 |', '', '後']);
 const narrow = await toolsLayout();
@@ -727,8 +660,8 @@ if (!remote) {
   check('読めない画像では何も表示しない', missing.length === 0, missing);
   // 表のセルの中の画像も同じ
   await loadDoc(['| 色 | 画像 |', '|---|---|', '| 赤 | ![red](pic.png) |', '', '後']);
-  const cellImage = await web("document.querySelector('.cm-md-table .cm-md-image')?.textContent");
-  check('表のセルの画像は、代替テキストを出す', cellImage === 'red', cellImage);
+  const cellImage = await web("document.querySelector('.cm-md-trow .cm-md-image')?.textContent");
+  check('表のセルの画像は、本文と同じくソースのまま出す', cellImage === '![red](pic.png)', cellImage);
   const shownInCell = await hoverImage(0);
   check('表のセルの画像にマウスを載せると、画像を表示する', shownInCell.length === 1 && shownInCell[0] === 4, shownInCell);
 }
@@ -761,7 +694,7 @@ check('離れた 2 か所が外で変わっても、間のカーソルは動か�
 
 // 29. 表のセルの中の参照リンクは、文書の定義があればリンクにする。定義が変われば描き直す
 const refTable = (def) => ['| 名前 | リンク |', '|---|---|', '| a | [ref] と [none] |', '', '後', ...(def ? ['', `[ref]: ${def}`] : [])];
-const cellLinks = () => web("JSON.stringify([...document.querySelectorAll('.cm-md-table td .cm-md-link')].map((e) => [e.textContent, e.getAttribute('data-href')]))").then(JSON.parse);
+const cellLinks = () => web("JSON.stringify([...document.querySelectorAll('.cm-md-trow .cm-md-link')].map((e) => [e.textContent, e.getAttribute('data-href')]))").then(JSON.parse);
 await loadDoc(refTable('https://example.com/one'));
 let links = await cellLinks();
 check('表のセルの参照リンク: 定義のあるものだけリンクにする', links.length === 1 && links[0][0] === 'ref' && links[0][1] === 'https://example.com/one', links);
