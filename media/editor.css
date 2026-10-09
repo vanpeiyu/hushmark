@@ -1085,6 +1085,37 @@ body.md-style-reference .cm-md-table tbody tr:nth-child(even) {
 #editor .cm-line.cm-md-trow {
   display: flex;
   align-items: stretch;
+  padding-left: 0;
+}
+
+/*
+ * 行の左の余白（--md-line-pad）は、行の padding ではなく先頭の項目にする。見出しの行の色や行の線を、
+ * ほかの背景と同じく行の左端（基準線）から描くため
+ */
+#editor .cm-line.cm-md-trow::before {
+  content: '';
+  flex: none;
+  width: var(--md-line-pad);
+  box-shadow: inset 0 -1px 0 var(--md-border);
+}
+
+#editor .cm-line.cm-md-trow-head::before,
+#editor .cm-line.cm-md-trow-delim::before {
+  background-color: var(--md-block-bg);
+  box-shadow: none;
+}
+
+#editor .cm-line.cm-md-trow-delim::before {
+  box-shadow: inset 0 -1px 0 var(--md-border-strong);
+}
+
+#editor .cm-line.cm-md-trow-last::before {
+  box-shadow: none;
+}
+
+body.md-style-soft #editor .cm-line.cm-md-trow-head::before,
+body.md-style-soft #editor .cm-line.cm-md-trow-delim::before {
+  background-color: var(--md-accent-bg);
 }
 
 .cm-md-trow > .cm-md-tcell,

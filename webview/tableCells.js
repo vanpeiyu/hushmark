@@ -13,7 +13,7 @@ import { StateEffect } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, WidgetType } from '@codemirror/view';
 import { syntaxTree } from '@codemirror/language';
 import { renderInline } from './inline.js';
-import { displayWidth } from './textWidth.js';
+import { columnsOf, displayWidth } from './textWidth.js';
 
 /** 測り直した列の幅を表示に反映させる */
 const widthsMeasured = StateEffect.define();
@@ -108,6 +108,15 @@ function alignmentsOf(text) {
   });
 }
 
+/**
+ * セルの先頭の空白の幅（桁）。折り返した 2 行目以降をこの幅だけ右に寄せ、1 行目の文字の先頭とそろえる。
+ * GFM では | の前後の空白は任意なので、空白がなければ寄せない
+ */
+const leadingColumns = (text, tabSize) => columnsOf(/^[ \t]*/.exec(text)[0], tabSize);
+
+/** 先頭の空白の幅だけ、2 行目以降を寄せる指定 */
+const hangingStyle = (columns) => (columns > 0 ? `padding-left: ${columns}ch; text-indent: -${columns}ch;` : '');
+
 /** 中身のないセル（|| の間や、ソースで省略されたセル）の箱 */
 class EmptyCellWidget extends WidgetType {
   constructor(className, width) {
@@ -183,9 +192,10 @@ function buildDecorations(view, widthsByTable) {
         if (align) classes.push(`cm-md-tcell-${align}`);
         const width = !extra && widths ? widths[col] : null;
         if (cell.to > cell.from) {
+          const style = (width != null ? `width: ${width}px;` : '') + hangingStyle(leadingColumns(cell.text, state.tabSize));
           decorations.push(Decoration.mark({
             class: classes.join(' '),
-            attributes: width != null ? { style: `width: ${width}px` } : undefined,
+            attributes: style ? { style } : undefined,
           }).range(cell.from, cell.to));
         } else {
           decorations.push(Decoration.widget({ widget: new EmptyCellWidget(classes.join(' '), width), side: 1 }).range(cell.from));
@@ -218,7 +228,7 @@ let measureFont = '';
  * @returns {Map<string, {min: number, max: number}>} キーは measureKey
  */
 const measureKey = (text, head) => (head ? 'H' : 'D') + text;
-function measureCells(host, cells) {
+function measureCells(host, cells, tabSize) {
   const font = getComputedStyle(host).font + document.body.className;
   if (font !== measureFont) {
     measureCache.clear();
@@ -230,6 +240,7 @@ function measureCells(host, cells) {
     const boxes = todo.map(([, { text, head }]) => {
       const box = document.createElement('span');
       box.className = `cm-md-tcell cm-md-tmeasure-cell${head ? ' cm-md-tmeasure-head' : ''}`;
+      box.style.cssText = hangingStyle(leadingColumns(text, tabSize));
       box.style.width = 'max-content';
       renderInline(text, box);
       host.appendChild(box);
@@ -266,9 +277,12 @@ function availableWidth(view, layout) {
   const visible = view.scrollDOM.getBoundingClientRect().right - content.getBoundingClientRect().left;
   const inner = Math.min(content.clientWidth, visible) - padding;
   // 行の左右の余白と | の隙間の分を引く
-  const line = content.querySelector('.cm-line');
+  // 表の行の左の余白は ::before の幅（editor.css）
+  const line = content.querySelector('.cm-md-trow');
   const lineStyle = line ? getComputedStyle(line) : null;
-  const linePad = lineStyle ? parseFloat(lineStyle.paddingLeft) + parseFloat(lineStyle.paddingRight) : 0;
+  const linePad = lineStyle
+    ? parseFloat(lineStyle.paddingLeft) + parseFloat(lineStyle.paddingRight) + (parseFloat(getComputedStyle(line, '::before').width) || 0)
+    : 0;
   const pipe = content.querySelector('.cm-md-tpipe');
   const pipeWidth = pipe ? pipe.getBoundingClientRect().width : 0;
   const head = layout.rows.find((r) => r.kind === 'head');
@@ -279,7 +293,7 @@ function availableWidth(view, layout) {
 function computeWidths(view, layout) {
   const bodyRows = layout.rows.filter((row) => row.kind !== 'delim');
   const sizes = measureCells(measureHost(view),
-    bodyRows.flatMap((row) => row.cells.map((cell) => ({ text: cell.text, head: row.kind === 'head' }))));
+    bodyRows.flatMap((row) => row.cells.map((cell) => ({ text: cell.text, head: row.kind === 'head' }))), view.state.tabSize);
   const columns = [];
   for (let col = 0; col < layout.columns; col++) {
     let min = 0;
