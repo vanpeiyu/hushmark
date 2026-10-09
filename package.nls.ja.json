@@ -65,5 +65,6 @@
   "command.fold": "折りたたみ",
   "command.unfold": "展開",
   "command.foldAll": "すべて折りたたみ",
-  "command.unfoldAll": "すべて展開"
+  "command.unfoldAll": "すべて展開",
+  "command.gotoLine": "行に移動..."
 }

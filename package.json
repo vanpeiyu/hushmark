@@ -244,6 +244,11 @@
         "command": "hushmark.unfoldAll",
         "title": "%command.unfoldAll%",
         "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.gotoLine",
+        "title": "%command.gotoLine%",
+        "category": "Hushmark"
       }
     ],
     "menus": {
@@ -394,6 +399,42 @@
         {
           "command": "hushmark.unfoldAll",
           "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.gotoLine",
+          "when": "activeCustomEditorId == hushmark.editor"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "hushmark.goToHeading",
+          "when": "webviewId == 'hushmark.editor'",
+          "group": "navigation@1"
+        },
+        {
+          "command": "hushmark.gotoLine",
+          "when": "webviewId == 'hushmark.editor'",
+          "group": "navigation@2"
+        },
+        {
+          "command": "hushmark.bold",
+          "when": "webviewId == 'hushmark.editor'",
+          "group": "1_modification@1"
+        },
+        {
+          "command": "hushmark.italic",
+          "when": "webviewId == 'hushmark.editor'",
+          "group": "1_modification@2"
+        },
+        {
+          "command": "hushmark.commentLine",
+          "when": "webviewId == 'hushmark.editor'",
+          "group": "1_modification@3"
+        },
+        {
+          "command": "workbench.action.showCommands",
+          "when": "webviewId == 'hushmark.editor'",
+          "group": "z_commands"
         }
       ]
     },
@@ -840,6 +881,12 @@
         "command": "hushmark.unfoldAll",
         "key": "ctrl+k ctrl+j",
         "mac": "cmd+k cmd+j",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.gotoLine",
+        "key": "ctrl+g",
+        "mac": "ctrl+g",
         "when": "hushmark.editorFocus"
       }
     ]

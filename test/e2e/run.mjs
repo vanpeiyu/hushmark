@@ -894,4 +894,48 @@ await press(cdp, ']', isMac ? META | ALT : CTRL | SHIFT);
 await sleep(300);
 check('Ctrl+Shift+]: 展開する', (await web("[...document.querySelectorAll('.cm-line')].some((l) => l.textContent.includes('節の本文'))")) === true);
 
+// 33. 選択範囲を記号で囲み、括弧は自動で閉じる（VSCode の Markdown の言語設定と同じ）
+await loadDoc(['語を囲む', '', '後']);
+await selectText('囲む');
+await type(cdp, '*');
+await sleep(200);
+check('選択して * を打つ: 選択範囲を * で囲む', (await lines())[0] === '語を*囲む*', await lines());
+await clickPos(await web('__hushmarkView.state.doc.line(1).to'));
+await type(cdp, '(');
+await sleep(200);
+check('( を打つ: ) を自動で閉じる', (await lines())[0] === '語を*囲む*()', await lines());
+await press(cdp, 'z', MOD);
+await press(cdp, 'z', MOD);
+await sleep(300);
+await checkInSync('囲む操作の取り消し');
+
+// 34. ステータスバーに行と列を出し、Ctrl+G で行に移る
+await loadDoc(['一行目', '二行目の文', '三行目', '', '後']);
+await clickPos(await at('の文', 1));
+await sleep(400);
+const statusText = () => cdp.evaluateIn(mainCtx, "[...document.querySelectorAll('.statusbar-item')].map((e) => e.textContent.trim()).find((t) => /^Ln \\d+, Col \\d+/.test(t)) || null");
+check('ステータスバーに行と列を出す', (await statusText()) === 'Ln 2, Col 5', await statusText());
+await selectText('二行目');
+await sleep(400);
+check('ステータスバーに選択した文字数を出す', (await statusText()) === 'Ln 2, Col 4 (3 selected)', await statusText());
+await press(cdp, 'g', CTRL);
+await sleep(600);
+await type(cdp, '3');
+await press(cdp, 'Enter');
+await sleep(500);
+check('Ctrl+G: 入力した行に移る', (await web('__hushmarkView.state.doc.lineAt(__hushmarkView.state.selection.main.head).number')) === 3);
+
+// 35. テキストエディタとの切り替えで、カーソルの位置を引き継ぐ
+await clickPos(await at('の文', 1));
+await sleep(300);
+await cdp.evaluateIn(mainCtx, `document.querySelector('.editor-actions a.action-label[aria-label^="Open in Text Editor"]')?.click()`);
+await sleep(2500);
+const textEditorStatus = await cdp.evaluateIn(mainCtx, "document.querySelector('#status\\\\.editor\\\\.selection')?.textContent.trim() ?? null");
+check('テキストエディタで開き直すと、カーソルの位置を引き継ぐ', /^Ln 2, Col 5/.test(textEditorStatus || ''), textEditorStatus);
+await cdp.evaluateIn(mainCtx, `document.querySelector('.editor-actions a.action-label[aria-label^="Open in Live Editor"]')?.click()`);
+await sleep(3000);
+const reopened = await cdp.findContext('!!window.__hushmarkView && __hushmarkView.dom.getBoundingClientRect().width > 0', 15000);
+const backHead = await cdp.evaluateIn(reopened, '(() => { const v = __hushmarkView; const h = v.state.selection.main.head; const l = v.state.doc.lineAt(h); return [l.number, h - l.from]; })()');
+check('このエディタで開き直すと、テキストエディタのカーソルの位置を引き継ぐ', JSON.stringify(backHead) === '[2,4]', backHead);
+
 finish();

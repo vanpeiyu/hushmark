@@ -142,10 +142,16 @@ function createEditor(text, options) {
       EditorView.contentAttributes.of({ spellcheck: 'false', autocorrect: 'off', autocapitalize: 'off' }),
       EditorView.updateListener.of(sendLocalChanges),
       EditorView.updateListener.of((update) => { if (update.selectionSet) saveViewState(); }),
+      EditorView.updateListener.of((update) => { if (update.selectionSet || update.docChanged || update.focusChanged) reportCursor(update); }),
     ],
   });
   view = new EditorView({ state, parent: document.getElementById('editor') });
   restoreViewState();
+  if (pendingSelection) {
+    applySelectionLines(pendingSelection);
+    pendingSelection = null;
+  }
+  reportCursor();
   view.scrollDOM.addEventListener('scroll', saveViewState, { passive: true });
   // E2E テスト（test/e2e）が DevTools プロトコル経由で文書の内容を読むための参照
   window.__hushmarkView = view;
@@ -183,6 +189,57 @@ function saveViewState() {
     const top = view.lineBlockAtHeight(view.scrollDOM.scrollTop).from;
     vscode.setState({ anchor, head, top });
   }, 200);
+}
+
+/**
+ * カーソルの位置と選択した文字数を拡張機能本体に知らせる（ステータスバーと「行に移動」に使う）。
+ * 列は VSCode と同じく、タブを tabSize の桁まで進めて数える。文字数は改行を除いた文字の数
+ */
+let cursorTimer = null;
+/** テキストエディタから引き継ぐ選択範囲（エディタを作る前に届いたもの） */
+let pendingSelection = null;
+let charCount = null;
+function reportCursor(update) {
+  if (update && update.docChanged) charCount = null;
+  clearTimeout(cursorTimer);
+  cursorTimer = setTimeout(() => {
+    const { state } = view;
+    const main = state.selection.main;
+    const line = state.doc.lineAt(main.head);
+    let col = 0;
+    for (const ch of line.text.slice(0, main.head - line.from)) {
+      col = ch === '\t' ? col + state.tabSize - (col % state.tabSize) : col + ch.length;
+    }
+    const selected = state.selection.ranges.reduce((sum, r) => sum + (r.to - r.from), 0);
+    if (charCount === null) charCount = [...state.doc.toString().replace(/\n/g, '')].length;
+    vscode.postMessage({
+      type: 'cursor', line: line.number, col: col + 1, lines: state.doc.lines,
+      selected, selections: state.selection.ranges.length, chars: charCount,
+    });
+  }, 80);
+}
+
+/** 選択範囲を行と列（0 始まり、UTF-16 の単位）で表す。テキストエディタとの切り替えで引き継ぐ */
+function selectionAsLines() {
+  const { state } = view;
+  const point = (pos) => { const l = state.doc.lineAt(pos); return { line: l.number - 1, col: pos - l.from }; };
+  return {
+    ranges: state.selection.ranges.map((r) => ({ anchor: point(r.anchor), head: point(r.head) })),
+    main: state.selection.mainIndex,
+    top: state.doc.lineAt(view.lineBlockAtHeight(view.scrollDOM.scrollTop).from).number - 1,
+  };
+}
+
+function applySelectionLines({ ranges, main, top }) {
+  const { doc } = view.state;
+  const pos = ({ line, col }) => {
+    const l = doc.line(Math.min(Math.max(line + 1, 1), doc.lines));
+    return l.from + Math.min(Math.max(col, 0), l.length);
+  };
+  const selection = EditorSelection.create(ranges.map((r) => EditorSelection.range(pos(r.anchor), pos(r.head))), Math.min(main || 0, ranges.length - 1));
+  const topLine = doc.line(Math.min(Math.max((top ?? 0) + 1, 1), doc.lines));
+  view.dispatch({ selection, effects: EditorView.scrollIntoView(topLine.from, { y: 'start' }) });
+  view.focus();
 }
 
 function restoreViewState() {
@@ -348,6 +405,22 @@ window.addEventListener('message', (event) => {
         id: message.id,
         items: view ? headingAnchors(view.state).map((h) => ({ text: h.text, level: h.level, pos: h.from, line: view.state.doc.lineAt(h.from).number })) : [],
       });
+      break;
+    case 'requestSelection':
+      if (view) vscode.postMessage({ type: 'selection', id: message.id, selection: selectionAsLines() });
+      break;
+    case 'setSelection':
+      // エディタを作る前に届いたときは、作った後に当てる
+      if (view) applySelectionLines(message.selection);
+      else pendingSelection = message.selection;
+      break;
+    case 'revealLine':
+      if (view) {
+        const line = view.state.doc.line(Math.min(Math.max(message.line, 1), view.state.doc.lines));
+        const at = line.from + Math.min(Math.max((message.col || 1) - 1, 0), line.length);
+        view.dispatch({ selection: EditorSelection.cursor(at), effects: EditorView.scrollIntoView(at, { y: 'center' }) });
+        view.focus();
+      }
       break;
     case 'revealPos':
       if (view) revealPos(message.pos, message.focus);

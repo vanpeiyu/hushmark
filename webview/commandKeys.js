@@ -8,7 +8,10 @@
 // キーボード ショートカットから写した。package.json の keybindings がこの表と同じであることは、単体テストで確かめる。
 // key は Windows と Linux、mac は macOS、linux / win はそれぞれの OS だけで違うときのキー。
 
-/** @type {{ action: string, keys: { key: string, mac?: string, linux?: string, win?: string }[] }[]} */
+/**
+ * action は Webview の操作（コマンドは hushmark.<action>）。command は拡張機能本体で行うコマンド
+ * @type {{ action?: string, command?: string, keys: { key: string, mac?: string, linux?: string, win?: string }[] }[]}
+ */
 export const COMMAND_KEYS = [
   { action: 'bold', keys: [{ key: 'ctrl+b', mac: 'cmd+b' }] },
   { action: 'italic', keys: [{ key: 'ctrl+i', mac: 'cmd+i' }] },
@@ -41,11 +44,17 @@ export const COMMAND_KEYS = [
   { action: 'smartSelectExpand', keys: [{ key: 'shift+alt+right', mac: 'ctrl+shift+cmd+right' }] },
   { action: 'smartSelectShrink', keys: [{ key: 'shift+alt+left', mac: 'ctrl+shift+cmd+left' }] },
 
+  // 拡張機能本体で行うコマンド（Webview は VSCode に渡すだけ）。macOS の Cmd+G は「次を検索」なので、Ctrl+G のまま
+  { command: 'hushmark.gotoLine', keys: [{ key: 'ctrl+g', mac: 'ctrl+g' }] },
+
   { action: 'fold', keys: [{ key: 'ctrl+shift+[', mac: 'cmd+alt+[' }] },
   { action: 'unfold', keys: [{ key: 'ctrl+shift+]', mac: 'cmd+alt+]' }] },
   { action: 'foldAll', keys: [{ key: 'ctrl+k ctrl+0', mac: 'cmd+k cmd+0' }] },
   { action: 'unfoldAll', keys: [{ key: 'ctrl+k ctrl+j', mac: 'cmd+k cmd+j' }] },
 ];
+
+/** その行のコマンドの名前 */
+export const commandOf = (entry) => entry.command || `hushmark.${entry.action}`;
 
 const KEY_NAMES = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', enter: 'Enter' };
 const MODIFIERS = { ctrl: 'Ctrl', cmd: 'Meta', alt: 'Alt', shift: 'Shift' };

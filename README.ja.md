@@ -67,6 +67,10 @@
 | `editor.wordWrap` | 折り返し。`off` のときは折り返さず、それ以外（`on`・`wordWrapColumn`・`bounded`）は画面の幅で折り返す。Alt+Z でその場で切り替えられる（設定は変えない） |
 | `editor.renderLineHighlight` | カーソルのある行の背景。`line` と `all`（既定は `line`）で、行の左右の端まで薄い背景を付ける |
 | `editor.renderLineHighlightOnlyWhenFocus` | `true` のとき、エディタにフォーカスがある間だけ行の背景を付ける |
+| `editor.multiCursorModifier` | カーソルを足すクリックの修飾キー。`alt`（既定）なら Alt+クリックでカーソルを足し、Ctrl+クリックでリンクを開く。`ctrlCmd` なら逆になる |
+| `editor.autoClosingBrackets` | `never` のとき、括弧（`(`、`[`、`{`、`<`）を自動で閉じない |
+| `editor.autoSurround` | 文字列を選んで記号（`*`、`` ` ``、`_`、`~`、括弧、引用符など）を打ったときに、選択範囲を囲むか |
+| `editor.folding` / `editor.showFoldingControls` | 折りたたみ（見出しの節、リスト、引用、コードブロック）を使うか / 行番号の右の折りたたみの印をいつ出すか |
 
 キー操作は次のとおりで、VSCode のエディタと同じです。この README のほかの箇所では Windows と Linux のキーで書きます。macOS では、とくに断りがなければ Ctrl を Cmd に、Alt を Option に読み替えてください。
 
@@ -82,8 +86,18 @@
 | 画像を貼り付け（Ctrl+V） | 同じ | 文書と同じフォルダーに `image.png`（あれば `image-1.png` など）として保存し、画像のリンクを入れる。文字列も一緒にコピーしたもの（Excel のセルなど）は、文字列として貼り付ける |
 | Shift を押しながらエクスプローラーからドロップ | 同じ | そのファイルへの相対パスのリンクを入れる（画像は画像のリンク）。OS のファイルマネージャーからドロップした画像は、貼り付けと同じく保存してリンクを入れる |
 | Ctrl+K の後のキー | Cmd+K の後のキー | VSCode の 2 つ打ちのキー（Ctrl+K Z など）として VSCode に渡し、文字としては入力しない |
+| Ctrl+G | Ctrl+G | 指定した行に移る（`行:列` も受け付ける）。ステータスバーの行と列をクリックしても開く |
 
-検索、置換、太字、斜体、折り返しの切り替えのキーは、VSCode の「キーボード ショートカット」で「Hushmark」を検索すると変えられます。
+次の操作も、VSCode のテキストエディタと同じキーで使えます。
+
+- 行の操作：上下への移動（Alt+↑ / ↓）とコピー、削除（Ctrl+Shift+K）、上下への挿入（Ctrl+Shift+Enter / Ctrl+Enter）、行の選択（Ctrl+L）、インデント（Ctrl+] / Ctrl+[）、コメント（Ctrl+/、Shift+Alt+A）
+- 複数カーソル：Alt+クリック、カーソルを上下に足す、次の一致を足す（Ctrl+D）、すべての一致を選ぶ（Ctrl+Shift+L）、行末に足す（Shift+Alt+I）、取り消す（Ctrl+U）。Shift+Alt を押しながらドラッグすると矩形に選ぶ
+- 選択範囲の拡大と縮小（Shift+Alt+→ / ←）
+- 折りたたみ（Ctrl+Shift+[ / ]、すべて折りたたむ Ctrl+K Ctrl+0、すべて展開する Ctrl+K Ctrl+J）
+
+これらと検索、置換、太字、斜体、折り返しの切り替えのキーは、VSCode の「キーボード ショートカット」で「Hushmark」を検索すると変えられます。
+
+ステータスバーには、テキストエディタと同じくカーソルの行と列（選択しているときは選択した文字数）と、文書の文字数（改行を除く）を出します。「Open in Text Editor」と「Open in Live Editor」で開き直すと、カーソル、選択範囲、スクロールの位置を引き継ぎます。
 
 ### 検索
 

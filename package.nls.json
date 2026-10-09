@@ -65,5 +65,6 @@
   "command.fold": "Fold",
   "command.unfold": "Unfold",
   "command.foldAll": "Fold All",
-  "command.unfoldAll": "Unfold All"
+  "command.unfoldAll": "Unfold All",
+  "command.gotoLine": "Go to Line..."
 }

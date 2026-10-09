@@ -23,8 +23,9 @@ function activate(context) {
       webviewOptions: { retainContextWhenHidden: true },
       supportsMultipleEditorsPerDocument: true,
     }),
-    vscode.commands.registerCommand('hushmark.open', (uri) => reopenWith(uri, VIEW_TYPE)),
-    vscode.commands.registerCommand('hushmark.openSource', (uri) => reopenWith(uri, 'default')),
+    vscode.commands.registerCommand('hushmark.open', (uri) => provider.openFromTextEditor(uri)),
+    vscode.commands.registerCommand('hushmark.openSource', (uri) => provider.openInTextEditor(uri)),
+    vscode.commands.registerCommand('hushmark.gotoLine', () => provider.gotoLine()),
     vscode.commands.registerCommand('hushmark.goToHeading', () => provider.goToHeading()),
     ...webviewCommands(context).map((command) =>
       vscode.commands.registerCommand(command, () => provider.runInWebview(command.slice('hushmark.'.length)))),
@@ -32,12 +33,6 @@ function activate(context) {
 }
 
 function deactivate() {}
-
-async function reopenWith(uri, viewType) {
-  const target = uri instanceof vscode.Uri ? uri : activeTabUri();
-  if (!target) return;
-  await vscode.commands.executeCommand('vscode.openWith', target, viewType);
-}
 
 function activeTabUri() {
   const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
@@ -66,6 +61,99 @@ class LiveEditorProvider {
     this.webviews = new Map();
     /** 開こうとしている文書の、移す先の見出し。Webview の準備ができたときに渡す */
     this.pendingAnchors = new Map();
+    /** テキストエディタから開き直す文書の、引き継ぐ選択範囲。Webview の準備ができたときに渡す */
+    this.pendingSelections = new Map();
+    // ステータスバー。テキストエディタと同じく、カーソルの行と列、選択した文字数を出す。文書の文字数も出す
+    this.positionItem = vscode.window.createStatusBarItem('hushmark.position', vscode.StatusBarAlignment.Right, 100);
+    this.positionItem.name = vscode.l10n.t('Hushmark Cursor Position');
+    this.positionItem.command = 'hushmark.gotoLine';
+    this.positionItem.tooltip = vscode.l10n.t('Go to Line');
+    this.charsItem = vscode.window.createStatusBarItem('hushmark.characters', vscode.StatusBarAlignment.Right, 100.1);
+    this.charsItem.name = vscode.l10n.t('Hushmark Character Count');
+    context.subscriptions.push(this.positionItem, this.charsItem);
+  }
+
+  /** 前面の Webview（なければ undefined） */
+  activeEntry() {
+    const entries = [...this.webviews.values()].flatMap((set) => [...set]);
+    return entries.find((e) => e.focused) || entries.find((e) => e.panel.active);
+  }
+
+  /** Webview に問い合わせて、答えを受け取る（届かなければ null） */
+  request(entry, message, timeout = 3000) {
+    const id = this.nextRequestId = (this.nextRequestId || 0) + 1;
+    return new Promise((resolve) => {
+      entry.requests ??= new Map();
+      entry.requests.set(id, resolve);
+      entry.panel.webview.postMessage({ ...message, id });
+      setTimeout(() => { if (entry.requests.delete(id)) resolve(null); }, timeout);
+    });
+  }
+
+  updateStatus() {
+    const entries = [...this.webviews.values()].flatMap((set) => [...set]);
+    const entry = entries.find((e) => e.panel.active);
+    const cursor = entry && entry.cursor;
+    if (!cursor) {
+      this.positionItem.hide();
+      this.charsItem.hide();
+      return;
+    }
+    let text = vscode.l10n.t('Ln {0}, Col {1}', cursor.line, cursor.col);
+    if (cursor.selections > 1) text += ` ${vscode.l10n.t('({0} selections)', cursor.selections)}`;
+    else if (cursor.selected > 0) text += ` ${vscode.l10n.t('({0} selected)', cursor.selected)}`;
+    this.positionItem.text = text;
+    this.charsItem.text = vscode.l10n.t('{0} characters', cursor.chars.toLocaleString());
+    this.positionItem.show();
+    this.charsItem.show();
+  }
+
+  /** 行に移動（Ctrl+G）。テキストエディタと同じく、行番号か「行:列」を受け付ける */
+  async gotoLine() {
+    const entry = this.activeEntry();
+    if (!entry || !entry.cursor) return;
+    const { line, col, lines } = entry.cursor;
+    const input = await vscode.window.showInputBox({
+      prompt: vscode.l10n.t('Current Line: {0}, Character: {1}. Type a line number between 1 and {2} to navigate to.', line, col, lines),
+      validateInput: (value) => (value.trim() === '' || /^\s*\d+\s*(?:[:,]\s*\d+\s*)?$/.test(value) ? null : vscode.l10n.t('Type a line number, or a line number and a character number separated by a colon.')),
+    });
+    if (!input || !input.trim()) return;
+    const [target, character] = input.split(/[:,]/).map((v) => Number(v.trim()));
+    entry.panel.webview.postMessage({ type: 'revealLine', line: target, col: character || 1 });
+  }
+
+  /** テキストエディタで開き直す。カーソル、選択範囲、スクロールの位置を引き継ぐ */
+  async openInTextEditor(uri) {
+    const target = uri instanceof vscode.Uri ? uri : activeTabUri();
+    if (!target) return;
+    const entry = [...(this.webviews.get(target.toString()) || [])].find((e) => e.panel.active) ||
+      [...(this.webviews.get(target.toString()) || [])][0];
+    const reply = entry ? await this.request(entry, { type: 'requestSelection' }, 1000) : null;
+    await vscode.commands.executeCommand('vscode.openWith', target, 'default');
+    const editor = vscode.window.activeTextEditor;
+    if (!reply || !editor || editor.document.uri.toString() !== target.toString()) return;
+    const { ranges, main, top } = reply.selection;
+    const toSelection = (r) => new vscode.Selection(r.anchor.line, r.anchor.col, r.head.line, r.head.col);
+    const ordered = [ranges[main], ...ranges.filter((_, i) => i !== main)].filter(Boolean);
+    editor.selections = ordered.map(toSelection);
+    editor.revealRange(new vscode.Range(top, 0, top, 0), vscode.TextEditorRevealType.AtTop);
+  }
+
+  /** このエディタで開き直す。テキストエディタで開いていたなら、カーソル、選択範囲、スクロールの位置を引き継ぐ */
+  async openFromTextEditor(uri) {
+    const target = uri instanceof vscode.Uri ? uri : activeTabUri();
+    if (!target) return;
+    const editor = vscode.window.activeTextEditor;
+    if (editor && editor.document.uri.toString() === target.toString()) {
+      const point = (p) => ({ line: p.line, col: p.character });
+      this.pendingSelections.set(target.toString(), {
+        ranges: editor.selections.map((sel) => ({ anchor: point(sel.anchor), head: point(sel.active) })),
+        main: 0,
+        top: editor.visibleRanges.length ? editor.visibleRanges[0].start.line : 0,
+      });
+      setTimeout(() => this.pendingSelections.delete(target.toString()), 10000);
+    }
+    await vscode.commands.executeCommand('vscode.openWith', target, VIEW_TYPE);
   }
 
   /**
@@ -111,8 +199,7 @@ class LiveEditorProvider {
 
   /** フォーカスのある Webview（なければ前面の Webview）で操作を行う */
   runInWebview(action) {
-    const entries = [...this.webviews.values()].flatMap((set) => [...set]);
-    const entry = entries.find((e) => e.focused) || entries.find((e) => e.panel.active);
+    const entry = this.activeEntry();
     if (entry) entry.panel.webview.postMessage({ type: 'run', action });
   }
 
@@ -162,6 +249,20 @@ class LiveEditorProvider {
               webview.postMessage({ type: 'revealAnchor', fragment: this.pendingAnchors.get(key) });
               this.pendingAnchors.delete(key);
             }
+            if (this.pendingSelections.has(key)) {
+              webview.postMessage({ type: 'setSelection', selection: this.pendingSelections.get(key) });
+              this.pendingSelections.delete(key);
+            }
+            break;
+          case 'cursor':
+            entry.cursor = message;
+            this.updateStatus();
+            break;
+          case 'selection':
+            if (entry.requests && entry.requests.has(message.id)) {
+              entry.requests.get(message.id)(message);
+              entry.requests.delete(message.id);
+            }
             break;
           case 'edit': session.enqueue(message); break;
           case 'openLink': openLink(message.href, document.uri, webview, this); break;
@@ -199,10 +300,12 @@ class LiveEditorProvider {
       }),
     ];
     const unwatch = watchDiskChanges(document, panel, log);
+    subscriptions.push(panel.onDidChangeViewState(() => this.updateStatus()));
     panel.onDidDispose(() => {
       this.webviews.get(key).delete(entry);
       if (this.webviews.get(key).size === 0) this.webviews.delete(key);
       this.updateFocusContext();
+      this.updateStatus();
       subscriptions.forEach((s) => s.dispose());
       unwatch();
     });

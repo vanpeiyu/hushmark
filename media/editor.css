@@ -1147,6 +1147,10 @@ body.md-style-soft .cm-md-trow-delim > .cm-md-tpipe {
 
 /* 折りたたみの印。VSCode と同じく行番号の右に、山形の線で描く。editor.showFoldingControls が mouseover なら、
    行番号の上にマウスがあるときと、折りたたんでいる行だけ出す */
+#editor .cm-foldGutter .cm-gutterElement.cm-activeLineGutter {
+  background: transparent;
+}
+
 #editor .cm-foldGutter .cm-gutterElement {
   display: flex;
   align-items: flex-start;
