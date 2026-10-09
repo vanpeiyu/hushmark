@@ -44,10 +44,9 @@ code --extensionDevelopmentPath="$PWD" <試す Markdown ファイル>
 - `webview/`：Webview 側
   - `main.js`：エディタの組み立て、拡張機能本体とのやり取り、キー操作
   - `livePreview.js`：装飾
-  - `tableWidget.js`：表の表示とセルの編集
-  - `cellEditor.js`：表のセルを編集する小さなエディタ
-  - `tableModel.js`：表の分割と、セルへの書き込み
-  - `inline.js`：表のセルの中のインライン Markdown の描画
+  - `tableCells.js`：表の表示（行を flex にしてセルを箱にする）、列の幅の計測、表の中のキー操作
+  - `tableLayout.js`：列の幅の配分
+  - `inline.js`：リンクの扱い（本文と表のセルで共通）
   - `markdownSetup.js`・`cjkEmphasis.js`：Markdown の解析の設定と、日本語の文の強調の判定
   - `lineNumbers.js`・`lineHighlight.js`・`wrapIndent.js`・`verticalMove.js`・`metrics.js`：行番号、行の背景、折り返しの字下げ、上下の移動、文字の大きさと行の高さ
   - `textWidth.js`：文字列の表示幅と桁（全角を 2 桁、タブを tabSize の桁まで数える）

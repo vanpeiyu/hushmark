@@ -1,6 +1,6 @@
 // ライブプレビューの装飾。文書は Markdown のテキストのまま持ち、
 // カーソル（選択範囲）がかかっていない行だけ記号を隠して見た目を整える。
-// 表は HTML の表に置き換え、触ったセルだけをソースで編集する（tableWidget.js）。
+// 表は、ソースの行のまま、セルを箱にして列をそろえる（tableCells.js）。
 //
 // 記号は消さずに透明にして（concealed）、その文字があった幅を残す。記号を出し入れしても文字の位置が
 // 動かず、等幅フォントの桁もソースのとおりにそろう。
@@ -9,12 +9,11 @@
 // - 強調・取り消し線・エスケープ・リンクの記号。インラインコードと違って箱を持たないので、
 //   幅を残すと余分な空白に見える。カーソルがその要素に入ったときだけ、その行の後ろの文字が動く。
 
-import { EditorSelection, StateEffect, StateField } from '@codemirror/state';
-import { Decoration, EditorView, WidgetType, keymap } from '@codemirror/view';
+import { StateEffect, StateField } from '@codemirror/state';
+import { Decoration, EditorView, WidgetType } from '@codemirror/view';
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { linkAttributes, normalizeLabel, openLinkHandler } from './inline.js';
-import { TableWidget, enterTableByKeyboard, isRawTable, rawTables, tableScrollHandler, tableSearchHighlight, toggleRawTable } from './tableWidget.js';
-import { buildTableModel, splitRow } from './tableModel.js';
+import { tableCells } from './tableCells.js';
 import { hasMod } from './platform.js';
 
 /** エディタのフォーカスの変化。テストからも使う。 */
@@ -37,9 +36,7 @@ const previewField = StateField.define({
     return buildDecorations(state);
   },
   update(decorations, tr) {
-    // ソース表示の表は、文書が変わると位置を写した新しい配列になるので、切り替えの操作と数で変化を見る
-    if (tr.reconfigured || tr.effects.some((e) => e.is(setFocus) || e.is(toggleRawTable)) ||
-        tr.state.field(rawTables).length !== tr.startState.field(rawTables).length) {
+    if (tr.reconfigured || tr.effects.some((e) => e.is(setFocus))) {
       return buildDecorations(tr.state);
     }
     if (tr.docChanged || syntaxTree(tr.state) !== syntaxTree(tr.startState)) return rebuildChanged(decorations, tr);
@@ -54,16 +51,9 @@ export function livePreview({ openLink } = {}) {
     openLinkHandler.of(openLink),
     focusField,
     EditorView.focusChangeEffect.of((_state, focusing) => setFocus.of(focusing)),
-    rawTables,
     previewField,
-    enterTableByKeyboard,
-    tableSearchHighlight,
-    tableScrollHandler,
+    tableCells(),
     EditorView.domEventHandlers({ mousedown: handleLinkClick }),
-    keymap.of([
-      { key: 'Tab', run: moveTableCell(1) },
-      { key: 'Shift-Tab', run: moveTableCell(-1) },
-    ]),
   ];
 }
 
@@ -131,11 +121,15 @@ function sameDefinitions(a, b) {
   return true;
 }
 
-/** 範囲を、その行と、それに重なる文書の直下のブロックまで広げる */
+/**
+ * 範囲を、その行と、それに重なる文書の直下のブロックまで広げる。
+ * 表は広げない。表の行の装飾は行ごとに決まるので（tableCells.js）、長い表の中の入力で全体を作り直さないため
+ */
 function expandToBlocks(state, { from, to }) {
   from = state.doc.lineAt(Math.min(from, state.doc.length)).from;
   to = state.doc.lineAt(Math.min(to, state.doc.length)).to;
   for (const block of topLevelBlocks(syntaxTree(state), from, to)) {
+    if (block.name === 'Table') continue;
     from = Math.min(from, block.from);
     to = Math.max(to, block.to);
   }
@@ -464,27 +458,7 @@ function buildDecorations(state, span = null) {
           }
           return;
 
-        case 'Table': {
-          const first = doc.lineAt(from);
-          const last = doc.lineAt(to);
-          // ソース表示は「ソース」ボタンで選んだときだけ。カーソルが入っただけでは切り替えない
-          if (isRawTable(state, first.from, last.to) && isActive(first.from, last.to)) {
-            lineClass(first.from, last.to, 'cm-md-table-src');
-            return false;
-          }
-          const lines = [];
-          for (let child = node.firstChild; child; child = child.nextSibling) {
-            if (child.name === 'TableHeader' || child.name === 'TableRow' || child.name === 'TableDelimiter') {
-              lines.push({ text: doc.sliceString(child.from, child.to), from: child.from - first.from });
-            }
-          }
-          const source = doc.sliceString(first.from, last.to);
-          decorations.push(Decoration.replace({
-            widget: new TableWidget(buildTableModel(lines), source, definitions()),
-            block: true,
-          }).range(first.from, last.to));
-          return false;
-        }
+        // 表は tableCells.js が行とセルの箱を付ける。セルの中の強調やリンクは、ここで本文と同じく装飾する
       }
     },
   });
@@ -594,53 +568,4 @@ class CheckboxWidget extends WidgetType {
     return cell;
   }
   ignoreEvent() { return true; }
-}
-
-// ---------------------------------------------------------------------------
-// 表のソース表示中の Tab / Shift-Tab でセルを移動する
-
-function moveTableCell(direction) {
-  return (view) => {
-    const { state } = view;
-    const pos = state.selection.main.head;
-    const table = findAncestor(syntaxTree(state).resolveInner(pos, -1), 'Table') ||
-                  findAncestor(syntaxTree(state).resolveInner(pos, 1), 'Table');
-    if (!table) return false;
-
-    const rows = [];
-    const cells = [];
-    for (let child = table.firstChild; child; child = child.nextSibling) {
-      if (child.name !== 'TableHeader' && child.name !== 'TableRow') continue;
-      rows.push(child);
-      cells.push(...splitRow(state.sliceDoc(child.from, child.to), child.from));
-    }
-    let current = -1;
-    cells.forEach((cell, i) => { if (cell.from <= pos) current = i; });
-    const next = current + direction;
-
-    if (next < 0) return true;
-    if (next >= cells.length) {
-      // 最後のセルで Tab を押したら行を足す。引用やリストの中の表は行頭の記号を再現できないので足さない
-      const lastRow = rows[rows.length - 1];
-      if (state.doc.lineAt(lastRow.from).from !== lastRow.from) return true;
-      const width = splitRow(state.sliceDoc(rows[0].from, rows[0].to)).length;
-      const insert = '\n|' + '  |'.repeat(width);
-      view.dispatch({
-        changes: { from: lastRow.to, insert },
-        selection: EditorSelection.cursor(lastRow.to + 3),
-        scrollIntoView: true,
-      });
-      return true;
-    }
-    view.dispatch({
-      selection: EditorSelection.range(cells[next].from, cells[next].to),
-      scrollIntoView: true,
-    });
-    return true;
-  };
-}
-
-function findAncestor(node, name) {
-  for (let n = node; n; n = n.parent) if (n.name === name) return n;
-  return null;
 }

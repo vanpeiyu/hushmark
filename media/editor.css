@@ -186,19 +186,6 @@ body {
   opacity: 1;
 }
 
-/* 表の行番号。表の行ごとの番号を、測った位置（lineNumbers.js）に重ねる */
-#editor .cm-md-row-numbers {
-  position: relative;
-  height: 100%;
-}
-
-#editor .cm-md-row-numbers > span {
-  position: absolute;
-  right: 0;
-  line-height: var(--md-line);
-}
-
-/* 見出しの行は、番号の行の高さを見出しの 1 行目と同じにし、その中ほどに置く */
 #editor .cm-gutterElement.cm-md-gutter-heading {
   line-height: var(--md-heading-line);
   padding-top: var(--md-heading-pad);
@@ -249,9 +236,8 @@ body {
     calc(100% - var(--md-highlight-left)) 1px;
 }
 
-/* editor.renderLineHighlightOnlyWhenFocus のときと、表のセルを編集している間は出さない（本文のカーソルは別の行にある） */
-#editor .cm-md-highlight-when-focused:not(.cm-focused) .cm-md-active-line,
-#editor .cm-editor:has(.cm-md-cell-editing) .cm-md-active-line {
+/* editor.renderLineHighlightOnlyWhenFocus のときは、フォーカスがある間だけ出す */
+#editor .cm-md-highlight-when-focused:not(.cm-focused) .cm-md-active-line {
   background-image: none;
 }
 
@@ -521,154 +507,29 @@ body {
 
 /* ================================================================ 表 */
 
-/* 上下の余白は足さない。表の左端は、ほかの箱と同じく行の端（基準線）にそろえる */
-.cm-md-table-wrap {
-  padding: 0;
-  cursor: text;
-}
-
-.cm-md-table-box {
-  position: relative;
-  display: inline-block;
-  max-width: 100%;
-  vertical-align: top;
-}
-
-.cm-md-table-scroll {
-  overflow-x: auto;
-}
-
-/*
- * 表の縦の位置はソースの行に合わせる。見出しの行は、ソースの見出しの行と区切りの行（|---|）の 2 行分、
- * データの行はソースの 1 行分の高さにする（セルの中で折り返すと、行の高さの倍数で伸びる）。
- * 高さが変わらないよう、線は border ではなく outline と inset の影で描く。
- * 行の間には横の線だけを引き、列の間には線を引かない
- */
-.cm-md-table {
-  border-collapse: separate;
-  border-spacing: 0;
-  max-width: 100%;
-  font-size: 0.94em;
-  outline: 1px solid var(--md-border);
-  outline-offset: -1px;
-  border-radius: var(--md-radius);
-  overflow: hidden;
-  /*
-   * CodeMirror が折り返しのために本文に付ける指定（overflow-wrap: anywhere など）を戻す。
-   * 引き継ぐと列の最小幅が 1 文字になり、長いセルのある表で短いセルまで細かく折り返される
-   */
-  white-space: normal;
-  word-break: normal;
-  overflow-wrap: normal;
-}
-
-.cm-md-table th,
-.cm-md-table td {
-  /* 1 列目の文字は、本文の 1 文字目と同じ位置にそろえる */
-  padding: 0 1.2em 0 var(--md-line-pad);
-  line-height: var(--md-line);
-  box-shadow: inset 0 -1px 0 var(--md-border);
-  vertical-align: top;
-  overflow-wrap: break-word;
-}
-
-/* 短いセルしかない列は折り返さない（tableModel.js の nowrapColumns） */
-.cm-md-table .cm-md-cell-nowrap {
-  white-space: nowrap;
-}
-
-/* 最後の行の下は、表の外枠（outline）が線になる */
-.cm-md-table tbody tr:last-child > * {
-  box-shadow: none;
-}
-
-.cm-md-table th {
-  /* 2 行分の高さの中ほどに見出しを置く */
-  padding-block: calc(var(--md-line) / 2);
-  vertical-align: middle;
-  color: var(--md-strong-fg);
-  font-weight: 700;
-  text-align: left;
-  box-shadow: inset 0 -1px 0 var(--md-border-strong);
-}
-
-.cm-md-table strong {
-  color: var(--md-strong-fg);
-}
-
-.cm-md-table em {
-  font-style: italic;
-}
-
-.cm-md-table code {
-  color: var(--md-code-fg);
-  background-color: var(--md-code-bg);
-  border-radius: 3px;
-  padding: 0 0.38em;
-}
-
-/*
- * 編集中のセル。中身は小さなエディタ（cellEditor.js）にし、本文と同じくカーソルが触れた記号だけを出す。
- * セルの余白も文字の大きさも変えず、編集を始めても文字の位置が動かないようにする。枠は outline で描く
- */
-.cm-md-table .cm-md-cell-editing {
-  outline: 2px solid var(--md-accent);
-  outline-offset: -2px;
-  border-radius: 3px;
-}
-
-/* 本文のエディタ向けの指定（#editor .cm-editor など）を、セルのエディタでは戻す */
-#editor .cm-md-cell-input.cm-editor {
-  height: auto;
-  font-size: inherit;
-  background: transparent;
-  color: inherit;
-}
-
-#editor .cm-md-cell-input .cm-scroller {
-  line-height: var(--md-line);
-  overflow: visible;
-}
-
-#editor .cm-md-cell-input .cm-content {
-  padding: 0;
-}
-
-#editor .cm-md-cell-input .cm-line {
-  padding: 0;
-}
-
-/*
- * セルのエディタはブラウザのカーソルを使う。本文のエディタの drawSelection がブラウザのカーソルを
- * 透明にする指定（.cm-line { caret-color: transparent !important }）がセルの中にも及ぶので戻す
- */
-#editor .cm-md-cell-input .cm-content,
-#editor .cm-md-cell-input .cm-line {
-  caret-color: var(--md-caret) !important;
-}
-
-/* 検索の一致を含むセル。いまの一致を含むセルは濃くする */
-.cm-md-table .cm-md-cell-match {
-  background-color: var(--md-match);
-}
-
-.cm-md-table .cm-md-cell-match-current {
-  background-color: var(--md-match-current);
-}
-
 /*
  * 表にマウスを載せると出るボタン。
  * 表の上の行（ふつうは空行）に重ねて出す。表に余白を足さないため。
  * 隠れている間は、上の行のクリックを奪わないよう pointer-events を切る。
  * 表との間は margin ではなく padding で空け、マウスを表からボタンへ動かす途中で :hover が切れないようにする
  */
+/* 表の行をまとめる要素（tableCells.js の BlockWrapper）。ボタンの位置の基準にする */
+.cm-md-table-block {
+  position: relative;
+}
+
 .cm-md-table-tools {
   position: absolute;
   bottom: 100%;
   /* 表の右端にそろえる。ボタンの列より表が狭いときは、左にはみ出さないよう表の左端にそろえる */
   left: 0;
-  right: 0;
+  /* 表の幅に、行の左の余白（表の行の ::before）を足す */
+  width: calc(var(--md-table-width, 100%) + var(--md-line-pad));
+  max-width: 100%;
   justify-content: safe flex-end;
+  white-space: nowrap;
+  text-indent: 0;
+  font-weight: 400;
   padding-bottom: 3px;
   z-index: 1;
   display: flex;
@@ -678,8 +539,7 @@ body {
   transition: opacity 0.15s;
 }
 
-.cm-md-table-box:hover .cm-md-table-tools,
-.cm-md-table-box:focus-within .cm-md-table-tools {
+.cm-md-table-block:hover .cm-md-table-tools {
   opacity: 1;
   pointer-events: auto;
 }
@@ -700,11 +560,6 @@ body {
 .cm-md-table-tools button:hover {
   color: var(--md-fg);
   background: var(--md-hover);
-}
-
-/* 「ソース」で表全体をソース表示しているとき */
-.cm-md-table-src {
-  background-color: var(--md-block-bg);
 }
 
 /* ================================================================ フロントマター */
@@ -916,16 +771,14 @@ body.md-style-soft .cm-md-quote-begin { border-top-left-radius: var(--md-radius)
 body.md-style-soft .cm-md-quote-end { border-bottom-left-radius: var(--md-radius); border-bottom-right-radius: var(--md-radius); }
 
 /* インラインコードは、角の丸い札の形で、淡いアクセントの面とアクセントの文字 */
-body.md-style-soft .cm-md-inline-code,
-body.md-style-soft .cm-md-table code {
+body.md-style-soft .cm-md-inline-code {
   color: var(--md-accent);
   background-color: var(--md-accent-bg);
   border-radius: 999px;
 }
 
 /* 太字の下半分に蛍光ペン */
-body.md-style-soft .cm-md-strong,
-body.md-style-soft .cm-md-table strong {
+body.md-style-soft .cm-md-strong {
   background: linear-gradient(transparent 62%, var(--md-highlight) 62%);
 }
 
@@ -934,9 +787,22 @@ body.md-style-soft .cm-md-list-number {
   color: var(--md-accent);
 }
 
-/* 表は角丸のカード。見出しの行に淡いアクセントの面 */
-body.md-style-soft .cm-md-table th {
+/* 表は、見出しの行に淡いアクセントの面と、アクセントの下線 */
+body.md-style-soft {
+  --md-tdelim-band: var(--md-accent-bg);
+  --md-tdelim-rule: var(--md-accent-soft);
+}
+body.md-style-soft #editor .cm-line.cm-md-trow-head::before,
+body.md-style-soft #editor .cm-line.cm-md-trow-delim::before,
+body.md-style-soft .cm-md-trow-head > .cm-md-tcell,
+body.md-style-soft .cm-md-trow-head > .cm-md-tpipe,
+body.md-style-soft .cm-md-trow-delim > .cm-md-tcell,
+body.md-style-soft .cm-md-trow-delim > .cm-md-tpipe {
   background-color: var(--md-accent-bg);
+}
+body.md-style-soft #editor .cm-line.cm-md-trow-delim::before,
+body.md-style-soft .cm-md-trow-delim > .cm-md-tcell,
+body.md-style-soft .cm-md-trow-delim > .cm-md-tpipe {
   box-shadow: inset 0 -1px 0 var(--md-accent-soft);
 }
 
@@ -985,8 +851,7 @@ body.md-style-minimal .cm-md-codeblock::before {
 }
 
 /* インラインコードは面を敷かず、細い枠線で範囲を示す（` のあった幅が余分な空白に見えないように） */
-body.md-style-minimal .cm-md-inline-code,
-body.md-style-minimal .cm-md-table code {
+body.md-style-minimal .cm-md-inline-code {
   background-color: transparent;
   box-shadow: inset 0 0 0 1px var(--md-border);
 }
@@ -996,12 +861,26 @@ body.md-style-minimal .cm-md-bullet::after {
   content: "–";
 }
 
-/* 表は外枠と行の間の線を引かず、見出しの下の線だけ */
-body.md-style-minimal .cm-md-table {
-  outline: none;
+/* 表は外枠と行の間の線を引かず、見出しの下の線だけ。見出しの行に面を敷かない */
+body.md-style-minimal {
+  --md-tdelim-band: transparent;
+  --md-tdelim-rule-width: 2px;
 }
-body.md-style-minimal .cm-md-table td {
+body.md-style-minimal .cm-md-table-block::after {
+  content: none;
+}
+body.md-style-minimal #editor .cm-line.cm-md-trow-body::before,
+body.md-style-minimal .cm-md-trow-body > .cm-md-tcell,
+body.md-style-minimal .cm-md-trow-body > .cm-md-tpipe {
   box-shadow: none;
+}
+body.md-style-minimal #editor .cm-line.cm-md-trow-head::before,
+body.md-style-minimal #editor .cm-line.cm-md-trow-delim::before,
+body.md-style-minimal .cm-md-trow-head > .cm-md-tcell,
+body.md-style-minimal .cm-md-trow-head > .cm-md-tpipe,
+body.md-style-minimal .cm-md-trow-delim > .cm-md-tcell,
+body.md-style-minimal .cm-md-trow-delim > .cm-md-tpipe {
+  background-color: transparent;
 }
 
 /* 水平線は、中央に短い細線 */
@@ -1058,21 +937,203 @@ body.md-style-reference .cm-md-codeblock-begin.cm-md-codeblock-end {
 
 body.md-style-reference .cm-md-inline-code { border-radius: 6px; }
 
-/* 表は格子。列の間にも線を引き、見出しの行と偶数行に淡い面 */
-body.md-style-reference .cm-md-table th,
-body.md-style-reference .cm-md-table td {
-  box-shadow: inset -1px 0 0 var(--md-border), inset 0 -1px 0 var(--md-border);
+/* 表は格子。列の間（| の位置）にも線を引き、偶数行に淡い面 */
+body.md-style-reference .cm-md-trow > .cm-md-tpipe {
+  background-image: linear-gradient(var(--md-border), var(--md-border));
+  background-size: 1px 100%;
+  background-position: center;
+  background-repeat: no-repeat;
 }
-body.md-style-reference .cm-md-table tr > :last-child {
+body.md-style-reference #editor .cm-md-tdelim-hidden > .cm-md-tpipe {
+  background-image: linear-gradient(var(--md-border), var(--md-border)), var(--md-tdelim-fill);
+  background-size: 1px 100%, 100% 100%;
+}
+body.md-style-reference .cm-md-table-block > .cm-md-trow-body:nth-child(2n + 4)::before,
+body.md-style-reference .cm-md-table-block > .cm-md-trow-body:nth-child(2n + 4) > .cm-md-tcell,
+body.md-style-reference .cm-md-table-block > .cm-md-trow-body:nth-child(2n + 4) > .cm-md-tpipe {
+  background-color: var(--md-block-bg);
+}
+
+/*
+ * ================================================================ 表のセル（tableCells.js）
+ * 表のソースの 1 行をエディタの 1 行のまま flex にし、セル（| と | の間）を幅の決まった箱にして列をそろえる。
+ * | は 1 文字分の隙間にし、カーソルのある行だけ薄く見せる。線は高さを変えないよう、inset の影で描く
+ */
+#editor .cm-line.cm-md-trow {
+  display: flex;
+  align-items: stretch;
+  padding-left: 0;
+  padding-right: 0;
+  /* 表の文字は本文より少し小さくする。行の高さは本文と同じ */
+  font-size: 0.94em;
+}
+
+/* 表の外枠。角を丸めた細い線を、表の幅（--md-table-width、tableCells.js）で描く */
+.cm-md-table-block::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc(var(--md-table-width, 100%) + var(--md-line-pad));
+  max-width: 100%;
+  border-radius: var(--md-radius);
+  box-shadow: inset 0 0 0 1px var(--md-border);
+  pointer-events: none;
+}
+
+/* 見出しの行の面は、外枠の角に合わせて丸める */
+#editor .cm-line.cm-md-trow-head::before {
+  border-top-left-radius: var(--md-radius);
+}
+.cm-md-trow-head > span:last-of-type {
+  border-top-right-radius: var(--md-radius);
+}
+
+/*
+ * 行の左の余白（--md-line-pad）は、行の padding ではなく先頭の項目にする。見出しの行の色や行の線を、
+ * ほかの背景と同じく行の左端（基準線）から描くため
+ */
+#editor .cm-line.cm-md-trow::before {
+  content: '';
+  flex: none;
+  width: var(--md-line-pad);
   box-shadow: inset 0 -1px 0 var(--md-border);
 }
-body.md-style-reference .cm-md-table tbody tr:last-child > * {
-  box-shadow: inset -1px 0 0 var(--md-border);
-}
-body.md-style-reference .cm-md-table tbody tr:last-child > :last-child {
+
+#editor .cm-line.cm-md-trow-head::before,
+#editor .cm-line.cm-md-trow-delim::before {
+  background-color: var(--md-block-bg);
   box-shadow: none;
 }
-body.md-style-reference .cm-md-table th,
-body.md-style-reference .cm-md-table tbody tr:nth-child(even) {
+
+#editor .cm-line.cm-md-trow-delim::before {
+  box-shadow: inset 0 -1px 0 var(--md-border-strong);
+}
+
+#editor .cm-line.cm-md-trow-last::before {
+  box-shadow: none;
+}
+
+.cm-md-trow > .cm-md-tcell,
+.cm-md-trow > .cm-md-tpipe {
+  flex: none;
+  box-shadow: inset 0 -1px 0 var(--md-border);
+}
+
+.cm-md-tcell {
+  display: inline-block;
+  box-sizing: border-box;
+  vertical-align: top;
+  white-space: pre-wrap;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.cm-md-tpipe {
+  display: inline-block;
+  width: 1ch;
+  overflow: hidden;
+  color: transparent;
+}
+
+.cm-md-tpipe.cm-md-tpipe-shown {
+  color: var(--md-muted);
+}
+
+.cm-md-trow-head > .cm-md-tcell {
+  color: var(--md-strong-fg);
+  font-weight: 700;
+}
+
+.cm-md-trow-head > .cm-md-tcell,
+.cm-md-trow-head > .cm-md-tpipe,
+.cm-md-trow-delim > .cm-md-tcell,
+.cm-md-trow-delim > .cm-md-tpipe {
   background-color: var(--md-block-bg);
+  box-shadow: none;
+}
+
+.cm-md-trow-delim > .cm-md-tcell,
+.cm-md-trow-delim > .cm-md-tpipe {
+  box-shadow: inset 0 -1px 0 var(--md-border-strong);
+}
+
+.cm-md-tdelim-hidden > .cm-md-tcell,
+.cm-md-tdelim-hidden > .cm-md-tpipe {
+  color: transparent;
+}
+
+.cm-md-trow-last > .cm-md-tcell,
+.cm-md-trow-last > .cm-md-tpipe {
+  box-shadow: none;
+}
+
+/*
+ * カーソルがないときの区切りの行（|---|）。行の中ほどに太い線を引き、線より上を見出しの帯の色で塗る。
+ * 見出しの帯が 1 行半になり、見出しの文字が帯の上に寄って見えないようにする。
+ * 色と太さはスタイルごとに変数で決める（最後の節）。帯を塗らないスタイルは、線だけになる
+ */
+body {
+  --md-tdelim-band: var(--md-block-bg);
+  --md-tdelim-rule: var(--md-border-strong);
+  --md-tdelim-rule-width: 3px;
+  --md-tdelim-fill: linear-gradient(to bottom,
+    var(--md-tdelim-band) 0 calc(50% - var(--md-tdelim-rule-width) / 2),
+    var(--md-tdelim-rule) calc(50% - var(--md-tdelim-rule-width) / 2) calc(50% + var(--md-tdelim-rule-width) / 2),
+    transparent calc(50% + var(--md-tdelim-rule-width) / 2));
+}
+
+body #editor .cm-line.cm-md-trow-delim.cm-md-tdelim-hidden::before,
+#editor .cm-md-tdelim-hidden > .cm-md-tcell,
+#editor .cm-md-tdelim-hidden > .cm-md-tpipe {
+  background-color: transparent;
+  background-image: var(--md-tdelim-fill);
+  box-shadow: none;
+}
+
+.cm-md-tcell-center { text-align: center; }
+.cm-md-tcell-right { text-align: right; }
+
+.cm-md-tcell-gap {
+  margin-left: 1ch;
+}
+
+.cm-md-tcell-extra {
+  color: var(--md-muted);
+}
+
+/*
+ * 列の幅を測る、画面の外の箱（tableCells.js）。セルと同じ文字の大きさで描く。
+ * 幅 0 の箱にして、折り返せる位置ですべて折り返させ、折り返せない単位ごとの幅を測る
+ */
+.cm-md-tmeasure {
+  position: absolute;
+  font-size: 0.94em;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.cm-md-tmeasure-cell {
+  width: 0;
+  white-space: pre-wrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.cm-md-tmeasure-head {
+  font-weight: 700;
+}
+
+.cm-md-tmeasure-space {
+  white-space: pre;
+}
+
+body.md-style-soft .cm-md-trow-head > .cm-md-tcell,
+body.md-style-soft .cm-md-trow-head > .cm-md-tpipe,
+body.md-style-soft .cm-md-trow-delim > .cm-md-tcell,
+body.md-style-soft .cm-md-trow-delim > .cm-md-tpipe {
+  background-color: var(--md-accent-bg);
 }

@@ -22,7 +22,7 @@ await type(cdp, '追記');
 await sleep(300);
 check('入力しても文書は変わらない', (await web('__hushmarkView.state.doc.toString()')) === original);
 
-await clickAt("document.querySelectorAll('.cm-md-table td')[1].getBoundingClientRect()");
+await clickAt("__hushmarkView.coordsAtPos(__hushmarkView.state.doc.toString().indexOf('120') + 3)");
 await type(cdp, '0');
 await sleep(300);
 check('表のセルに入力しても文書は変わらない', (await web('__hushmarkView.state.doc.toString()')) === original);

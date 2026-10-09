@@ -65,7 +65,7 @@ try {
   const webDoc = () => frame.evaluate(() => window.__hushmarkView.state.doc.toString());
   check('開く: ファイルと表示が一致', (await webDoc()) === fs.readFileSync(file, 'utf8'));
   check('見出しを装飾する', (await frame.locator('.cm-md-heading').count()) > 0);
-  check('表を表の形で表示する', (await frame.locator('.cm-md-table').count()) === 1);
+  check('表を表の形で表示する', (await frame.locator('.cm-md-table-block').count()) === 1 && (await frame.locator('.cm-md-tcell').count()) > 0);
 
   // 1 行目の末尾に追記して保存する
   await frame.evaluate(() => {

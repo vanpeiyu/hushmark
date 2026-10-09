@@ -23,13 +23,10 @@ doc = await checkInSync('取り消し');
 check('取り消し: 元に戻った', doc === original);
 
 // 表のセル
-await clickSelector('.cm-md-table td', 1); // 「120」
-await press(cdp, 'End');
+await clickPos(await web("__hushmarkView.state.doc.toString().indexOf('120') + 3"));
 await type(cdp, '0');
 doc = await checkInSync('表のセル');
 check('表のセル: 文書に反映された', doc.includes('| りんご | 1200 |'), doc.split('\n')[8]);
-await press(cdp, 'Escape');
-await sleep(200);
 
 // 検索。開くキー、条件の切り替え、置換の欄を出すキーは OS で違う
 const findState = async () => JSON.parse(await web(`JSON.stringify({
