@@ -141,7 +141,7 @@ VSCode のエディタの検索ウィジェットと同じく、右上に表示�
 | 設定 | 内容 |
 |---|---|
 | `hushmark.previewStyle` | プレビューのスタイル。`soft`（ソフト、既定）は丸い形と色の付いた線や面で親しみやすい見た目、`minimal`（ミニマル）は色と面をほとんど使わない見た目、`reference`（リファレンス）は見出しに「H1」などの札を付け、表やコードを枠で区切る見た目 |
-| `hushmark.previewColor` | プレビューの色。`green`（グリーン）・`cyan`（シアン）・`blue`（ブルー）・`purple`（パープル）・`pink`（ピンク）・`orange`（オレンジ）・`sepia`（セピア）・`mono`（モノクロ、既定）・`custom`（カスタム） |
+| `hushmark.previewColor` | プレビューの色。`green`（グリーン、既定）・`cyan`（シアン）・`blue`（ブルー）・`purple`（パープル）・`pink`（ピンク）・`orange`（オレンジ）・`sepia`（セピア）・`mono`（モノクロ）・`custom`（カスタム） |
 | `hushmark.previewColorScheme` | プレビューの明暗。`auto`（既定）は VSCode のテーマに合わせる。`light` と `dark` は、明るい地と暗い地に固定する |
 | `hushmark.previewCustomColor` | `custom` のときの色（`#rrggbb`、既定 `#3366cc`）。この色の色相と鮮やかさを基準に、各要素の色を作る |
 | `hushmark.colorCustomizations` | 要素の色を個別に変える（下の「色を個別に変えるとき」を参照） |

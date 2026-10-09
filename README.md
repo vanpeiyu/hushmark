@@ -141,7 +141,7 @@ Choose the look with two settings: the preview style and the color. Any combinat
 | Setting | Description |
 |---|---|
 | `hushmark.previewStyle` | Preview style. `soft` (default) is a friendly look with rounded shapes and colored rules and fills; `minimal` uses almost no color or fills; `reference` labels headings with tags such as "H1" and frames tables and code |
-| `hushmark.previewColor` | Preview color: `green`, `cyan`, `blue`, `purple`, `pink`, `orange`, `sepia`, `mono` (monochrome, default), or `custom` |
+| `hushmark.previewColor` | Preview color: `green` (default), `cyan`, `blue`, `purple`, `pink`, `orange`, `sepia`, `mono` (monochrome), or `custom` |
 | `hushmark.previewColorScheme` | Light or dark preview. `auto` (default) follows the VS Code theme. `light` and `dark` fix a light or dark background |
 | `hushmark.previewCustomColor` | The color for `custom` (`#rrggbb`, default `#3366cc`). The colors of each element are derived from its hue and saturation |
 | `hushmark.colorCustomizations` | Overrides the colors of individual elements (see "Overriding individual colors" below) |

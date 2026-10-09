@@ -370,7 +370,7 @@ function editorOptions(document) {
 function styleOptions(config) {
   return {
     look: oneOf(config.get('previewStyle'), STYLES, 'soft'),
-    color: oneOf(config.get('previewColor'), COLORS, 'mono'),
+    color: oneOf(config.get('previewColor'), COLORS, 'green'),
     colorScheme: oneOf(config.get('previewColorScheme'), COLOR_SCHEMES, 'auto'),
     customColor: /^#[0-9a-f]{6}$/i.test(config.get('previewCustomColor') || '') ? config.get('previewCustomColor') : '#3366cc',
     colorCustomizations: plainObject(config.get('colorCustomizations')),
