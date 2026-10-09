@@ -6,6 +6,15 @@
   "publisher": "local",
   "private": true,
   "license": "MIT",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#41664B",
+    "theme": "dark"
+  },
+  "homepage": "https://github.com/vanpeiyu/hushmark#readme",
+  "bugs": {
+    "url": "https://github.com/vanpeiyu/hushmark/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/vanpeiyu/hushmark.git"
@@ -16,7 +25,25 @@
   "categories": [
     "Other"
   ],
+  "keywords": [
+    "markdown",
+    "live preview",
+    "wysiwyg",
+    "editor",
+    "inline preview",
+    "typora",
+    "obsidian",
+    "cjk",
+    "japanese",
+    "table editor"
+  ],
   "main": "./src/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
   "browser": "./dist/web/extension.js",
   "scripts": {
     "build": "node build.mjs",
