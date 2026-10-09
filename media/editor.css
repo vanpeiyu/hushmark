@@ -186,19 +186,6 @@ body {
   opacity: 1;
 }
 
-/* 表の行番号。表の行ごとの番号を、測った位置（lineNumbers.js）に重ねる */
-#editor .cm-md-row-numbers {
-  position: relative;
-  height: 100%;
-}
-
-#editor .cm-md-row-numbers > span {
-  position: absolute;
-  right: 0;
-  line-height: var(--md-line);
-}
-
-/* 見出しの行は、番号の行の高さを見出しの 1 行目と同じにし、その中ほどに置く */
 #editor .cm-gutterElement.cm-md-gutter-heading {
   line-height: var(--md-heading-line);
   padding-top: var(--md-heading-pad);

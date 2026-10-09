@@ -16,7 +16,6 @@
   "+ Column": "＋列",
   "Add a row at the end": "最後に行を追加する",
   "Add a column at the right": "右端に列を追加する",
-  "Lines {0}–{1}": "{0}～{1} 行目",
   "{0}+Click to open": "{0}+クリックで開く",
   "Hushmark: Could not apply an edit to the document. Showing the document content again ({0})": "Hushmark: 編集を文書に反映できませんでした。文書の内容に合わせて表示し直します（{0}）",
   "Could not open the link: {0}": "リンクを開けませんでした: {0}",

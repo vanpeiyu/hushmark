@@ -421,7 +421,7 @@ const WEBVIEW_STRINGS = [
   'Find', 'Replace', 'All', 'Toggle Replace', 'Match Case', 'Match Whole Word', 'Use Regular Expression',
   'Previous Match', 'Next Match', 'Close', 'Replace All', 'No results', 'Invalid regular expression',
   '+ Row', '+ Column', 'Add a row at the end', 'Add a column at the right',
-  'Lines {0}–{1}', '{0}+Click to open',
+  '{0}+Click to open',
 ];
 
 function webviewStrings() {
