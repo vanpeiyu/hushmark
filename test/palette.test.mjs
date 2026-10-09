@@ -51,11 +51,13 @@ test('色ごとの配色と、モノクロの配色', () => {
       for (const value of Object.values(p)) assert.match(value, /^(#[0-9a-f]{6}|rgba\(.+\)|transparent)$/, `${color} ${mode}`);
     }
   }
-  // モノクロでは、地の色に色を付けない（R・G・B が同じ）
-  const neutral = buildPalette({ color: 'mono', mode: 'light' });
-  for (const name of ['bg', 'fg', 'border', 'blockBg']) {
-    const [r, g, b] = rgb(neutral[name]).map((v) => Math.round(v * 255));
-    assert.ok(Math.abs(r - g) <= 1 && Math.abs(g - b) <= 1, `${name} ${neutral[name]}`);
+  // モノクロでは、地にもアクセントにも色を付けない（R・G・B が同じ）
+  for (const mode of ['light', 'dark']) {
+    const neutral = buildPalette({ color: 'mono', mode });
+    for (const name of ['bg', 'fg', 'border', 'blockBg', 'accent', 'accentSoft', 'accentBg', 'link', 'highlight']) {
+      const [r, g, b] = rgb(neutral[name]).map((v) => Math.round(v * 255));
+      assert.ok(Math.abs(r - g) <= 1 && Math.abs(g - b) <= 1, `${mode} ${name} ${neutral[name]}`);
+    }
   }
   // 色を選んだときは、地にもその色を淡く付ける（緑なら G が最も大きい）
   const [r, g, b] = rgb(buildPalette({ color: 'green', mode: 'light' }).blockBg);
