@@ -26,8 +26,8 @@ function activate(context) {
     vscode.commands.registerCommand('hushmark.open', (uri) => reopenWith(uri, VIEW_TYPE)),
     vscode.commands.registerCommand('hushmark.openSource', (uri) => reopenWith(uri, 'default')),
     vscode.commands.registerCommand('hushmark.goToHeading', () => provider.goToHeading()),
-    ...Object.entries(WEBVIEW_COMMANDS).map(([command, action]) =>
-      vscode.commands.registerCommand(command, () => provider.runInWebview(action))),
+    ...webviewCommands(context).map((command) =>
+      vscode.commands.registerCommand(command, () => provider.runInWebview(command.slice('hushmark.'.length)))),
   );
 }
 
@@ -46,19 +46,15 @@ function activeTabUri() {
 }
 
 /**
- * Webview の中の操作を呼ぶコマンド（package.json の commands と keybindings）。
+ * Webview の中の操作を呼ぶコマンド。package.json の commands のうち、拡張機能本体で行うもの（EXTENSION_COMMANDS）
+ * 以外は、hushmark.<action> の action を Webview で行う（webview/commandKeys.js）。
  * キーは VSCode のキーボード ショートカットで割り当てるので、利用者が変えられる。Webview はこれらのキーを自分では処理せず、
  * VSCode に渡す。VSCode がコマンドを実行し、ここからフォーカスのある Webview に操作を指示する
  */
-const WEBVIEW_COMMANDS = {
-  'hushmark.bold': 'bold',
-  'hushmark.italic': 'italic',
-  'hushmark.toggleWordWrap': 'toggleWordWrap',
-  'hushmark.find': 'find',
-  'hushmark.replace': 'replace',
-  'hushmark.findInFiles': 'findInFiles',
-  'hushmark.replaceInFiles': 'replaceInFiles',
-};
+const EXTENSION_COMMANDS = new Set(['hushmark.open', 'hushmark.openSource', 'hushmark.goToHeading', 'hushmark.gotoLine']);
+const webviewCommands = (context) => context.extension.packageJSON.contributes.commands
+  .map((c) => c.command)
+  .filter((command) => command.startsWith('hushmark.') && !EXTENSION_COMMANDS.has(command));
 
 /** Webview にフォーカスがあるか。キーの割り当ての条件（when）に使う */
 const FOCUS_CONTEXT = 'hushmark.editorFocus';
@@ -387,6 +383,7 @@ const OPTION_SETTINGS = [
   'hushmark',
   'editor.lineNumbers', 'editor.fontFamily', 'editor.fontSize', 'editor.lineHeight', 'editor.wrappingIndent', 'editor.tabSize',
   'editor.wordWrap', 'editor.renderLineHighlight', 'editor.renderLineHighlightOnlyWhenFocus',
+  'editor.multiCursorModifier', 'editor.autoClosingBrackets', 'editor.autoSurround', 'editor.folding', 'editor.showFoldingControls',
 ];
 
 /** テキストエディタの設定のうち、Webview でも合わせるもの */
@@ -402,6 +399,11 @@ function editorOptions(document) {
     wordWrap: editor.get('wordWrap', 'off'),
     renderLineHighlight: editor.get('renderLineHighlight', 'line'),
     renderLineHighlightOnlyWhenFocus: editor.get('renderLineHighlightOnlyWhenFocus', false),
+    multiCursorModifier: editor.get('multiCursorModifier', 'alt'),
+    autoClosingBrackets: editor.get('autoClosingBrackets', 'languageDefined'),
+    autoSurround: editor.get('autoSurround', 'languageDefined'),
+    folding: editor.get('folding', true),
+    showFoldingControls: editor.get('showFoldingControls', 'mouseover'),
     // "[markdown]" の中の editor.fontFamily も、テキストエディタと同じく効かせる（document を渡して読む）
     style: { ...styleOptions(hushmark), fontFamily: safeFontFamily(editor.get('fontFamily')) },
   };

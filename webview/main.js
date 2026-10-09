@@ -22,6 +22,8 @@ import { imagePreview } from './imagePreview.js';
 import { headingAnchors, revealAnchor } from './anchors.js';
 import { pasteLink } from './pasteLink.js';
 import { fileInsert } from './fileInsert.js';
+import { editing, editingActions, reconfigureEditing } from './editing.js';
+import { passKeyBindings } from './commandKeys.js';
 
 const vscode = acquireVsCodeApi();
 
@@ -76,8 +78,8 @@ let syncId = 0;
 const ownKeys = (key, run, mac) => ({ key, mac, run, preventDefault: true, stopPropagation: true });
 
 /**
- * VSCode のコマンド（hushmark.bold など、package.json）で行う操作。キーは VSCode のキーボード ショートカットで
- * 割り当てるので、利用者が変えられる。拡張機能本体から { type: 'run', action } で呼ばれる
+ * VSCode のコマンド（hushmark.<action>、package.json）で行う操作。キーは VSCode のキーボード ショートカットで
+ * 割り当てるので、利用者が変えられる（commandKeys.js）。拡張機能本体から { type: 'run', action } で呼ばれる
  */
 const actions = {
   bold: () => toggleWrap('**')(view),
@@ -88,26 +90,21 @@ const actions = {
   // フォルダー内の検索は VSCode に任せるが、テキストエディタと同じく選択中の文字列を検索語として渡す
   findInFiles: () => searchInFiles(false)(view),
   replaceInFiles: () => searchInFiles(true)(view),
+  ...Object.fromEntries(Object.entries(editingActions).map(([name, run]) => [name, () => run(view)])),
 };
 
 /**
  * actions の既定のキー。エディタでは処理せずに VSCode に渡す（stopPropagation しない）。
- * ブラウザの既定の動作（macOS の Option+Z で文字が入るなど）だけは止める
+ * 処理したことにして（true を返す）、CodeMirror の同じキーの操作（Alt+↓ の行の移動など）が二重に動かないようにする。
+ * CodeMirror は preventDefault だけするので、ブラウザの既定の動作（macOS の Option+Z で文字が入るなど）も止まる
  */
-const passKey = (key, mac) => ({ key, mac, run: () => false, preventDefault: true });
+const passKeys = passKeyBindings().map((binding) => ({ ...binding, run: () => true }));
 
 const editorKeymap = [
   ownKeys('Mod-z', undo),
   ownKeys('Mod-y', redo),
   ownKeys('Mod-Shift-z', redo),
-  passKey('Mod-f'),
-  // macOS の Cmd+H はアプリを隠す操作なので、VSCode の macOS 版と同じく Cmd+Option+F で置換を開く
-  passKey('Mod-h', 'Mod-Alt-f'),
-  passKey('Mod-Shift-f'),
-  passKey('Mod-Shift-h'),
-  passKey('Mod-b'),
-  passKey('Mod-i'),
-  passKey('Alt-z'),
+  ...passKeys,
 ];
 
 function createEditor(text, options) {
@@ -140,6 +137,7 @@ function createEditor(text, options) {
       pasteLink,
       fileInsert(requestInsert),
       findWidget(),
+      editing(options),
       keymap.of([...searchKeymap, indentWithTab, ...defaultKeymap]),
       EditorView.contentAttributes.of({ spellcheck: 'false', autocorrect: 'off', autocapitalize: 'off' }),
       EditorView.updateListener.of(sendLocalChanges),
@@ -326,6 +324,7 @@ window.addEventListener('message', (event) => {
           reconfigureLineHighlight(message.options),
           ...wordWrapEffect(message.options.wordWrap),
           tabSize.reconfigure(tabSizeOf(message.options)),
+          ...reconfigureEditing(message.options),
         ] });
         view.requestMeasure();
       }

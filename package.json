@@ -124,6 +124,126 @@
         "command": "hushmark.replaceInFiles",
         "title": "%command.replaceInFiles%",
         "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.moveLinesUp",
+        "title": "%command.moveLinesUp%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.moveLinesDown",
+        "title": "%command.moveLinesDown%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.copyLinesUp",
+        "title": "%command.copyLinesUp%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.copyLinesDown",
+        "title": "%command.copyLinesDown%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.deleteLines",
+        "title": "%command.deleteLines%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.insertLineAfter",
+        "title": "%command.insertLineAfter%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.insertLineBefore",
+        "title": "%command.insertLineBefore%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.expandLineSelection",
+        "title": "%command.expandLineSelection%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.indentLines",
+        "title": "%command.indentLines%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.outdentLines",
+        "title": "%command.outdentLines%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.commentLine",
+        "title": "%command.commentLine%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.blockComment",
+        "title": "%command.blockComment%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.insertCursorAbove",
+        "title": "%command.insertCursorAbove%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.insertCursorBelow",
+        "title": "%command.insertCursorBelow%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.insertCursorAtEndOfEachLineSelected",
+        "title": "%command.insertCursorAtEndOfEachLineSelected%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.addSelectionToNextFindMatch",
+        "title": "%command.addSelectionToNextFindMatch%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.selectHighlights",
+        "title": "%command.selectHighlights%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.cursorUndo",
+        "title": "%command.cursorUndo%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.smartSelectExpand",
+        "title": "%command.smartSelectExpand%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.smartSelectShrink",
+        "title": "%command.smartSelectShrink%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.fold",
+        "title": "%command.fold%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.unfold",
+        "title": "%command.unfold%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.foldAll",
+        "title": "%command.foldAll%",
+        "category": "Hushmark"
+      },
+      {
+        "command": "hushmark.unfoldAll",
+        "title": "%command.unfoldAll%",
+        "category": "Hushmark"
       }
     ],
     "menus": {
@@ -177,6 +297,102 @@
         },
         {
           "command": "hushmark.replaceInFiles",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.moveLinesUp",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.moveLinesDown",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.copyLinesUp",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.copyLinesDown",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.deleteLines",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.insertLineAfter",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.insertLineBefore",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.expandLineSelection",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.indentLines",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.outdentLines",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.commentLine",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.blockComment",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.insertCursorAbove",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.insertCursorBelow",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.insertCursorAtEndOfEachLineSelected",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.addSelectionToNextFindMatch",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.selectHighlights",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.cursorUndo",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.smartSelectExpand",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.smartSelectShrink",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.fold",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.unfold",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.foldAll",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.unfoldAll",
           "when": "activeCustomEditorId == hushmark.editor"
         }
       ]
@@ -476,10 +692,160 @@
         "key": "ctrl+shift+h",
         "mac": "cmd+shift+h",
         "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.moveLinesUp",
+        "key": "alt+up",
+        "mac": "alt+up",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.moveLinesDown",
+        "key": "alt+down",
+        "mac": "alt+down",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.copyLinesUp",
+        "key": "shift+alt+up",
+        "mac": "shift+alt+up",
+        "linux": "ctrl+shift+alt+up",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.copyLinesDown",
+        "key": "shift+alt+down",
+        "mac": "shift+alt+down",
+        "linux": "ctrl+shift+alt+down",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.deleteLines",
+        "key": "ctrl+shift+k",
+        "mac": "shift+cmd+k",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.insertLineAfter",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.insertLineBefore",
+        "key": "ctrl+shift+enter",
+        "mac": "shift+cmd+enter",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.expandLineSelection",
+        "key": "ctrl+l",
+        "mac": "cmd+l",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.indentLines",
+        "key": "ctrl+]",
+        "mac": "cmd+]",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.outdentLines",
+        "key": "ctrl+[",
+        "mac": "cmd+[",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.commentLine",
+        "key": "ctrl+/",
+        "mac": "cmd+/",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.blockComment",
+        "key": "shift+alt+a",
+        "mac": "shift+alt+a",
+        "linux": "ctrl+shift+a",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.insertCursorAbove",
+        "key": "ctrl+alt+up",
+        "mac": "cmd+alt+up",
+        "linux": "shift+alt+up",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.insertCursorBelow",
+        "key": "ctrl+alt+down",
+        "mac": "cmd+alt+down",
+        "linux": "shift+alt+down",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.insertCursorAtEndOfEachLineSelected",
+        "key": "shift+alt+i",
+        "mac": "shift+alt+i",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.addSelectionToNextFindMatch",
+        "key": "ctrl+d",
+        "mac": "cmd+d",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.selectHighlights",
+        "key": "ctrl+shift+l",
+        "mac": "shift+cmd+l",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.cursorUndo",
+        "key": "ctrl+u",
+        "mac": "cmd+u",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.smartSelectExpand",
+        "key": "shift+alt+right",
+        "mac": "ctrl+shift+cmd+right",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.smartSelectShrink",
+        "key": "shift+alt+left",
+        "mac": "ctrl+shift+cmd+left",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.fold",
+        "key": "ctrl+shift+[",
+        "mac": "cmd+alt+[",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.unfold",
+        "key": "ctrl+shift+]",
+        "mac": "cmd+alt+]",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.foldAll",
+        "key": "ctrl+k ctrl+0",
+        "mac": "cmd+k cmd+0",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.unfoldAll",
+        "key": "ctrl+k ctrl+j",
+        "mac": "cmd+k cmd+j",
+        "when": "hushmark.editorFocus"
       }
     ]
   },
   "devDependencies": {
+    "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.8.0",
     "@codemirror/lang-markdown": "^6.3.0",
     "@codemirror/language": "^6.11.0",
