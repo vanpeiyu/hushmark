@@ -1,5 +1,9 @@
 # 変更履歴
 
+## 未リリース
+
+- README のインストールの節を、Visual Studio Marketplace と Open VSX からのインストールの案内にしました。.vsix からのインストールの手順は CONTRIBUTING.md に移しました。
+
 ## 0.3.0 - 2026-10-09
 
 - 拡張の ID を `local.hushmark` から `vanpeiyu.hushmark` に変えました（Marketplace に公開するため）。0.2.0 以前を入れている場合は、`code --uninstall-extension local.hushmark` でアンインストールしてから入れ直してください。設定はそのまま使えます。

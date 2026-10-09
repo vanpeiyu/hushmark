@@ -1,6 +1,6 @@
 # Hushmark
 
-[日本語](README.ja.md)
+[日本語の README（GitHub）](README.ja.md)
 
 A live preview Markdown editor for VS Code that shows Markdown syntax only for the element under your cursor. You edit the document as plain Markdown text.
 
@@ -27,21 +27,7 @@ Line-level syntax, such as headings and blockquotes, is shown on the line with t
 
 ## Installation
 
-Download `hushmark-<version>.vsix` from [Releases](https://github.com/vanpeiyu/hushmark/releases) and install it. To build a .vsix from source, see [CONTRIBUTING.md](CONTRIBUTING.md) (in Japanese).
-
-If you installed version 0.2.0 or earlier, the extension ID has changed from `local.hushmark` to `vanpeiyu.hushmark`. Uninstall the old one first with `code --uninstall-extension local.hushmark`. Your settings keep working.
-
-- For your local VS Code, run "Extensions: Install from VSIX..." from the Command Palette and select the .vsix, or run:
-
-  ```sh
-  code --install-extension hushmark-<version>.vsix
-  ```
-
-- With Remote - SSH, the extension runs on the remote side where the files are, so install it on the remote host as well. Run "Extensions: Install from VSIX..." in the window opened with Remote - SSH, or run the following on the remote host (find `<commit>` with `ls ~/.vscode-server/cli/servers/`):
-
-  ```sh
-  ~/.vscode-server/cli/servers/Stable-<commit>/server/bin/code-server --install-extension hushmark-<version>.vsix
-  ```
+Install it from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=vanpeiyu.hushmark) or [Open VSX](https://open-vsx.org/extension/vanpeiyu/hushmark).
 
 ## Usage
 
@@ -194,8 +180,6 @@ Run the following command, and remove `"*.md": "hushmark.editor"` from `workbenc
 ```sh
 code --uninstall-extension vanpeiyu.hushmark
 ```
-
-For what development creates (such as the Docker image used for tests), see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Known limitations
 

@@ -42,7 +42,7 @@ jobs:
 
           ## インストール
 
-          \`hushmark-$version.vsix\` をダウンロードし、VSCode のコマンドパレットの「Extensions: Install from VSIX...」で選びます。詳しくは README を参照してください。
+          [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=vanpeiyu.hushmark) または [Open VSX](https://open-vsx.org/extension/vanpeiyu/hushmark) からインストールします。\`hushmark-$version.vsix\` から入れる手順は、CONTRIBUTING.md の「.vsix からのインストール」を参照してください。
           NOTES
       - name: Create release
         env:
