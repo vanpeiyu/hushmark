@@ -30,5 +30,9 @@
   "({0} selected)": "({0} 個選択)",
   "{0} characters": "{0} 文字",
   "Current Line: {0}, Character: {1}. Type a line number between 1 and {2} to navigate to.": "現在の行: {0}、文字: {1}。移動先の行番号を 1 から {2} の範囲で入力してください。",
-  "Type a line number, or a line number and a character number separated by a colon.": "行番号か、行番号と文字の位置をコロンで区切って入力してください。"
+  "Type a line number, or a line number and a character number separated by a colon.": "行番号か、行番号と文字の位置をコロンで区切って入力してください。",
+  "No code actions available": "コード アクションがありません",
+  "Select a code action": "コード アクションを選択",
+  "There is no formatter for '{0}' files installed.": "'{0}' ファイルのフォーマッタがインストールされていません。",
+  "Type the new name, then press Enter to rename.": "新しい名前を入力し、Enter キーを押して名前を変更します。"
 }

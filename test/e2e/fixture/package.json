@@ -1,0 +1,11 @@
+{
+  "name": "hushmark-e2e-fixture",
+  "displayName": "Hushmark E2E fixture",
+  "description": "E2E テストで、他の拡張機能が Markdown に提供する機能（診断、クイックフィックス、補完、書式設定、リネーム、リンク）の代わりをする",
+  "publisher": "local",
+  "version": "0.0.1",
+  "private": true,
+  "engines": { "vscode": "^1.95.0" },
+  "main": "./extension.js",
+  "activationEvents": ["onLanguage:markdown"]
+}

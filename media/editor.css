@@ -1193,3 +1193,47 @@ body.md-style-soft .cm-md-trow-delim > .cm-md-tpipe {
   border-radius: 3px;
   cursor: pointer;
 }
+
+/* ================================================================ 診断（diagnostics.js） */
+
+/* 他の拡張機能のエラーや警告。VSCode と同じく、テーマの色の波線を引く */
+.cm-md-diag {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-thickness: 1px;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+}
+.cm-md-diag-error { text-decoration-color: var(--vscode-editorError-foreground, #f14c4c); }
+.cm-md-diag-warning { text-decoration-color: var(--vscode-editorWarning-foreground, #cca700); }
+.cm-md-diag-info { text-decoration-color: var(--vscode-editorInfo-foreground, #3794ff); }
+
+/* メッセージ。VSCode のホバーと同じ色で出す */
+#editor .cm-tooltip:has(.cm-md-diag-tooltip) {
+  border: 1px solid var(--vscode-editorHoverWidget-border, var(--md-border));
+  border-radius: 4px;
+  background: var(--vscode-editorHoverWidget-background, var(--md-bg));
+}
+
+.cm-md-diag-tooltip {
+  max-width: 60ch;
+  padding: 4px 8px;
+  color: var(--vscode-editorHoverWidget-foreground, var(--md-fg));
+  font-family: var(--vscode-font-family, sans-serif);
+  font-size: var(--vscode-font-size, 13px);
+  line-height: 1.5;
+}
+
+.cm-md-diag-message + .cm-md-diag-message {
+  margin-top: 4px;
+}
+
+.cm-md-diag-source {
+  color: var(--vscode-descriptionForeground, var(--md-muted));
+}
+
+/* 他の拡張機能のドキュメントリンク（documentLinks.js）。VSCode と同じく普段は目立たせず、マウスを載せると下線を出す */
+.cm-md-doclink:hover {
+  text-decoration: underline;
+  cursor: pointer;
+}

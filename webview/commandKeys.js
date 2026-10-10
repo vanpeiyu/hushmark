@@ -44,8 +44,17 @@ export const COMMAND_KEYS = [
   { action: 'smartSelectExpand', keys: [{ key: 'shift+alt+right', mac: 'ctrl+shift+cmd+right' }] },
   { action: 'smartSelectShrink', keys: [{ key: 'shift+alt+left', mac: 'ctrl+shift+cmd+left' }] },
 
+  // 診断（他の拡張機能のエラーや警告）の間を移る。VSCode の F8（ファイル間）と Alt+F8（ファイル内）を、どちらもこの文書の中の移動にする
+  { action: 'nextProblem', keys: [{ key: 'f8', mac: 'f8' }, { key: 'alt+f8', mac: 'alt+f8' }] },
+  { action: 'prevProblem', keys: [{ key: 'shift+f8', mac: 'shift+f8' }, { key: 'shift+alt+f8', mac: 'shift+alt+f8' }] },
+
+  { action: 'triggerSuggest', keys: [{ key: 'ctrl+space', mac: 'ctrl+space' }] },
+
   // 拡張機能本体で行うコマンド（Webview は VSCode に渡すだけ）。macOS の Cmd+G は「次を検索」なので、Ctrl+G のまま
   { command: 'hushmark.gotoLine', keys: [{ key: 'ctrl+g', mac: 'ctrl+g' }] },
+  { command: 'hushmark.quickFix', keys: [{ key: 'ctrl+.', mac: 'cmd+.' }] },
+  { command: 'hushmark.formatDocument', keys: [{ key: 'shift+alt+f', linux: 'ctrl+shift+i', mac: 'shift+alt+f' }] },
+  { command: 'hushmark.rename', keys: [{ key: 'f2', mac: 'f2' }] },
 
   { action: 'fold', keys: [{ key: 'ctrl+shift+[', mac: 'cmd+alt+[' }] },
   { action: 'unfold', keys: [{ key: 'ctrl+shift+]', mac: 'cmd+alt+]' }] },
@@ -56,7 +65,7 @@ export const COMMAND_KEYS = [
 /** その行のコマンドの名前 */
 export const commandOf = (entry) => entry.command || `hushmark.${entry.action}`;
 
-const KEY_NAMES = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', enter: 'Enter' };
+const KEY_NAMES = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', enter: 'Enter', f2: 'F2', f8: 'F8', space: 'Space', '.': '.' };
 const MODIFIERS = { ctrl: 'Ctrl', cmd: 'Meta', alt: 'Alt', shift: 'Shift' };
 
 /** VSCode のキーの書き方（ctrl+shift+up）を CodeMirror の書き方（Ctrl-Shift-ArrowUp）にする。2 つ打ちのキーは null */

@@ -83,7 +83,7 @@ The keyboard shortcuts are the same as in the VS Code editor. Elsewhere in this 
 | Ctrl+I | Cmd+I | Italic |
 | Alt+Z | Option+Z | Toggle word wrap |
 | Paste a URL over selected text | Same | Turns the selected text into a link to that URL (`[text](URL)`), as in VS Code's Markdown text editor |
-| Paste an image (Ctrl+V) | Same | Saves it as `image.png` (or `image-1.png` and so on if it exists) in the folder of the document and inserts an image link. When text was copied together with the image (such as Excel cells), the text is pasted |
+| Paste an image (Ctrl+V) | Same | Saves it as `image.png` (or `image-1.png` and so on if it exists) in the folder of the document (change it with `markdown.copyFiles.destination`) and inserts an image link. When text was copied together with the image (such as Excel cells), the text is pasted |
 | Drop from the Explorer while holding Shift | Same | Inserts a link to the file with a relative path (an image link for images). Images dropped from your OS file manager are saved and linked in the same way as pasted images |
 | The key after Ctrl+K | The key after Cmd+K | Passed to VS Code as a chord (such as Ctrl+K Z) and not typed as a character |
 | Ctrl+G | Ctrl+G | Goes to a line (`line:column` also works). Clicking the line and column in the status bar also opens it |
@@ -98,6 +98,23 @@ The following also work with the same keys as in the VS Code text editor:
 The keys for these, and for find, replace, bold, italic, and toggling word wrap, can be changed in VS Code's Keyboard Shortcuts: search for "Hushmark".
 
 As in the text editor, the status bar shows the line and column of the cursor (and the number of selected characters), and the number of characters in the document (excluding line breaks). When you reopen the file with "Open in Text Editor" or "Open in Live Editor", the cursor, the selection, and the scroll position are kept.
+
+### Using other extensions
+
+While a file is open in Hushmark, it is still open as a VS Code text document, so the features that other extensions (cSpell, markdownlint, Prettier, VS Code's built-in Markdown support, and so on) provide for the document work.
+
+| Feature | How to use |
+|---|---|
+| Diagnostics (spelling mistakes, Markdown style warnings, and so on) | Shown with squiggles; hover to see the message. F8 / Shift+F8 goes to the next / previous one |
+| Quick fixes | Ctrl+. (Cmd+. on macOS) shows the list; choose one to apply it |
+| Completion (link paths, headings, and so on) | Appears when you type `(`, `[`, `#`, `/`, and so on. Ctrl+Space shows it at any time |
+| Rename (for example, renaming a heading and updating the links to it) | F2 |
+| Format document | Shift+Alt+F (Ctrl+Shift+I on Linux). Format on save (`editor.formatOnSave`) also works |
+| Document links (issue numbers and so on) | Ctrl+Click to open |
+
+Pasting images and dropping files follow VS Code's `markdown.copyFiles.destination` (where to save), `markdown.copyFiles.overwriteBehavior`, `markdown.editor.filePaste.enabled`, and `markdown.editor.drop.enabled`.
+
+Features that draw directly on the text editor (such as GitLens's line blame or Error Lens's messages at line ends), commands that act on the document open in a text editor (such as Markdown All in One's shortcuts), and Copilot's inline suggestions do not work in this editor. To use them, reopen the file with "Open in Text Editor" (the cursor position is kept).
 
 ### Find
 

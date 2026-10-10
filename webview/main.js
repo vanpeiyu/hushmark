@@ -24,6 +24,9 @@ import { pasteLink } from './pasteLink.js';
 import { fileInsert } from './fileInsert.js';
 import { editing, editingActions, reconfigureEditing } from './editing.js';
 import { passKeyBindings } from './commandKeys.js';
+import { applyDiagnostics, diagnosticActions, diagnostics } from './diagnostics.js';
+import { completion, completionActions } from './completion.js';
+import { applyLinks, documentLinks } from './documentLinks.js';
 
 const vscode = acquireVsCodeApi();
 
@@ -90,7 +93,7 @@ const actions = {
   // フォルダー内の検索は VSCode に任せるが、テキストエディタと同じく選択中の文字列を検索語として渡す
   findInFiles: () => searchInFiles(false)(view),
   replaceInFiles: () => searchInFiles(true)(view),
-  ...Object.fromEntries(Object.entries(editingActions).map(([name, run]) => [name, () => run(view)])),
+  ...Object.fromEntries(Object.entries({ ...editingActions, ...diagnosticActions, ...completionActions }).map(([name, run]) => [name, () => run(view)])),
 };
 
 /**
@@ -138,6 +141,9 @@ function createEditor(text, options) {
       fileInsert(requestInsert),
       findWidget(),
       editing(options),
+      diagnostics(),
+      completion(requestCompletion),
+      documentLinks(),
       keymap.of([...searchKeymap, indentWithTab, ...defaultKeymap]),
       EditorView.contentAttributes.of({ spellcheck: 'false', autocorrect: 'off', autocapitalize: 'off' }),
       EditorView.updateListener.of(sendLocalChanges),
@@ -150,6 +156,10 @@ function createEditor(text, options) {
   if (pendingSelection) {
     applySelectionLines(pendingSelection);
     pendingSelection = null;
+  }
+  if (pendingDiagnostics) {
+    applyDiagnostics(view, pendingDiagnostics);
+    pendingDiagnostics = null;
   }
   reportCursor();
   view.scrollDOM.addEventListener('scroll', saveViewState, { passive: true });
@@ -198,6 +208,8 @@ function saveViewState() {
 let cursorTimer = null;
 /** テキストエディタから引き継ぐ選択範囲（エディタを作る前に届いたもの） */
 let pendingSelection = null;
+/** エディタを作る前に届いた診断 */
+let pendingDiagnostics = null;
 let charCount = null;
 function reportCursor(update) {
   if (update && update.docChanged) charCount = null;
@@ -267,6 +279,18 @@ function revealPos(pos, focus) {
     headingPeekOrigin = null;
     view.focus();
   }
+}
+
+/** 補完の候補を拡張機能本体に問い合わせる（completion.js）。答えが届かなければ null */
+const completionRequests = new Map();
+let nextCompletionId = 1;
+function requestCompletion(line, col, trigger, explicit) {
+  const id = nextCompletionId++;
+  return new Promise((resolve) => {
+    completionRequests.set(id, resolve);
+    vscode.postMessage({ type: 'complete', id, line, col, trigger, explicit });
+    setTimeout(() => { if (completionRequests.delete(id)) resolve(null); }, 3000);
+  });
 }
 
 /** 拡張機能本体に頼んで、文書に入れる Markdown を受け取る（fileInsert.js） */
@@ -405,6 +429,18 @@ window.addEventListener('message', (event) => {
         id: message.id,
         items: view ? headingAnchors(view.state).map((h) => ({ text: h.text, level: h.level, pos: h.from, line: view.state.doc.lineAt(h.from).number })) : [],
       });
+      break;
+    case 'links':
+      if (view) applyLinks(view, message.items);
+      break;
+    case 'completions':
+      completionRequests.get(message.id)?.(message.items);
+      completionRequests.delete(message.id);
+      break;
+    case 'diagnostics':
+      // エディタを作る前に届いたときは、作った後に当てる
+      if (view) applyDiagnostics(view, message.items);
+      else pendingDiagnostics = message.items;
       break;
     case 'requestSelection':
       if (view) vscode.postMessage({ type: 'selection', id: message.id, selection: selectionAsLines() });

@@ -66,5 +66,11 @@
   "command.unfold": "展開",
   "command.foldAll": "すべて折りたたみ",
   "command.unfoldAll": "すべて展開",
-  "command.gotoLine": "行に移動..."
+  "command.gotoLine": "行に移動...",
+  "command.nextProblem": "次の問題へ移動",
+  "command.prevProblem": "前の問題へ移動",
+  "command.triggerSuggest": "候補を表示",
+  "command.quickFix": "クイック フィックス...",
+  "command.formatDocument": "ドキュメントのフォーマット",
+  "command.rename": "シンボルの名前変更"
 }

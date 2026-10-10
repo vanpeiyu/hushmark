@@ -26,6 +26,9 @@ function activate(context) {
     vscode.commands.registerCommand('hushmark.open', (uri) => provider.openFromTextEditor(uri)),
     vscode.commands.registerCommand('hushmark.openSource', (uri) => provider.openInTextEditor(uri)),
     vscode.commands.registerCommand('hushmark.gotoLine', () => provider.gotoLine()),
+    vscode.commands.registerCommand('hushmark.quickFix', () => provider.quickFix()),
+    vscode.commands.registerCommand('hushmark.formatDocument', () => provider.formatDocument()),
+    vscode.commands.registerCommand('hushmark.rename', () => provider.rename()),
     vscode.commands.registerCommand('hushmark.goToHeading', () => provider.goToHeading()),
     ...webviewCommands(context).map((command) =>
       vscode.commands.registerCommand(command, () => provider.runInWebview(command.slice('hushmark.'.length)))),
@@ -46,7 +49,10 @@ function activeTabUri() {
  * キーは VSCode のキーボード ショートカットで割り当てるので、利用者が変えられる。Webview はこれらのキーを自分では処理せず、
  * VSCode に渡す。VSCode がコマンドを実行し、ここからフォーカスのある Webview に操作を指示する
  */
-const EXTENSION_COMMANDS = new Set(['hushmark.open', 'hushmark.openSource', 'hushmark.goToHeading', 'hushmark.gotoLine']);
+const EXTENSION_COMMANDS = new Set([
+  'hushmark.open', 'hushmark.openSource', 'hushmark.goToHeading', 'hushmark.gotoLine',
+  'hushmark.quickFix', 'hushmark.formatDocument', 'hushmark.rename',
+]);
 const webviewCommands = (context) => context.extension.packageJSON.contributes.commands
   .map((c) => c.command)
   .filter((command) => command.startsWith('hushmark.') && !EXTENSION_COMMANDS.has(command));
@@ -120,6 +126,87 @@ class LiveEditorProvider {
     if (!input || !input.trim()) return;
     const [target, character] = input.split(/[:,]/).map((v) => Number(v.trim()));
     entry.panel.webview.postMessage({ type: 'revealLine', line: target, col: character || 1 });
+  }
+
+  /** 前面の Webview の文書と、その主な選択範囲（VSCode の Range） */
+  async activeSelection() {
+    const entry = this.activeEntry();
+    if (!entry) return null;
+    const reply = await this.request(entry, { type: 'requestSelection' }, 1000);
+    if (!reply) return null;
+    const { ranges, main } = reply.selection;
+    const r = ranges[main] || ranges[0];
+    const document = vscode.workspace.textDocuments.find((d) => d.uri.toString() === entry.uri);
+    if (!document) return null;
+    const anchor = new vscode.Position(r.anchor.line, r.anchor.col);
+    const head = new vscode.Position(r.head.line, r.head.col);
+    return { entry, document, range: new vscode.Range(anchor, head), position: head };
+  }
+
+  /**
+   * クイックフィックス（Ctrl+.）。他の拡張機能（cSpell、markdownlint など）のコードアクションを一覧にし、選んだものを行う
+   */
+  async quickFix() {
+    const target = await this.activeSelection();
+    if (!target) return;
+    const actions = (await vscode.commands.executeCommand('vscode.executeCodeActionProvider', target.document.uri, target.range)) || [];
+    if (actions.length === 0) {
+      vscode.window.setStatusBarMessage(vscode.l10n.t('No code actions available'), 3000);
+      return;
+    }
+    const items = actions
+      .map((action) => ({ label: action.title, action, picked: !!action.isPreferred }))
+      .sort((a, b) => Number(b.picked) - Number(a.picked));
+    const chosen = await vscode.window.showQuickPick(items, { placeHolder: vscode.l10n.t('Select a code action') });
+    if (!chosen) return;
+    const { action } = chosen;
+    // CodeAction は edit と command を持ち、古い形の Command は command と arguments を持つ
+    if (action.edit) await vscode.workspace.applyEdit(action.edit);
+    const command = typeof action.command === 'string' ? action : action.command;
+    if (command && command.command) await vscode.commands.executeCommand(command.command, ...(command.arguments || []));
+  }
+
+  /** ドキュメントの書式設定。他の拡張機能（Prettier など）の書式設定の結果を当てる */
+  async formatDocument() {
+    const entry = this.activeEntry();
+    const document = entry && vscode.workspace.textDocuments.find((d) => d.uri.toString() === entry.uri);
+    if (!document) return;
+    const editor = vscode.workspace.getConfiguration('editor', document);
+    const edits = await vscode.commands.executeCommand('vscode.executeFormatDocumentProvider', document.uri, {
+      tabSize: editor.get('tabSize', 4),
+      insertSpaces: editor.get('insertSpaces', true),
+    });
+    if (!edits) {
+      vscode.window.showInformationMessage(vscode.l10n.t("There is no formatter for '{0}' files installed.", document.languageId));
+      return;
+    }
+    if (edits.length === 0) return;
+    const edit = new vscode.WorkspaceEdit();
+    edit.set(document.uri, edits);
+    await vscode.workspace.applyEdit(edit);
+  }
+
+  /** シンボルのリネーム（F2）。Markdown の見出しの名前（リンクも書き換える）など、他の拡張機能のリネームを使う */
+  async rename() {
+    const target = await this.activeSelection();
+    if (!target) return;
+    const { document, position } = target;
+    let prepared;
+    try {
+      prepared = await vscode.commands.executeCommand('vscode.prepareRename', document.uri, position);
+    } catch (error) {
+      vscode.window.showInformationMessage(String(error && error.message ? error.message : error));
+      return;
+    }
+    const range = prepared && (prepared.range || prepared);
+    const placeholder = prepared && prepared.placeholder ? prepared.placeholder : (range instanceof vscode.Range ? document.getText(range) : '');
+    const newName = await vscode.window.showInputBox({
+      value: placeholder,
+      prompt: vscode.l10n.t('Type the new name, then press Enter to rename.'),
+    });
+    if (!newName || newName === placeholder) return;
+    const edit = await vscode.commands.executeCommand('vscode.executeDocumentRenameProvider', document.uri, position, newName);
+    if (edit) await vscode.workspace.applyEdit(edit);
   }
 
   /** テキストエディタで開き直す。カーソル、選択範囲、スクロールの位置を引き継ぐ */
@@ -234,17 +321,26 @@ class LiveEditorProvider {
 
     const session = new SyncSession(document, webview);
     const key = document.uri.toString();
-    const entry = { panel };
+    const entry = { panel, uri: key };
     if (!this.webviews.has(key)) this.webviews.set(key, new Set());
     this.webviews.get(key).add(entry);
     const isThisDocument = (doc) => doc.uri.toString() === document.uri.toString();
     const sendReadOnly = () => isReadOnly(document).then((readOnly) => webview.postMessage({ type: 'readOnly', readOnly }));
+    const sendDiagnostics = () => webview.postMessage({ type: 'diagnostics', items: diagnosticsOf(document.uri) });
+    // 他の拡張機能のドキュメントリンク。文書が変わるたびに問い合わせると重いので、変更が落ち着いてから送る
+    let linksTimer = null;
+    const sendLinks = (delay = 500) => {
+      clearTimeout(linksTimer);
+      linksTimer = setTimeout(async () => webview.postMessage({ type: 'links', items: await documentLinksOf(document.uri) }), delay);
+    };
     const subscriptions = [
       webview.onDidReceiveMessage((message) => {
         switch (message.type) {
           case 'ready':
             session.start();
             sendReadOnly();
+            sendDiagnostics();
+            sendLinks(0);
             if (this.pendingAnchors.has(key)) {
               webview.postMessage({ type: 'revealAnchor', fragment: this.pendingAnchors.get(key) });
               this.pendingAnchors.delete(key);
@@ -253,6 +349,9 @@ class LiveEditorProvider {
               webview.postMessage({ type: 'setSelection', selection: this.pendingSelections.get(key) });
               this.pendingSelections.delete(key);
             }
+            break;
+          case 'complete':
+            completionItems(document, message).then((items) => webview.postMessage({ type: 'completions', id: message.id, items }));
             break;
           case 'cursor':
             entry.cursor = message;
@@ -287,11 +386,16 @@ class LiveEditorProvider {
         }
       }),
       vscode.workspace.onDidChangeTextDocument((event) => {
-        if (isThisDocument(event.document)) session.onDocumentChanged();
+        if (!isThisDocument(event.document)) return;
+        session.onDocumentChanged();
+        sendLinks();
       }),
       // 保存の直前に打った文字が保存から漏れないよう、届いている編集を適用し終えるまで待つ
       vscode.workspace.onWillSaveTextDocument((event) => {
         if (isThisDocument(event.document)) event.waitUntil(session.whenIdle());
+      }),
+      vscode.languages.onDidChangeDiagnostics((event) => {
+        if (event.uris.some((uri) => uri.toString() === document.uri.toString())) sendDiagnostics();
       }),
       vscode.workspace.onDidChangeConfiguration((event) => {
         const affects = (sections) => sections.some((section) => event.affectsConfiguration(section, document));
@@ -302,6 +406,7 @@ class LiveEditorProvider {
     const unwatch = watchDiskChanges(document, panel, log);
     subscriptions.push(panel.onDidChangeViewState(() => this.updateStatus()));
     panel.onDidDispose(() => {
+      clearTimeout(linksTimer);
       this.webviews.get(key).delete(entry);
       if (this.webviews.get(key).size === 0) this.webviews.delete(key);
       this.updateFocusContext();
@@ -310,6 +415,73 @@ class LiveEditorProvider {
       unwatch();
     });
   }
+}
+
+/**
+ * 補完の候補（他の拡張機能の補完）を、Webview に送れる形にする。行と列は 0 始まり。
+ * スニペットの書式（${1:name} など）は、置き換える文字列だけにする
+ */
+async function completionItems(document, { line, col, trigger, explicit }) {
+  const position = new vscode.Position(line, col);
+  let list;
+  try {
+    list = await vscode.commands.executeCommand('vscode.executeCompletionItemProvider', document.uri, position, trigger || undefined, 100);
+  } catch {
+    return [];
+  }
+  const items = Array.isArray(list) ? list : (list && list.items) || [];
+  const kinds = ['text', 'method', 'function', 'constructor', 'property', 'variable', 'class', 'interface', 'namespace', 'property',
+    'property', 'constant', 'enum', 'keyword', 'text', 'text', 'text', 'text', 'text', 'text', 'enum', 'constant', 'class', 'keyword', 'variable'];
+  const point = (p) => ({ line: p.line, col: p.character });
+  const text = (value) => (value === undefined ? '' : typeof value === 'string' ? value : value.value || '');
+  const snippetText = (value) => value.replace(/\$\{\d+:([^}]*)\}/g, '$1').replace(/\$\{\d+\}|\$\d+/g, '').replace(/\\([$}\\])/g, '$1');
+  // 自動で出すときは、文書中の単語の候補（種類が Text）を除く。VSCode の Markdown のテキストエディタでも、
+  // 単語の候補は明示的に呼んだときだけ出る
+  return items.filter((item) => explicit || item.kind !== vscode.CompletionItemKind.Text).slice(0, 200).map((item) => {
+    const label = typeof item.label === 'string' ? item.label : item.label.label;
+    const insert = item.insertText === undefined ? label
+      : typeof item.insertText === 'string' ? item.insertText : snippetText(item.insertText.value);
+    const range = item.range && (item.range.replacing || item.range);
+    return {
+      label,
+      detail: item.detail || '',
+      documentation: text(item.documentation),
+      kind: kinds[item.kind] || 'text',
+      insertText: insert,
+      preselect: !!item.preselect,
+      range: range && range.start ? { start: point(range.start), end: point(range.end) } : null,
+    };
+  });
+}
+
+/** 他の拡張機能のドキュメントリンクを、Webview に送れる形にする。行と列は 0 始まり */
+async function documentLinksOf(uri) {
+  let links;
+  try {
+    links = await vscode.commands.executeCommand('vscode.executeLinkProvider', uri, 100);
+  } catch {
+    return [];
+  }
+  const point = (p) => ({ line: p.line, col: p.character });
+  return (links || []).filter((link) => link.target).map((link) => ({
+    start: point(link.range.start),
+    end: point(link.range.end),
+    target: link.target.toString(true),
+  }));
+}
+
+/** 文書の診断（他の拡張機能のエラーや警告）を、Webview に送れる形にする。行と列は 0 始まり */
+function diagnosticsOf(uri) {
+  const severities = ['error', 'warning', 'info', 'hint'];
+  const point = (p) => ({ line: p.line, col: p.character });
+  return vscode.languages.getDiagnostics(uri).map((d) => ({
+    start: point(d.range.start),
+    end: point(d.range.end),
+    severity: severities[d.severity] || 'info',
+    message: d.message,
+    source: d.source || '',
+    code: d.code === undefined || d.code === null ? '' : String(typeof d.code === 'object' ? d.code.value : d.code),
+  }));
 }
 
 /**
@@ -585,6 +757,10 @@ const IMAGE_MIME_EXTENSIONS = {
  */
 async function pasteImages(images, documentUri) {
   if (!Array.isArray(images) || documentUri.scheme === 'untitled') return null;
+  const markdown = vscode.workspace.getConfiguration('markdown', documentUri);
+  // VSCode の Markdown のテキストエディタと同じく、markdown.editor.filePaste.enabled が never なら保存しない
+  if (markdown.get('editor.filePaste.enabled', 'smart') === 'never') return null;
+  const overwrite = markdown.get('copyFiles.overwriteBehavior', 'nameIncrementally') === 'overwrite';
   const dir = vscode.Uri.joinPath(documentUri, '..');
   const links = [];
   try {
@@ -592,19 +768,78 @@ async function pasteImages(images, documentUri) {
       const ext = IMAGE_MIME_EXTENSIONS[type];
       if (!ext || typeof data !== 'string') continue;
       const base = (typeof name === 'string' && name.replace(/\.[^.]*$/, '').replace(/[\\/:*?"<>|]/g, '').trim()) || 'image';
-      let target;
-      for (let n = 0; ; n++) {
-        target = vscode.Uri.joinPath(dir, `${base}${n ? `-${n}` : ''}.${ext}`);
-        if (!(await exists(target))) break;
+      const first = copyDestination(documentUri, `${base}.${ext}`);
+      let target = first;
+      for (let n = 1; !overwrite && (await exists(target)); n++) {
+        target = vscode.Uri.joinPath(first, '..', first.path.split('/').pop().replace(/(\.[^.]*)?$/, (e) => `-${n}${e}`));
       }
+      await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(target, '..'));
       await vscode.workspace.fs.writeFile(target, Uint8Array.from(atob(data), (c) => c.charCodeAt(0)));
-      links.push(`![${base}](${markdownPath(relativePath(dir.path, target.path))})`);
+      const alt = target.path.split('/').pop().replace(/\.[^.]*$/, '');
+      links.push(`![${alt}](${markdownPath(relativePath(dir.path, target.path))})`);
     }
   } catch (error) {
     log('paste image failed', String(error));
     vscode.window.showWarningMessage(vscode.l10n.t('Could not save the pasted image: {0}', String(error.message || error)));
   }
   return links.length ? links.join(' ') : null;
+}
+
+/**
+ * 貼り付けたファイルを保存する場所。VSCode の markdown.copyFiles.destination に合わせる。
+ * 設定は「文書のパスに合う glob → 保存先」の対応で、保存先には ${documentDirName} などの変数を使える。
+ * / で始まらない保存先は文書のフォルダーから、/ で終わる保存先はフォルダーとして、元の名前で保存する。
+ * どの glob にも合わなければ、文書と同じフォルダーに保存する
+ */
+function copyDestination(documentUri, fileName) {
+  const destinations = vscode.workspace.getConfiguration('markdown', documentUri).get('copyFiles.destination') || {};
+  const folder = vscode.workspace.getWorkspaceFolder(documentUri);
+  const docPath = documentUri.path;
+  const relative = folder ? docPath.slice(folder.uri.path.replace(/\/$/, '').length + 1) : docPath;
+  const docDir = docPath.replace(/\/[^/]*$/, '');
+  const docFile = docPath.split('/').pop();
+  const ext = (name) => (/\.([^.]*)$/.exec(name) || [, ''])[1];
+  const now = new Date();
+  const vars = {
+    documentDirName: docDir,
+    documentRelativeDirName: relative.replace(/\/?[^/]*$/, ''),
+    documentFileName: docFile,
+    documentBaseName: docFile.replace(/\.[^.]*$/, ''),
+    documentExtName: ext(docFile),
+    documentFilePath: docPath,
+    documentRelativeFilePath: relative,
+    documentWorkspaceFolder: folder ? folder.uri.path : docDir,
+    fileName,
+    fileExtName: ext(fileName),
+    unixTime: String(now.getTime()),
+    isoTime: now.toISOString(),
+  };
+  for (const [glob, destination] of Object.entries(destinations)) {
+    if (typeof destination !== 'string' || !(globMatches(glob, relative) || globMatches(glob, docPath))) continue;
+    let resolved = destination.replace(/\$\{(\w+)\}/g, (all, name) => (name in vars ? vars[name] : all));
+    if (resolved.endsWith('/')) resolved += fileName;
+    const base = resolved.startsWith('/') ? documentUri.with({ path: '/' }) : vscode.Uri.joinPath(documentUri, '..');
+    return vscode.Uri.joinPath(base, resolved.replace(/^\//, ''));
+  }
+  return vscode.Uri.joinPath(documentUri, '..', fileName);
+}
+
+/** glob（**、*、?、{a,b}）がパスに合うか */
+function globMatches(glob, path) {
+  let source = '';
+  for (let i = 0; i < glob.length; i++) {
+    const ch = glob[i];
+    if (ch === '*' && glob[i + 1] === '*') {
+      source += glob[i + 2] === '/' ? '(?:.*/)?' : '.*';
+      i += glob[i + 2] === '/' ? 2 : 1;
+    } else if (ch === '*') source += '[^/]*';
+    else if (ch === '?') source += '[^/]';
+    else if (ch === '{') source += '(?:';
+    else if (ch === '}') source += ')';
+    else if (ch === ',') source += '|';
+    else source += ch.replace(/[.+^$()|[\]\\]/g, '\\$&');
+  }
+  return new RegExp(`^${source}$`).test(path);
 }
 
 async function exists(uri) {
@@ -619,6 +854,8 @@ async function exists(uri) {
 /** エクスプローラーからドロップしたファイルへのリンクの Markdown。画像は画像のリンクにする */
 function linkFiles(uris, documentUri) {
   if (!Array.isArray(uris)) return null;
+  // VSCode の Markdown のテキストエディタと同じく、markdown.editor.drop.enabled が never ならリンクを入れない
+  if (vscode.workspace.getConfiguration('markdown', documentUri).get('editor.drop.enabled', 'smart') === 'never') return null;
   const dir = vscode.Uri.joinPath(documentUri, '..');
   const links = [];
   for (const raw of uris) {
@@ -699,6 +936,11 @@ async function openLink(rawHref, documentUri, webview, provider) {
     return;
   }
   try {
+    // 他の拡張機能のドキュメントリンクは file: の URI のことがある。外部のアプリではなく VSCode で開く
+    if (/^file:/i.test(href)) {
+      await vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(href));
+      return;
+    }
     if (/^[a-z][a-z0-9+.-]*:/i.test(href) && !/^[a-z]:[\\/]/i.test(href)) {
       await vscode.env.openExternal(vscode.Uri.parse(href));
       return;
