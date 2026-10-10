@@ -79,6 +79,8 @@
 | `editor.padding.top` / `editor.scrollbar.verticalScrollbarSize` / `editor.scrollbar.horizontalScrollbarSize` | 上の余白（`0` のときは 1em） / スクロールバーの太さ |
 | `editor.mouseWheelZoom` / `editor.links` / `editor.hover.enabled` / `editor.hover.delay` | Ctrl+ホイールで文字の大きさを変える（設定は変えない） / Ctrl+クリックでリンクを開くか / ホバー（診断のメッセージ、画像）を出すか / 出すまでの時間 |
 | `editor.wordSegmenterLocales` / `editor.wordBreak` | 語の単位の移動と削除（Ctrl+← / →、Ctrl+Backspace など）とダブルクリックで、`ja` などを指定すると日本語の文を語に分ける（既定では日本語の文字の並びを 1 語として扱う） / `keepAll` にすると、日本語の文を語の途中で折り返さない |
+| `editor.stickyScroll.enabled` / `editor.stickyScroll.maxLineCount` | 表示している位置を含む見出しを上端に固定する（Sticky Scroll）か / 固定する行数。固定した見出しをクリックすると、その見出しに移る |
+| `editor.hideCursorInOverviewRuler` / `editor.overviewRulerBorder` | スクロールバーの上の目印（検索の一致、診断、カーソル）にカーソルを出さないか / 目印の欄に境界線を引くか |
 | `editor.folding` / `editor.showFoldingControls` | 折りたたみ（見出しの節、リスト、引用、コードブロック）を使うか / 行番号の右の折りたたみの印をいつ出すか |
 
 キー操作は次のとおりで、VSCode のエディタと同じです。この README のほかの箇所では Windows と Linux のキーで書きます。macOS では、とくに断りがなければ Ctrl を Cmd に、Alt を Option に読み替えてください。

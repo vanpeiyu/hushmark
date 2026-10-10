@@ -665,6 +665,7 @@ const OPTION_SETTINGS = [
   'editor.cursorSurroundingLines', 'editor.renderWhitespace', 'editor.renderControlCharacters', 'editor.unicodeHighlight',
   'editor.mouseWheelZoom', 'editor.links', 'editor.hover', 'editor.scrollBeyondLastLine', 'editor.smoothScrolling',
   'editor.padding', 'editor.scrollbar', 'editor.wordSegmenterLocales', 'editor.wordBreak',
+  'editor.hideCursorInOverviewRuler', 'editor.overviewRulerBorder', 'editor.stickyScroll',
 ];
 
 /** テキストエディタの設定のうち、Webview でも合わせるもの */
@@ -712,6 +713,10 @@ function editorOptions(document) {
     horizontalScrollbarSize: Number(editor.get('scrollbar.horizontalScrollbarSize', 12)),
     wordSegmenterLocales: editor.get('wordSegmenterLocales', []),
     wordBreak: editor.get('wordBreak', 'normal'),
+    hideCursorInOverviewRuler: editor.get('hideCursorInOverviewRuler', false),
+    overviewRulerBorder: editor.get('overviewRulerBorder', true),
+    stickyScrollEnabled: editor.get('stickyScroll.enabled', true),
+    stickyScrollMaxLineCount: Number(editor.get('stickyScroll.maxLineCount', 5)),
     // "[markdown]" の中の editor.fontFamily も、テキストエディタと同じく効かせる（document を渡して読む）
     style: { ...styleOptions(hushmark), fontFamily: safeFontFamily(editor.get('fontFamily')) },
   };

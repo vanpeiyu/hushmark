@@ -1136,4 +1136,24 @@ await sleep(200);
 check('検索の入力欄で ↑: 前に検索した語を出す', (await findState()).value === 'orange', await findState());
 await press(cdp, 'Escape');
 
+// 41. Sticky Scroll とスクロールバーの目印
+const stickyScrollDoc = ['# 章', ''];
+for (let n = 1; n <= 2; n++) {
+  stickyScrollDoc.push(`## 節 ${n}`, '');
+  for (let i = 0; i < 40; i++) stickyScrollDoc.push(`本文 ${n}.${i}`, '');
+}
+stickyScrollDoc.push('後');
+await loadDoc(stickyScrollDoc);
+await clickPos(0);
+await web(`(() => { const v = __hushmarkView; const p = v.state.doc.toString().indexOf('本文 2.20'); v.dispatch({ effects: v.constructor.scrollIntoView(p, { y: 'start' }) }); })()`);
+await sleep(800);
+const stickyLines = () => web("JSON.stringify([...document.querySelectorAll('.cm-md-sticky-line')].map((e) => e.lastChild.textContent))").then(JSON.parse);
+check('Sticky Scroll: 表示している位置を含む見出しを上端に固定する', JSON.stringify(await stickyLines()) === JSON.stringify(['章', '節 2']), await stickyLines());
+const stickyRow = await toPage(JSON.parse(await web("JSON.stringify((() => { const r = document.querySelectorAll('.cm-md-sticky-line')[1].getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })())")));
+await click(cdp, stickyRow.x, stickyRow.y);
+await sleep(500);
+check('Sticky Scroll: 見出しをクリックすると、その見出しに移る', (await web('__hushmarkView.state.doc.lineAt(__hushmarkView.state.selection.main.head).text')) === '## 節 2');
+const ruler = JSON.parse(await web("JSON.stringify((() => { const c = document.querySelector('.cm-md-overview'); return c ? { width: c.width, height: c.height, shown: c.style.display !== 'none' } : null; })())"));
+check('スクロールバーの目印を、スクロールバーの上に描く', ruler && ruler.shown && ruler.width > 0 && ruler.height > 0, ruler);
+
 finish();

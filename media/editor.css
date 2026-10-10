@@ -1341,3 +1341,56 @@ body.md-caret-smooth #editor .cm-cursor {
   stroke-linecap: round;
   vertical-align: middle;
 }
+
+/* ================================================================ スクロールバーの目印と Sticky Scroll */
+
+/* スクロールバーの目印（overviewRuler.js）。スクロールバーの上に重ね、マウスの操作は下に通す */
+.cm-md-overview {
+  position: absolute;
+  right: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Sticky Scroll（stickyScroll.js）。表示している位置を含む見出しを上端に固定する。VSCode と同じく下に影を付ける */
+.cm-md-sticky {
+  position: absolute;
+  z-index: 3;
+  background: var(--vscode-editorStickyScroll-background, var(--md-bg));
+  box-shadow: 0 3px 3px -2px var(--vscode-editorStickyScroll-shadow, var(--vscode-scrollbar-shadow, rgba(0, 0, 0, 0.2)));
+  font-size: var(--md-font-size);
+}
+
+.cm-md-sticky-line {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding-right: var(--md-line-pad);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--md-strong-fg);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cm-md-sticky-line:hover {
+  background: var(--vscode-editorStickyScrollHover-background, var(--md-hover));
+}
+
+/* 行番号は行番号の欄と同じ位置と色（右寄せ） */
+.cm-md-sticky-number {
+  position: absolute;
+  left: 0;
+  box-sizing: border-box;
+  padding: 0 0.5ch 0 1.5ch;
+  text-align: right;
+  color: var(--md-line-number);
+  font-weight: 400;
+}
+
+.cm-md-sticky-mark {
+  color: var(--md-muted);
+  font-weight: 400;
+  white-space: pre;
+}
