@@ -661,6 +661,10 @@ const OPTION_SETTINGS = [
   'editor.multiCursorModifier', 'editor.autoClosingBrackets', 'editor.autoSurround', 'editor.folding', 'editor.showFoldingControls',
   'editor.cursorStyle', 'editor.cursorBlinking', 'editor.cursorWidth', 'editor.cursorSmoothCaretAnimation',
   'editor.fontWeight', 'editor.fontLigatures', 'editor.letterSpacing',
+  'editor.selectionHighlight', 'editor.emptySelectionClipboard', 'editor.insertSpaces', 'editor.detectIndentation',
+  'editor.cursorSurroundingLines', 'editor.renderWhitespace', 'editor.renderControlCharacters', 'editor.unicodeHighlight',
+  'editor.mouseWheelZoom', 'editor.links', 'editor.hover', 'editor.scrollBeyondLastLine', 'editor.smoothScrolling',
+  'editor.padding', 'editor.scrollbar',
 ];
 
 /** テキストエディタの設定のうち、Webview でも合わせるもの */
@@ -688,6 +692,24 @@ function editorOptions(document) {
     fontWeight: String(editor.get('fontWeight', 'normal')),
     fontLigatures: editor.get('fontLigatures', false),
     letterSpacing: Number(editor.get('letterSpacing', 0)) || 0,
+    selectionHighlight: editor.get('selectionHighlight', true),
+    emptySelectionClipboard: editor.get('emptySelectionClipboard', true),
+    insertSpaces: editor.get('insertSpaces', true),
+    detectIndentation: editor.get('detectIndentation', true),
+    cursorSurroundingLines: Number(editor.get('cursorSurroundingLines', 0)) || 0,
+    renderWhitespace: editor.get('renderWhitespace', 'selection'),
+    renderControlCharacters: editor.get('renderControlCharacters', true),
+    invisibleCharacters: editor.get('unicodeHighlight.invisibleCharacters', false),
+    mouseWheelZoom: editor.get('mouseWheelZoom', false),
+    links: editor.get('links', true),
+    hoverEnabled: editor.get('hover.enabled', true),
+    hoverDelay: Number(editor.get('hover.delay', 300)),
+    scrollBeyondLastLine: editor.get('scrollBeyondLastLine', true),
+    smoothScrolling: editor.get('smoothScrolling', false),
+    paddingTop: Number(editor.get('padding.top', 0)) || 0,
+    paddingBottom: Number(editor.get('padding.bottom', 0)) || 0,
+    verticalScrollbarSize: Number(editor.get('scrollbar.verticalScrollbarSize', 14)),
+    horizontalScrollbarSize: Number(editor.get('scrollbar.horizontalScrollbarSize', 12)),
     // "[markdown]" の中の editor.fontFamily も、テキストエディタと同じく効かせる（document を渡して読む）
     style: { ...styleOptions(hushmark), fontFamily: safeFontFamily(editor.get('fontFamily')) },
   };

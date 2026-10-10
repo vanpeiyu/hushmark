@@ -2,6 +2,7 @@
 
 ## 未リリース
 
+- VSCode のエディタの次の設定に従うようにしました。選んだ文字列と同じ文字列のハイライト（`editor.selectionHighlight`）、何も選ばずにコピーしたときの行全体のコピー（`editor.emptySelectionClipboard`）、字下げの空白とタブ（`editor.insertSpaces`、`editor.detectIndentation`。これまで Tab の字下げは空白 2 つでした）、空白と見えない文字の表示（`editor.renderWhitespace` など）、スクロール（`editor.cursorSurroundingLines`、`editor.scrollBeyondLastLine`、`editor.smoothScrolling`、`editor.padding.top`、`editor.scrollbar.*`）、`editor.mouseWheelZoom`、`editor.links`、`editor.hover.*`。
 - VSCode のカーソルの設定（`editor.cursorStyle`、`editor.cursorBlinking`、`editor.cursorWidth`、`editor.cursorSmoothCaretAnimation`）と、文字の設定（`editor.fontWeight`、`editor.fontLigatures`、`editor.letterSpacing`）に従うようにしました。合字は、VSCode の既定と同じく既定では使いません。
 - 他の拡張機能の機能を使えるようにしました。診断（スペルミスなどの波線と、F8 での移動）、クイックフィックス（Ctrl+.）、補完、リネーム（F2）、ドキュメントの書式設定、ドキュメントリンクです。
 - 画像の貼り付けとファイルのドロップが、`markdown.copyFiles.destination` などの VSCode の Markdown の設定に従うようにしました。

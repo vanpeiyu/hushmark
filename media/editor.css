@@ -157,8 +157,9 @@ body {
 }
 
 #editor .cm-content {
-  /* 下に余白を取り、末尾の行も画面の中ほどで編集できるようにする */
-  padding: 1em var(--md-side) 50vh;
+  /* 下に余白を取り、末尾の行も画面の中ほどで編集できるようにする（editor.scrollBeyondLastLine が false なら取らない）。
+     上の余白は editor.padding.top（0 なら 1em） */
+  padding: var(--md-content-top, 1em) var(--md-side) var(--md-content-bottom, 50vh);
   caret-color: var(--md-caret);
 }
 
@@ -1283,4 +1284,44 @@ body.md-caret-smooth #editor .cm-cursor {
 @media (prefers-reduced-motion: reduce) {
   body.md-caret-smooth #editor .cm-cursor { transition: none; }
   body.md-blink-expand #editor .cm-cursorLayer .cm-cursor { animation: none; }
+}
+
+/* ================================================================ 細かい表示の設定（editorSettings.js） */
+
+/* 選択した文字列と同じ文字列（editor.selectionHighlight） */
+#editor .cm-selectionMatch {
+  background-color: var(--vscode-editor-selectionHighlightBackground, rgba(173, 214, 255, 0.3));
+}
+
+/* 空白とタブ（editor.renderWhitespace）。文字の幅の中ほどに「·」、タブは左に「→」を描く */
+.cm-md-ws-space {
+  background-image: radial-gradient(circle at center, var(--vscode-editorWhitespace-foreground, rgba(128, 128, 128, 0.5)) 0.09em, transparent 0.1em);
+  background-size: 1ch 100%;
+  background-repeat: repeat-x;
+}
+.cm-md-ws-tab {
+  position: relative;
+}
+.cm-md-ws-tab::before {
+  content: '→';
+  position: absolute;
+  left: 0.1ch;
+  /* リストの折り返しの字下げ（wrapIndent.js の負の text-indent）を引き継がない */
+  text-indent: 0;
+  color: var(--vscode-editorWhitespace-foreground, rgba(128, 128, 128, 0.5));
+  pointer-events: none;
+}
+
+/* 見えない文字（editor.renderControlCharacters・editor.unicodeHighlight.invisibleCharacters） */
+#editor .cm-specialChar {
+  color: var(--vscode-editorUnicodeHighlight-border, var(--md-error));
+}
+
+/* スクロール（editor.smoothScrolling、editor.scrollbar） */
+#editor .cm-scroller {
+  scroll-behavior: var(--md-scroll-behavior, auto);
+}
+#editor .cm-scroller::-webkit-scrollbar {
+  width: var(--md-scrollbar-width, 14px);
+  height: var(--md-scrollbar-height, 12px);
 }

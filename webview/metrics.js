@@ -19,8 +19,19 @@ export function lineHeightPx(fontSize, lineHeight) {
   return Math.round(lineHeight);
 }
 
+/** Ctrl+ホイールで変えた文字の大きさ（px。editor.mouseWheelZoom）と、最後に当てた設定 */
+let zoom = 0;
+let lastOptions = null;
+
+/** 文字の大きさを 1px 大きく / 小さくする。行の高さも合わせて計算し直す */
+export function zoomBy(step) {
+  zoom = Math.max(-8, Math.min(24, zoom + step));
+  if (lastOptions) applyMetrics(lastOptions);
+}
+
 export function applyMetrics(options) {
-  const fontSize = options.fontSize > 0 ? options.fontSize : 14;
+  lastOptions = options;
+  const fontSize = Math.max(6, (options.fontSize > 0 ? options.fontSize : 14) + zoom);
   const root = document.documentElement.style;
   root.setProperty('--md-font-size', `${fontSize}px`);
   root.setProperty('--md-line', `${lineHeightPx(fontSize, options.lineHeight)}px`);
@@ -57,6 +68,13 @@ function applyEditorLook(options) {
   style.setProperty('--md-font-features', ligatures === true ? '"liga" on, "calt" on'
     : typeof ligatures === 'string' && ligatures.trim() && /^[\w\s"',-]+$/.test(ligatures) ? ligatures : '"liga" off, "calt" off');
   style.setProperty('--md-letter-spacing', `${Number(options.letterSpacing) || 0}px`);
+  // スクロール（editor.scrollBeyondLastLine・smoothScrolling・padding・scrollbar）
+  style.setProperty('--md-content-bottom', options.scrollBeyondLastLine === false ? `${Math.max(0, Number(options.paddingBottom) || 0)}px` : '50vh');
+  if (Number(options.paddingTop) > 0) style.setProperty('--md-content-top', `${Number(options.paddingTop)}px`);
+  else style.removeProperty('--md-content-top');
+  style.setProperty('--md-scroll-behavior', options.smoothScrolling ? 'smooth' : 'auto');
+  style.setProperty('--md-scrollbar-width', `${Math.max(0, Number(options.verticalScrollbarSize) || 14)}px`);
+  style.setProperty('--md-scrollbar-height', `${Math.max(0, Number(options.horizontalScrollbarSize) || 12)}px`);
 }
 
 /**

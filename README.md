@@ -71,6 +71,13 @@ The following VS Code editor settings (their values for Markdown) are respected.
 | `editor.autoClosingBrackets` | When `never`, brackets (`(`, `[`, `{`, `<`) are not closed automatically |
 | `editor.autoSurround` | Whether typing a symbol (`*`, `` ` ``, `_`, `~`, brackets, quotes, and so on) over selected text surrounds the selection |
 | `editor.cursorStyle` / `editor.cursorBlinking` / `editor.cursorWidth` / `editor.cursorSmoothCaretAnimation` | Cursor shape / blinking / width (with `line`) / smooth movement |
+| `editor.selectionHighlight` | Highlights other occurrences of the selected text |
+| `editor.emptySelectionClipboard` | Copying or cutting with no selection acts on the whole line |
+| `editor.insertSpaces` / `editor.detectIndentation` | Whether indentation (Tab) uses spaces or tabs / whether it is detected from the document |
+| `editor.renderWhitespace` / `editor.renderControlCharacters` / `editor.unicodeHighlight.invisibleCharacters` | Showing whitespace / control characters / invisible characters (off by default for Markdown in VS Code) |
+| `editor.cursorSurroundingLines` / `editor.scrollBeyondLastLine` / `editor.smoothScrolling` | Lines kept above and below the cursor / scrolling past the last line / smooth scrolling |
+| `editor.padding.top` / `editor.scrollbar.verticalScrollbarSize` / `editor.scrollbar.horizontalScrollbarSize` | Top padding (1em when `0`) / scrollbar sizes |
+| `editor.mouseWheelZoom` / `editor.links` / `editor.hover.enabled` / `editor.hover.delay` | Ctrl+wheel changes the font size (without changing settings) / whether Ctrl+Click opens links / whether hovers (diagnostic messages, images) are shown / their delay |
 | `editor.folding` / `editor.showFoldingControls` | Whether folding (heading sections, lists, blockquotes, code blocks) is available / when the folding controls to the right of the line numbers are shown |
 
 The keyboard shortcuts are the same as in the VS Code editor. Elsewhere in this README, keys are written for Windows and Linux. On macOS, read Ctrl as Cmd and Alt as Option unless noted otherwise.

@@ -71,6 +71,13 @@
 | `editor.autoClosingBrackets` | `never` のとき、括弧（`(`、`[`、`{`、`<`）を自動で閉じない |
 | `editor.autoSurround` | 文字列を選んで記号（`*`、`` ` ``、`_`、`~`、括弧、引用符など）を打ったときに、選択範囲を囲むか |
 | `editor.cursorStyle` / `editor.cursorBlinking` / `editor.cursorWidth` / `editor.cursorSmoothCaretAnimation` | カーソルの形 / 点滅 / 太さ（`line` のとき） / 移動のアニメーション |
+| `editor.selectionHighlight` | 選んだ文字列と同じ文字列に色を付ける |
+| `editor.emptySelectionClipboard` | 何も選ばずにコピー / 切り取りしたとき、行全体を対象にする |
+| `editor.insertSpaces` / `editor.detectIndentation` | 字下げ（Tab）を空白にするかタブにするか / 文書の字下げから推し量るか |
+| `editor.renderWhitespace` / `editor.renderControlCharacters` / `editor.unicodeHighlight.invisibleCharacters` | 空白の表示 / 制御文字の表示 / 見えない文字の表示（Markdown では VSCode の既定で無効） |
+| `editor.cursorSurroundingLines` / `editor.scrollBeyondLastLine` / `editor.smoothScrolling` | カーソルの上下に残す行数 / 最後の行より先にスクロールできるか / スクロールのアニメーション |
+| `editor.padding.top` / `editor.scrollbar.verticalScrollbarSize` / `editor.scrollbar.horizontalScrollbarSize` | 上の余白（`0` のときは 1em） / スクロールバーの太さ |
+| `editor.mouseWheelZoom` / `editor.links` / `editor.hover.enabled` / `editor.hover.delay` | Ctrl+ホイールで文字の大きさを変える（設定は変えない） / Ctrl+クリックでリンクを開くか / ホバー（診断のメッセージ、画像）を出すか / 出すまでの時間 |
 | `editor.folding` / `editor.showFoldingControls` | 折りたたみ（見出しの節、リスト、引用、コードブロック）を使うか / 行番号の右の折りたたみの印をいつ出すか |
 
 キー操作は次のとおりで、VSCode のエディタと同じです。この README のほかの箇所では Windows と Linux のキーで書きます。macOS では、とくに断りがなければ Ctrl を Cmd に、Alt を Option に読み替えてください。

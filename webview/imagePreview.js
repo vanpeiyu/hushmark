@@ -2,9 +2,7 @@
 // 文書の中には画像を描かない。描くと行の高さが変わり、縦の位置がソースの行とそろわなくなるため。
 
 import { ViewPlugin } from '@codemirror/view';
-
-/** マウスを載せてから表示するまでの時間 */
-const SHOW_DELAY = 250;
+import { hoverConfig } from './hoverConfig.js';
 
 /**
  * @param {(href: string) => Promise<string | null>} resolve 画像のリンク先を、img に渡せる URL にする
@@ -44,9 +42,10 @@ export function imagePreview(resolve) {
       const element = event.target instanceof Element ? event.target.closest('[data-image-src]') : null;
       if (element === target) return;
       hide();
-      if (!element) return;
+      // editor.hover.enabled が off なら出さない。出すまでの時間は editor.hover.delay
+      if (!element || !hoverConfig.enabled) return;
       target = element;
-      timer = setTimeout(() => show(element), SHOW_DELAY);
+      timer = setTimeout(() => show(element), hoverConfig.delay);
     };
 
     view.dom.addEventListener('mousemove', onMove);
