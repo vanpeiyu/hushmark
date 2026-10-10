@@ -34,5 +34,7 @@
   "No code actions available": "コード アクションがありません",
   "Select a code action": "コード アクションを選択",
   "There is no formatter for '{0}' files installed.": "'{0}' ファイルのフォーマッタがインストールされていません。",
-  "Type the new name, then press Enter to rename.": "新しい名前を入力し、Enter キーを押して名前を変更します。"
+  "Type the new name, then press Enter to rename.": "新しい名前を入力し、Enter キーを押して名前を変更します。",
+  "Find in Selection": "選択範囲を検索",
+  "Preserve Case": "大文字と小文字を保持する"
 }

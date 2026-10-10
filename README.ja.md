@@ -135,6 +135,10 @@ VSCode のエディタの検索ウィジェットと同じく、右上に表示�
 | 検索語を入力 | 同じ | 開いたときのカーソル位置から、最初の一致に移る |
 | Enter / Shift+Enter、F3 / Shift+F3 | 左に加えて Cmd+G / Cmd+Shift+G | 次 / 前の一致 |
 | Alt+C / Alt+W / Alt+R | Cmd+Option+C / W / R | 大文字と小文字の区別 / 単語単位 / 正規表現の切り替え |
+| Alt+L | Cmd+Option+L | 選択範囲を検索（検索を開いたときの選択範囲の中だけを探す）の切り替え |
+| Alt+P | Cmd+Option+P | 置換で大文字と小文字を保持するかの切り替え |
+| Alt+Enter | Option+Enter | すべての一致を選択して、エディタに戻る（複数カーソルで編集できる） |
+| ↑ / ↓ | 同じ | 検索と置換の入力欄で、前に使った語を呼び出す |
 | Ctrl+H、または左端の › | Cmd+Option+F、または左端の › | 置換の欄を出す。置換の欄で Enter は 1 件置換、Ctrl+Alt+Enter（macOS では Cmd+Option+Enter）はすべて置換 |
 | Esc | 同じ | 閉じてエディタに戻る |
 

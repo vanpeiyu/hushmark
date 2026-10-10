@@ -135,6 +135,10 @@ As with the find widget of the VS Code editor, it appears in the upper right.
 | Type a search term | Same | Moves to the first match from the cursor position when the widget was opened |
 | Enter / Shift+Enter, F3 / Shift+F3 | Also Cmd+G / Cmd+Shift+G | Next / previous match |
 | Alt+C / Alt+W / Alt+R | Cmd+Option+C / W / R | Toggle match case / whole word / regular expression |
+| Alt+L | Cmd+Option+L | Toggle find in selection (searches only within the selection made when the widget was opened) |
+| Alt+P | Cmd+Option+P | Toggle preserving case when replacing |
+| Alt+Enter | Option+Enter | Selects all matches and returns to the editor (edit them with multiple cursors) |
+| ↑ / ↓ | Same | In the find and replace fields, recalls earlier terms |
 | Ctrl+H, or › at the left | Cmd+Option+F, or › at the left | Shows the replace field. In the replace field, Enter replaces one match and Ctrl+Alt+Enter (Cmd+Option+Enter on macOS) replaces all |
 | Esc | Same | Closes it and returns to the editor |
 

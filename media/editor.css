@@ -1330,3 +1330,14 @@ body.md-caret-smooth #editor .cm-cursor {
 #editor .cm-content {
   word-break: var(--md-word-break, normal);
 }
+
+/* 検索ウィジェットの、文字ではなく図で示す切り替え（選択範囲内の検索） */
+.cm-md-find-icon {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  vertical-align: middle;
+}
