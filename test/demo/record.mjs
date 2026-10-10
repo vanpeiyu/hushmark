@@ -38,16 +38,15 @@ Other lines read like a *preview*.
 
 - [x] Saves your Markdown as written
 - [ ] Works in VS Code for the Web
-- Click a cell to edit a table
+- Edit tables right in their cells
 
 ## Table
 
-| Setting | Default |
-|:--|--:|
-| Style | soft |
-| Color | green |
-| Heading size | medium |
-| Line height | 1.85 |
+| Setting | Default | Note |
+|:--|--:|---|
+| Style | soft | Rounded shapes and soft colors for headings, quotes, and tables |
+| Color | green | All colors come from this one; text stays readable on any background |
+| Heading size | medium | h1 and h2 take two lines |
 
 > Opens the Markdown files you already have.
 
@@ -55,7 +54,7 @@ Other lines read like a *preview*.
     // 1 行に並んだ要素を順にクリックし、触れた要素だけ記号が出ることを見せる
     inline: [['bold', 2], ['code', 2], ['link', 2]],
     heading: ['Features', 4],
-    listEnd: ['edit a table', 12],
+    listEnd: ['in their cells', 14],
     newItem: 'Pastes **images** and URLs as `links`',
     cell: 'medium',
     cellText: 'large',
@@ -73,23 +72,22 @@ Other lines read like a *preview*.
 
 - [x] 書いた書式を変えずに保存する
 - [ ] Web 版の VSCode でも動く
-- 表はセルをクリックして編集する
+- 表はセルの中でそのまま編集する
 
 ## 表
 
-| 設定 | 既定 |
-|:--|--:|
-| スタイル | soft |
-| 色 | green |
-| 見出しの大きさ | medium |
-| 行の高さ | 1.85 |
+| 設定 | 既定 | 説明 |
+|:--|--:|---|
+| スタイル | soft | 見出し、引用、表を、角の丸い形とやわらかい色で表示する |
+| 色 | green | ほかの色はすべてこの色から作り、どの背景色の上でも文字を読みやすく保つ |
+| 見出しの大きさ | medium | h1 と h2 を 2 行分の高さにする |
 
 > VSCode の Markdown のファイルを、そのまま開けます。
 
 `,
     inline: [['太字', 1], ['コード', 1], ['リンク', 1]],
     heading: ['できること', 2],
-    listEnd: ['して編集する', 6],
+    listEnd: ['そのまま編集する', 8],
     newItem: '日本語の**「強調」**も効く',
     cell: 'medium',
     cellText: 'large',
@@ -103,6 +101,8 @@ if (!SCRIPT) throw new Error(`台本がない: ${options.lang}`);
 
 /** ページ（ワークベンチ）の大きさ。撮るのはエディタの部分だけ */
 const PAGE = { width: 760, height: 940 };
+/** 撮るときの拡大率。画面の配置は変えずに、文字をきめ細かく撮る */
+const SCALE = 1.5;
 
 /** VSCode を起動してつなぐ */
 async function start() {
@@ -122,7 +122,7 @@ async function start() {
     },
   });
   const cdp = await connect(vscode.port);
-  await cdp.send('Emulation.setDeviceMetricsOverride', { ...PAGE, deviceScaleFactor: 1, mobile: false });
+  await cdp.send('Emulation.setDeviceMetricsOverride', { ...PAGE, deviceScaleFactor: SCALE, mobile: false });
   const mainCtx = await cdp.findContext("!!document.querySelector('.monaco-workbench')");
   return { vscode, cdp, mainCtx };
 }
@@ -265,18 +265,17 @@ await shot(700);
 await press(cdp, 'ArrowDown');
 await shot(1400);
 
-// 表のセルをクリックして編集する
-const cellIndex = await web(`[...document.querySelectorAll('.cm-md-table td')].findIndex((e) => e.textContent.trim() === ${JSON.stringify(SCRIPT.cell)})`);
-await clickElement('.cm-md-table td', cellIndex);
+// 表のセルの文字をクリックして、そのまま書き換える（表の行はソースの行のままなので、本文と同じく編集する）
+await clickText(SCRIPT.cell, SCRIPT.cell.length);
 await shot(500);
-await press(cdp, 'End');
 for (let i = 0; i < SCRIPT.cell.length; i++) {
   await press(cdp, 'Backspace');
   await shot(150);
 }
 await typeSlowly(SCRIPT.cellText);
 await shot(500);
-await press(cdp, 'Escape');
+// 表の外に出ると | が隠れる
+await web('(() => { const v = __hushmarkView; const p = v.state.doc.toString().indexOf("> "); v.dispatch({ selection: { anchor: p + 2 } }); })()');
 await shot(1400);
 
 // 見出しを打つ

@@ -1,29 +1,51 @@
 # 変更履歴
 
-## 未リリース
+## 0.4.0 - 2026-10-10
 
-- 表示している位置を含む見出しを、エディタの上端に固定して出すようにしました（Sticky Scroll。`editor.stickyScroll.*`）。
-- スクロールバーの上に、検索の一致、診断、カーソルの位置の目印を出すようにしました。
-- 検索ウィジェットで、選択範囲内の検索（Alt+L）、大文字と小文字を保った置換（Alt+P）、すべての一致の選択（Alt+Enter）、検索語の履歴（↑ / ↓）を使えるようにしました。
-- `editor.wordSegmenterLocales` に `ja` などを指定すると、語の単位の移動と削除、ダブルクリックでの選択で、日本語の文を語に分けるようにしました。`editor.wordBreak` の `keepAll` にも従います（表のセルの中を含む）。
-- VSCode のエディタの次の設定に従うようにしました。選んだ文字列と同じ文字列のハイライト（`editor.selectionHighlight`）、何も選ばずにコピーしたときの行全体のコピー（`editor.emptySelectionClipboard`）、字下げの空白とタブ（`editor.insertSpaces`、`editor.detectIndentation`。これまで Tab の字下げは空白 2 つでした）、空白と見えない文字の表示（`editor.renderWhitespace` など）、スクロール（`editor.cursorSurroundingLines`、`editor.scrollBeyondLastLine`、`editor.smoothScrolling`、`editor.padding.top`、`editor.scrollbar.*`）、`editor.mouseWheelZoom`、`editor.links`、`editor.hover.*`。
-- VSCode のカーソルの設定（`editor.cursorStyle`、`editor.cursorBlinking`、`editor.cursorWidth`、`editor.cursorSmoothCaretAnimation`）と、文字の設定（`editor.fontWeight`、`editor.fontLigatures`、`editor.letterSpacing`）に従うようにしました。合字は、VSCode の既定と同じく既定では使いません。
-- 他の拡張機能の機能を使えるようにしました。診断（スペルミスなどの波線と、F8 での移動）、クイックフィックス（Ctrl+.）、補完、リネーム（F2）、ドキュメントの書式設定、ドキュメントリンクです。
-- 画像の貼り付けとファイルのドロップが、`markdown.copyFiles.destination` などの VSCode の Markdown の設定に従うようにしました。
+VSCode のテキストエディタとの違いを減らしました。テキストエディタと同じキーと設定で編集でき、他の拡張機能の機能も使えます。表は作り直し、ソースの行のまま、セルの中で折り返して表示します。
+
+これまでと変わる点：
+
+- `hushmark.fontFamily` と `hushmark.lineHeight` をなくしました。VSCode の `editor.fontFamily` と `editor.lineHeight` を使います。Markdown にだけ適用するときは、`"[markdown]": { ... }` の中に書いてください（`editor.fontFamily` も、`"[markdown]"` の中の指定が効くようになりました）。
+- プレビューの基本の色（`hushmark.previewColorScheme`）に `theme` を加え、既定にしました。背景、文字、選択範囲、カーソル、行の背景、行番号、検索の一致に VSCode のテーマの色を使い、見出しや表などの色はテーマの背景色に合わせて作ります。これまでの見た目にするには、`"hushmark.previewColorScheme": "auto"` を設定してください。
+- Tab の字下げを、`editor.insertSpaces` と `editor.tabSize` に従わせました（これまでは空白 2 つでした）。タブで字下げした文書では、タブを入れます（`editor.detectIndentation`）。
+- 合字は、VSCode の既定（`editor.fontLigatures` が `false`）と同じく、既定では使いません。
+
+表：
+
+- 表の表示を作り直しました。表のソースの 1 行を 1 行のまま、列をそろえて表の形で表示します。セルの文字は本文と同じく編集でき、セルをまたいだ選択や、表の外から表の中への選択もできます。これまでの、セルを押したままドラッグしても選択されない問題もなくなりました。
+- 表のセルの中は、`editor.wordWrap` が `off` でも折り返します。
+- 表の列の幅を、表の高さが低くなり、短いセルを折り返さないように決めるようにしました。ラベルだけが入る列など、長さが同じ列は同じ幅にします。
+- 表の「ソース」ボタンをなくしました。揃え位置（`:--:`）は、区切りの行にカーソルを置いて変更します。表の中での Esc（表の下の行に出る）もなくしました。表のセルの中の画像と文字参照は、本文と同じくソースのまま表示します。
+
+編集：
+
 - VSCode のテキストエディタと同じキーで、行の操作（移動、コピー、削除、挿入、選択、インデント、コメント）、複数カーソル（Alt+クリック、Ctrl+D など）、矩形選択（Shift+Alt+ドラッグ）、選択範囲の拡大と縮小、折りたたみを使えるようにしました。
+- Hushmark の操作を VSCode のコマンドにしました。VSCode の「キーボード ショートカット」で、キーを変えられます。
 - 文字列を選んで記号（`*` など）を打つと選択範囲を囲み、括弧を自動で閉じるようにしました（`editor.autoSurround`、`editor.autoClosingBrackets`）。
 - Ctrl+G で指定した行に移れるようにしました。
-- ステータスバーに、カーソルの行と列、選択した文字数、文書の文字数を出すようにしました。
-- 右クリックのメニューに、見出しや行への移動、太字、斜体、コメントを加えました。
+- 検索ウィジェットで、選択範囲内の検索（Alt+L）、大文字と小文字を保った置換（Alt+P）、すべての一致の選択（Alt+Enter）、検索語の履歴（↑ / ↓）を使えるようにしました。
+- `editor.wordSegmenterLocales` に `ja` などを指定すると、語の単位の移動と削除、ダブルクリックでの選択で、日本語の文を語に分けるようにしました。
 - テキストエディタとの間で開き直すと、カーソル、選択範囲、スクロールの位置を引き継ぐようにしました。
-- 検索、置換、フォルダーを指定した検索と置換、太字、斜体、折り返しの切り替えを、VSCode のコマンドにしました。VSCode の「キーボード ショートカット」でキーを変えられます。
-- 表の表示を作り直しました。表のソースの 1 行を 1 行のまま、列をそろえて表の形で表示します。セルの文字は本文と同じく編集でき、セルをまたいだ選択や、表の外から表の中への選択もできます。これまでの、セルを押したままドラッグしても選択されない問題もなくなりました。
-- 表の列の幅を、表の高さが低くなり、短いセルを折り返さないように決めるようにしました。ラベルだけが入る列など、長さが同じ列は同じ幅にします。
-- 表のセルの中は、`editor.wordWrap` が `off` でも折り返すようにしました。
-- 表の「ソース」ボタンをなくしました。揃え位置（`:--:`）は、区切りの行にカーソルを置いて変更します。
-- 表の中での Esc（表の下の行に出る）をなくしました。表のセルの中の画像と文字参照は、本文と同じくソースのまま表示します。
-- プレビューの基本の色（`hushmark.previewColorScheme`）に `theme` を加え、既定にしました。背景、文字、選択範囲、カーソル、行の背景、行番号、検索の一致に VSCode のテーマの色を使い、見出しや表などの色はテーマの背景色に合わせて作ります。これまでの見た目にするには、`"hushmark.previewColorScheme": "auto"` を設定してください。
-- `hushmark.fontFamily` と `hushmark.lineHeight` をなくしました。VSCode の `editor.fontFamily` と `editor.lineHeight` を使います。Markdown にだけ適用するときは、`"[markdown]": { ... }` の中に書いてください（`editor.fontFamily` も、`"[markdown]"` の中の指定が効くようになりました）。
+- 右クリックのメニューに、見出しや行への移動、太字、斜体、コメント、リネーム、ドキュメントの書式設定を加えました。
+
+他の拡張機能：
+
+- 他の拡張機能の機能を使えるようにしました。診断（スペルミスなどの波線と、F8 での移動）、クイックフィックス（Ctrl+.）、補完、リネーム（F2）、ドキュメントの書式設定（保存時の書式設定を含む）、ドキュメントリンクです。
+- 画像の貼り付けとファイルのドロップが、`markdown.copyFiles.destination` などの VSCode の Markdown の設定に従うようにしました。
+
+表示：
+
+- ステータスバーに、カーソルの行と列、選択した文字数、文書の文字数を出すようにしました。
+- 表示している位置を含む見出しを、エディタの上端に固定して出すようにしました（Sticky Scroll。`editor.stickyScroll.*`）。
+- スクロールバーの上に、検索の一致、診断、カーソルの位置の目印を出すようにしました。
+- VSCode のエディタの次の設定に従うようにしました。
+  - カーソル：`editor.cursorStyle`、`editor.cursorBlinking`、`editor.cursorWidth`、`editor.cursorSmoothCaretAnimation`
+  - 文字：`editor.fontWeight`、`editor.fontLigatures`、`editor.letterSpacing`、`editor.wordBreak`
+  - 表示：`editor.selectionHighlight`、`editor.renderWhitespace`、`editor.renderControlCharacters`、`editor.unicodeHighlight.invisibleCharacters`、`editor.folding`、`editor.showFoldingControls`
+  - スクロール：`editor.cursorSurroundingLines`、`editor.scrollBeyondLastLine`、`editor.smoothScrolling`、`editor.padding.top`、`editor.scrollbar.*`
+  - そのほか：`editor.multiCursorModifier`、`editor.emptySelectionClipboard`、`editor.mouseWheelZoom`、`editor.links`、`editor.hover.*`
+- README の操作の GIF を撮り直し、解像度を上げました。
 
 ## 0.3.1 - 2026-10-09
 

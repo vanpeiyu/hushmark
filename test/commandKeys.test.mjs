@@ -36,3 +36,14 @@ test('toCodeMirrorKey: VSCode のキーの書き方を CodeMirror の書き方�
   // 2 つ打ちのキーは Webview では受けない（Ctrl+K は main.js が VSCode に渡す）
   assert.ok(!passKeyBindings().some((b) => b.key === null));
 });
+
+test('package.json のコマンドは、どれも名前の翻訳があり、キーの割り当ては知っているコマンドだけ', () => {
+  const commands = new Set(pkg.contributes.commands.map((c) => c.command));
+  for (const { command, title } of pkg.contributes.commands) {
+    const key = title.replace(/^%|%$/g, '');
+    assert.ok(nls[key] && nlsJa[key], `${command} の名前（${title}）`);
+  }
+  for (const { command } of pkg.contributes.keybindings) assert.ok(commands.has(command), `キーの割り当ての ${command}`);
+  for (const { command } of pkg.contributes.menus.commandPalette) assert.ok(commands.has(command), `コマンドパレットの ${command}`);
+});
+
