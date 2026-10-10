@@ -2,7 +2,7 @@
   "name": "hushmark",
   "displayName": "Hushmark",
   "description": "%description%",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "publisher": "vanpeiyu",
   "private": true,
   "license": "MIT",
@@ -261,11 +261,6 @@
         "category": "Hushmark"
       },
       {
-        "command": "hushmark.undefined",
-        "title": "%command.undefined%",
-        "category": "Hushmark"
-      },
-      {
         "command": "hushmark.triggerSuggest",
         "title": "%command.triggerSuggest%",
         "category": "Hushmark"
@@ -445,10 +440,6 @@
         },
         {
           "command": "hushmark.prevProblem",
-          "when": "activeCustomEditorId == hushmark.editor"
-        },
-        {
-          "command": "hushmark.undefined",
           "when": "activeCustomEditorId == hushmark.editor"
         },
         {
@@ -764,12 +755,6 @@
         "key": "ctrl+shift+o",
         "mac": "cmd+shift+o",
         "when": "activeCustomEditorId == hushmark.editor"
-      },
-      {
-        "command": "hushmark.undefined",
-        "key": "ctrl+g",
-        "mac": "ctrl+g",
-        "when": "hushmark.editorFocus"
       },
       {
         "command": "hushmark.bold",
