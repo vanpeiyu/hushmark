@@ -1093,4 +1093,47 @@ if (!remote) {
   await sleep(1500);
 }
 
+// 40. 検索ウィジェット：選択範囲内の検索、大文字と小文字を保った置換、すべての一致の選択、検索語の履歴
+const toggleMods = isMac ? META | ALT : ALT;
+await loadDoc(['Apple apple APPLE', 'apple', '', '後']);
+await selectText('Apple apple APPLE');
+await press(cdp, 'f', MOD);
+await sleep(300);
+await press(cdp, 'a', MOD);
+await type(cdp, 'apple');
+await sleep(300);
+await press(cdp, 'l', toggleMods);
+await sleep(300);
+check('Alt+L: 選択範囲内の検索で、選んでいた行の一致だけを数える', (await findState()).count.endsWith('/ 3'), await findState());
+await press(cdp, 'l', toggleMods);
+await sleep(300);
+check('Alt+L をもう一度: 文書全体を探す', (await findState()).count.endsWith('/ 4'), await findState());
+// Alt+Enter で、すべての一致を選ぶ
+await press(cdp, 'Enter', ALT);
+await sleep(300);
+check('Alt+Enter: すべての一致を選択し、エディタに戻る', (await headIs()).length === 4 && (await web('__hushmarkView.hasFocus')), await headIs());
+// 大文字と小文字を保った置換
+await press(cdp, 'h', isMac ? META | ALT : MOD);
+await sleep(300);
+await press(cdp, 'a', MOD);
+await type(cdp, 'orange');
+await press(cdp, 'p', toggleMods);
+await sleep(200);
+await press(cdp, 'Enter', isMac ? META | ALT : CTRL | ALT);
+await sleep(400);
+doc = await checkInSync('大文字と小文字を保った置換');
+check('Alt+P: 置換で一致した文字列の大文字と小文字を保つ', doc.split('\n').slice(0, 2).join('|') === 'Orange orange ORANGE|orange', doc.split('\n'));
+// 検索語の履歴
+await press(cdp, 'f', MOD);
+await sleep(300);
+await press(cdp, 'a', MOD);
+await type(cdp, 'orange');
+await press(cdp, 'Enter');
+await press(cdp, 'a', MOD);
+await type(cdp, 'zzz');
+await press(cdp, 'ArrowUp');
+await sleep(200);
+check('検索の入力欄で ↑: 前に検索した語を出す', (await findState()).value === 'orange', await findState());
+await press(cdp, 'Escape');
+
 finish();

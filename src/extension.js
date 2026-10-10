@@ -763,6 +763,7 @@ function safeFontFamily(value) {
  */
 const WEBVIEW_STRINGS = [
   'Find', 'Replace', 'All', 'Toggle Replace', 'Match Case', 'Match Whole Word', 'Use Regular Expression',
+  'Find in Selection', 'Preserve Case',
   'Previous Match', 'Next Match', 'Close', 'Replace All', 'No results', 'Invalid regular expression',
   '+ Row', '+ Column', 'Add a row at the end', 'Add a column at the right',
   '{0}+Click to open',
