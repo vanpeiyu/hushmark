@@ -67,6 +67,10 @@ The following VS Code editor settings (their values for Markdown) are respected.
 | `editor.wordWrap` | Word wrap. `off` does not wrap; any other value (`on`, `wordWrapColumn`, `bounded`) wraps at the width of the view. Alt+Z toggles it on the spot (without changing the setting) |
 | `editor.renderLineHighlight` | Background of the line with the cursor. With `line` or `all` (default `line`), a light background spans the full width of the line |
 | `editor.renderLineHighlightOnlyWhenFocus` | When `true`, the line background is shown only while the editor has focus |
+| `editor.multiCursorModifier` | The modifier for adding cursors by clicking. With `alt` (default), Alt+Click adds a cursor and Ctrl+Click opens a link; with `ctrlCmd`, the other way around |
+| `editor.autoClosingBrackets` | When `never`, brackets (`(`, `[`, `{`, `<`) are not closed automatically |
+| `editor.autoSurround` | Whether typing a symbol (`*`, `` ` ``, `_`, `~`, brackets, quotes, and so on) over selected text surrounds the selection |
+| `editor.folding` / `editor.showFoldingControls` | Whether folding (heading sections, lists, blockquotes, code blocks) is available / when the folding controls to the right of the line numbers are shown |
 
 The keyboard shortcuts are the same as in the VS Code editor. Elsewhere in this README, keys are written for Windows and Linux. On macOS, read Ctrl as Cmd and Alt as Option unless noted otherwise.
 
@@ -82,8 +86,18 @@ The keyboard shortcuts are the same as in the VS Code editor. Elsewhere in this 
 | Paste an image (Ctrl+V) | Same | Saves it as `image.png` (or `image-1.png` and so on if it exists) in the folder of the document and inserts an image link. When text was copied together with the image (such as Excel cells), the text is pasted |
 | Drop from the Explorer while holding Shift | Same | Inserts a link to the file with a relative path (an image link for images). Images dropped from your OS file manager are saved and linked in the same way as pasted images |
 | The key after Ctrl+K | The key after Cmd+K | Passed to VS Code as a chord (such as Ctrl+K Z) and not typed as a character |
+| Ctrl+G | Ctrl+G | Goes to a line (`line:column` also works). Clicking the line and column in the status bar also opens it |
 
-The keys for find, replace, bold, italic, and toggling word wrap can be changed in VS Code's Keyboard Shortcuts: search for "Hushmark".
+The following also work with the same keys as in the VS Code text editor:
+
+- Lines: move up / down (Alt+↑ / ↓) and copy, delete (Ctrl+Shift+K), insert below / above (Ctrl+Enter / Ctrl+Shift+Enter), select (Ctrl+L), indent (Ctrl+] / Ctrl+[), comment (Ctrl+/, Shift+Alt+A)
+- Multiple cursors: Alt+Click, add a cursor above / below, add the next match (Ctrl+D), select all matches (Ctrl+Shift+L), add cursors to line ends (Shift+Alt+I), undo (Ctrl+U). Drag while holding Shift+Alt to select a rectangle
+- Expand and shrink the selection (Shift+Alt+→ / ←)
+- Folding (Ctrl+Shift+[ / ], fold all Ctrl+K Ctrl+0, unfold all Ctrl+K Ctrl+J)
+
+The keys for these, and for find, replace, bold, italic, and toggling word wrap, can be changed in VS Code's Keyboard Shortcuts: search for "Hushmark".
+
+As in the text editor, the status bar shows the line and column of the cursor (and the number of selected characters), and the number of characters in the document (excluding line breaks). When you reopen the file with "Open in Text Editor" or "Open in Live Editor", the cursor, the selection, and the scroll position are kept.
 
 ### Find
 

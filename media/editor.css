@@ -1137,3 +1137,59 @@ body.md-style-soft .cm-md-trow-delim > .cm-md-tcell,
 body.md-style-soft .cm-md-trow-delim > .cm-md-tpipe {
   background-color: var(--md-accent-bg);
 }
+
+/* ================================================================ 複数カーソルと折りたたみ（editing.js） */
+
+/* 2 つ目以降の選択範囲。ブラウザーの選択は 1 つしか描けないので、装飾で同じ色を塗る */
+.cm-md-secondary-selection {
+  background-color: var(--md-selection);
+}
+
+/* 折りたたみの印。VSCode と同じく行番号の右に、山形の線で描く。editor.showFoldingControls が mouseover なら、
+   行番号の上にマウスがあるときと、折りたたんでいる行だけ出す */
+#editor .cm-foldGutter .cm-gutterElement.cm-activeLineGutter {
+  background: transparent;
+}
+
+#editor .cm-foldGutter .cm-gutterElement {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 1.1em;
+  cursor: pointer;
+}
+
+.cm-md-fold-marker {
+  width: 1em;
+  height: var(--md-line);
+  fill: none;
+  stroke: var(--md-line-number);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cm-md-fold-marker:hover {
+  stroke: var(--md-line-number-active);
+}
+
+#editor .cm-md-folding-mouseover .cm-foldGutter .cm-md-fold-marker:not(.cm-md-fold-closed) {
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+#editor .cm-md-folding-mouseover .cm-gutters:hover .cm-foldGutter .cm-md-fold-marker {
+  opacity: 1;
+}
+
+/* 折りたたんだ範囲の印 */
+.cm-md-fold-placeholder {
+  display: inline-block;
+  margin: 0 0.4ch;
+  padding: 0 0.6ch;
+  line-height: 1.2;
+  color: var(--md-muted);
+  background-color: var(--md-block-bg);
+  border-radius: 3px;
+  cursor: pointer;
+}

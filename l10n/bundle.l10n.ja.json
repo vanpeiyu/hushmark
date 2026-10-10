@@ -21,5 +21,14 @@
   "Could not open the link: {0}": "リンクを開けませんでした: {0}",
   "Hushmark: {0} was changed on disk. It has unsaved changes, so the changes on disk were not loaded.": "Hushmark: {0} がディスク上で変更されました。未保存の変更があるため、ディスクの内容は読み込んでいません。",
   "Revert File": "ファイルを元に戻す",
-  "Could not save the pasted image: {0}": "貼り付けた画像を保存できませんでした: {0}"
+  "Could not save the pasted image: {0}": "貼り付けた画像を保存できませんでした: {0}",
+  "Hushmark Cursor Position": "Hushmark のカーソルの位置",
+  "Go to Line": "行に移動",
+  "Hushmark Character Count": "Hushmark の文字数",
+  "Ln {0}, Col {1}": "行 {0}、列 {1}",
+  "({0} selections)": "({0} 個の選択項目)",
+  "({0} selected)": "({0} 個選択)",
+  "{0} characters": "{0} 文字",
+  "Current Line: {0}, Character: {1}. Type a line number between 1 and {2} to navigate to.": "現在の行: {0}、文字: {1}。移動先の行番号を 1 から {2} の範囲で入力してください。",
+  "Type a line number, or a line number and a character number separated by a colon.": "行番号か、行番号と文字の位置をコロンで区切って入力してください。"
 }

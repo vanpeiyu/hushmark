@@ -3,7 +3,7 @@
 // ショートカットの Ctrl は、macOS では Cmd で押す（MOD）。
 // 開いたファイルは途中で何度も書き換える。
 
-import { ALT, MOD, SHIFT, click, isMac, press, sleep, type } from './cdp.mjs';
+import { ALT, CTRL, META, MOD, SHIFT, click, isMac, press, sleep, type } from './cdp.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -820,4 +820,122 @@ if (!remote) {
   doc = await checkInSync('ファイルのドロップ');
   check('ドロップしたファイルに、相対パスのリンクを入れる', doc.startsWith('落とす[other.md](<sub dir/other.md>)'), doc.split('\n')[0]);
 }
+// 32. VSCode のテキストエディタと同じ編集の操作（コマンドとして VSCode を経由する）
+const lines = () => webDoc().then((d) => d.split('\n'));
+const headIs = () => web('JSON.stringify(__hushmarkView.state.selection.ranges.map((r) => [r.anchor, r.head]))').then(JSON.parse);
+const at = (text, offset = 0) => web(`__hushmarkView.state.doc.toString().indexOf(${JSON.stringify(text)}) + ${offset}`);
+await loadDoc(['一', '二', '三', '', '後']);
+await clickPos(await at('二'));
+await press(cdp, 'ArrowDown', ALT);
+await sleep(300);
+check('Alt+↓: 行を下へ移動する', (await lines()).slice(0, 3).join() === '一,三,二', await lines());
+await press(cdp, 'ArrowUp', ALT);
+await sleep(300);
+await press(cdp, 'ArrowDown', isMac ? SHIFT | ALT : (process.platform === 'linux' ? CTRL | SHIFT | ALT : SHIFT | ALT));
+await sleep(300);
+check('行を下へコピー', (await lines()).slice(0, 4).join() === '一,二,二,三', await lines());
+await press(cdp, 'k', MOD | SHIFT);
+await sleep(300);
+check('Ctrl+Shift+K: 行を削除する', (await lines()).slice(0, 3).join() === '一,二,三', await lines());
+// 行を削除すると、VSCode と同じくカーソルは次の行（三）に移る
+await press(cdp, '/', MOD);
+await sleep(300);
+check('Ctrl+/: 行を <!-- --> で囲む', (await lines())[2] === '<!-- 三 -->', await lines());
+await press(cdp, '/', MOD);
+await sleep(300);
+await press(cdp, 'Enter', MOD);
+// キーは VSCode のコマンドを経由するので、打つ前に操作が届くのを待つ（往復は 10〜40 ms）
+await sleep(300);
+await type(cdp, '新');
+await sleep(300);
+doc = await checkInSync('行の操作');
+check('Ctrl+Enter: 下に行を足してカーソルを移す', doc.split('\n').slice(0, 4).join() === '一,二,三,新', doc.split('\n'));
+
+// 複数カーソル: Ctrl+D で次の一致を足し、打つとどちらも置き換わる
+await loadDoc(['りんご と りんご', '', '後']);
+await selectText('りんご');
+await press(cdp, 'd', MOD);
+await sleep(300);
+check('Ctrl+D: 次の一致を選択に足す', (await headIs()).length === 2, await headIs());
+check('2 つ目の選択範囲を描く', (await web("document.querySelectorAll('.cm-md-secondary-selection').length")) === 1);
+await type(cdp, 'みかん');
+doc = await checkInSync('複数カーソルでの入力');
+check('複数カーソルで打つと、すべての位置に入る', doc.split('\n')[0] === 'みかん と みかん', doc.split('\n')[0]);
+
+// Alt+クリックでカーソルを足す
+await clickPos(await at('みかん'));
+const second = await toPage(JSON.parse(await web(`JSON.stringify((() => { const c = __hushmarkView.coordsAtPos(${await at('と みかん', 2)}); return { x: c.left + 1, y: (c.top + c.bottom) / 2 }; })())`)));
+for (const t of ['mousePressed', 'mouseReleased']) await cdp.send('Input.dispatchMouseEvent', { type: t, x: second.x, y: second.y, button: 'left', clickCount: 1, modifiers: ALT });
+await sleep(300);
+check('Alt+クリック: カーソルを足す', (await headIs()).length === 2, await headIs());
+await press(cdp, 'Escape');
+
+// 選択範囲の拡大と縮小
+await loadDoc(['本文の **太字の語** です', '', '後']);
+await clickPos(await at('の語'));
+await press(cdp, 'ArrowRight', isMac ? CTRL | SHIFT | META : SHIFT | ALT);
+await sleep(200);
+const expanded = await web('(() => { const s = __hushmarkView.state.selection.main; return __hushmarkView.state.sliceDoc(s.from, s.to); })()');
+await press(cdp, 'ArrowRight', isMac ? CTRL | SHIFT | META : SHIFT | ALT);
+await sleep(200);
+await press(cdp, 'ArrowLeft', isMac ? CTRL | SHIFT | META : SHIFT | ALT);
+await sleep(200);
+const shrunk = await web('(() => { const s = __hushmarkView.state.selection.main; return __hushmarkView.state.sliceDoc(s.from, s.to); })()');
+check('Shift+Alt+→ / ←: 構文に沿って選択範囲を広げ、縮めると前の範囲に戻る', expanded.length > 0 && shrunk === expanded, { expanded, shrunk });
+
+// 折りたたみ: 見出しの節を畳む
+await loadDoc(['# 見出し', '', '節の本文', '', '## 次の見出し', '', '後']);
+await clickPos(await at('見出し'));
+await press(cdp, '[', isMac ? META | ALT : CTRL | SHIFT);
+await sleep(300);
+const hiddenLine = await web("[...document.querySelectorAll('.cm-line')].some((l) => l.textContent.includes('節の本文'))");
+check('Ctrl+Shift+[: 見出しの節を折りたたむ', hiddenLine === false && (await web("document.querySelectorAll('.cm-md-fold-placeholder').length")) === 1);
+await press(cdp, ']', isMac ? META | ALT : CTRL | SHIFT);
+await sleep(300);
+check('Ctrl+Shift+]: 展開する', (await web("[...document.querySelectorAll('.cm-line')].some((l) => l.textContent.includes('節の本文'))")) === true);
+
+// 33. 選択範囲を記号で囲み、括弧は自動で閉じる（VSCode の Markdown の言語設定と同じ）
+await loadDoc(['語を囲む', '', '後']);
+await selectText('囲む');
+await type(cdp, '*');
+await sleep(200);
+check('選択して * を打つ: 選択範囲を * で囲む', (await lines())[0] === '語を*囲む*', await lines());
+await clickPos(await web('__hushmarkView.state.doc.line(1).to'));
+await type(cdp, '(');
+await sleep(200);
+check('( を打つ: ) を自動で閉じる', (await lines())[0] === '語を*囲む*()', await lines());
+await press(cdp, 'z', MOD);
+await press(cdp, 'z', MOD);
+await sleep(300);
+await checkInSync('囲む操作の取り消し');
+
+// 34. ステータスバーに行と列を出し、Ctrl+G で行に移る
+await loadDoc(['一行目', '二行目の文', '三行目', '', '後']);
+await clickPos(await at('の文', 1));
+await sleep(400);
+const statusText = () => cdp.evaluateIn(mainCtx, "[...document.querySelectorAll('.statusbar-item')].map((e) => e.textContent.trim()).find((t) => /^Ln \\d+, Col \\d+/.test(t)) || null");
+check('ステータスバーに行と列を出す', (await statusText()) === 'Ln 2, Col 5', await statusText());
+await selectText('二行目');
+await sleep(400);
+check('ステータスバーに選択した文字数を出す', (await statusText()) === 'Ln 2, Col 4 (3 selected)', await statusText());
+await press(cdp, 'g', CTRL);
+await sleep(600);
+await type(cdp, '3');
+await press(cdp, 'Enter');
+await sleep(500);
+check('Ctrl+G: 入力した行に移る', (await web('__hushmarkView.state.doc.lineAt(__hushmarkView.state.selection.main.head).number')) === 3);
+
+// 35. テキストエディタとの切り替えで、カーソルの位置を引き継ぐ
+await clickPos(await at('の文', 1));
+await sleep(300);
+await cdp.evaluateIn(mainCtx, `document.querySelector('.editor-actions a.action-label[aria-label^="Open in Text Editor"]')?.click()`);
+await sleep(2500);
+const textEditorStatus = await cdp.evaluateIn(mainCtx, "document.querySelector('#status\\\\.editor\\\\.selection')?.textContent.trim() ?? null");
+check('テキストエディタで開き直すと、カーソルの位置を引き継ぐ', /^Ln 2, Col 5/.test(textEditorStatus || ''), textEditorStatus);
+await cdp.evaluateIn(mainCtx, `document.querySelector('.editor-actions a.action-label[aria-label^="Open in Live Editor"]')?.click()`);
+await sleep(3000);
+const reopened = await cdp.findContext('!!window.__hushmarkView && __hushmarkView.dom.getBoundingClientRect().width > 0', 15000);
+const backHead = await cdp.evaluateIn(reopened, '(() => { const v = __hushmarkView; const h = v.state.selection.main.head; const l = v.state.doc.lineAt(h); return [l.number, h - l.from]; })()');
+check('このエディタで開き直すと、テキストエディタのカーソルの位置を引き継ぐ', JSON.stringify(backHead) === '[2,4]', backHead);
+
 finish();

@@ -14,7 +14,7 @@ import { Decoration, EditorView, WidgetType } from '@codemirror/view';
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { linkAttributes, normalizeLabel, openLinkHandler } from './inline.js';
 import { tableCells } from './tableCells.js';
-import { hasMod } from './platform.js';
+import { opensLink } from './editing.js';
 
 /** エディタのフォーカスの変化。テストからも使う。 */
 export const setFocus = StateEffect.define();
@@ -521,7 +521,7 @@ function frontmatterRange(doc) {
 }
 
 function handleLinkClick(event, view) {
-  if (event.button !== 0 || !hasMod(event)) return false;
+  if (event.button !== 0 || !opensLink(event)) return false;
   const link = event.target instanceof Element && event.target.closest('[data-href]');
   if (!link) return false;
   event.preventDefault();
