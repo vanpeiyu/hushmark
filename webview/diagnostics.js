@@ -56,7 +56,8 @@ function tooltipDOM(list) {
   return { dom };
 }
 
-const diagnosticHover = hoverTooltip((view, pos) => {
+/** 診断のメッセージのホバー。VSCode の editor.hover.delay の時間だけマウスを止めると出す（editorSettings.js が入れる） */
+export const diagnosticHover = (delay) => hoverTooltip((view, pos) => {
   const list = diagnosticsAt(view.state, pos);
   if (list.length === 0) return null;
   return {
@@ -65,7 +66,7 @@ const diagnosticHover = hoverTooltip((view, pos) => {
     above: false,
     create: () => tooltipDOM(list),
   };
-});
+}, { hoverTime: delay });
 
 /** F8 で選んだ診断のメッセージ。カーソルが動くか文書が変わると消す */
 const shownDiagnostic = StateField.define({
@@ -102,7 +103,7 @@ export const diagnosticActions = {
 };
 
 export function diagnostics() {
-  return [diagnosticsField, shownDiagnostic, diagnosticHover];
+  return [diagnosticsField, shownDiagnostic];
 }
 
 /**

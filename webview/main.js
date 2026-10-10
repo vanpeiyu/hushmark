@@ -27,6 +27,7 @@ import { passKeyBindings } from './commandKeys.js';
 import { applyDiagnostics, diagnosticActions, diagnostics } from './diagnostics.js';
 import { completion, completionActions } from './completion.js';
 import { applyLinks, documentLinks } from './documentLinks.js';
+import { editorSettings, redetectIndentation, reconfigureEditorSettings } from './editorSettings.js';
 
 const vscode = acquireVsCodeApi();
 
@@ -144,6 +145,7 @@ function createEditor(text, options) {
       diagnostics(),
       completion(requestCompletion),
       documentLinks(),
+      editorSettings(options, text),
       keymap.of([...searchKeymap, indentWithTab, ...defaultKeymap]),
       EditorView.contentAttributes.of({ spellcheck: 'false', autocorrect: 'off', autocapitalize: 'off' }),
       EditorView.updateListener.of(sendLocalChanges),
@@ -335,6 +337,8 @@ function applyRemote(text, ackSeq, id) {
   if (changes.length === 0) return;
   view.dispatch({
     changes,
+    // 外で書き換えられた文書（ファイルを読み直したときなど）は、開き直したのと同じく字下げを推し量り直す
+    effects: redetectIndentation(text),
     annotations: [remote.of(true), Transaction.addToHistory.of(false)],
   });
 }
@@ -406,6 +410,7 @@ window.addEventListener('message', (event) => {
           ...wordWrapEffect(message.options.wordWrap),
           tabSize.reconfigure(tabSizeOf(message.options)),
           ...reconfigureEditing(message.options),
+          reconfigureEditorSettings(message.options),
         ] });
         view.requestMeasure();
       }

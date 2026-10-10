@@ -1041,4 +1041,35 @@ if (!remote) {
   for (let i = 0; i < 20 && (await look()).block; i++) await sleep(300);
 }
 
+// 38. 細かい表示と操作の設定（editorSettings.js）
+await loadDoc(['りんご と りんご', '一行', '二行', '', '後']);
+await selectText('りんご');
+await sleep(300);
+check('editor.selectionHighlight: 選んだ文字列と同じ文字列に色を付ける', (await web("document.querySelectorAll('.cm-selectionMatch').length")) === 1);
+// 何も選ばずにコピーすると行全体を対象にし、貼り付けると上の行として入る
+await clickPos(await at('一行', 1));
+await press(cdp, 'c', MOD);
+await sleep(300);
+await clickPos(await at('二行', 1));
+await press(cdp, 'v', MOD);
+await sleep(500);
+doc = await checkInSync('行全体のコピー');
+check('editor.emptySelectionClipboard: 何も選ばずにコピーした行を、貼り付けると上の行として入れる', doc.split('\n').slice(1, 4).join() === '一行,一行,二行', doc.split('\n'));
+// タブで字下げした文書では、Tab の字下げもタブにする（editor.detectIndentation）
+await loadDoc(['- a', '\t- b', '- c', '', '後']);
+await clickPos(await at('- c', 2));
+await press(cdp, 'Tab');
+await sleep(300);
+doc = await checkInSync('タブの字下げ');
+check('editor.detectIndentation: タブで字下げした文書では、Tab でタブを入れる', doc.split('\n')[2] === '\t- c', JSON.stringify(doc.split('\n')[2]));
+if (!remote) {
+  const settingsFile = path.join(path.dirname(file), '..', 'ud', 'User', 'settings.json');
+  const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8').replace(/^﻿/, ''));
+  fs.writeFileSync(settingsFile, JSON.stringify({ ...settings, 'editor.renderWhitespace': 'all' }, null, 2));
+  for (let i = 0; i < 20 && (await web("document.querySelectorAll('.cm-md-ws-space').length")) === 0; i++) await sleep(300);
+  check('editor.renderWhitespace: all にすると空白を表示する', (await web("document.querySelectorAll('.cm-md-ws-space').length")) > 0);
+  fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+  await sleep(1500);
+}
+
 finish();
