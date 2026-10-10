@@ -29,6 +29,8 @@ import { completion, completionActions } from './completion.js';
 import { applyLinks, documentLinks } from './documentLinks.js';
 import { editorSettings, redetectIndentation, reconfigureEditorSettings } from './editorSettings.js';
 import { reconfigureWordSegmentation, wordSegmentation } from './wordSegments.js';
+import { overviewRuler, setOverviewRulerOptions } from './overviewRuler.js';
+import { setStickyScrollOptions, stickyScroll } from './stickyScroll.js';
 
 const vscode = acquireVsCodeApi();
 
@@ -148,6 +150,8 @@ function createEditor(text, options) {
       documentLinks(),
       editorSettings(options, text),
       wordSegmentation(options),
+      overviewRuler,
+      stickyScroll,
       keymap.of([...searchKeymap, indentWithTab, ...defaultKeymap]),
       EditorView.contentAttributes.of({ spellcheck: 'false', autocorrect: 'off', autocapitalize: 'off' }),
       EditorView.updateListener.of(sendLocalChanges),
@@ -397,6 +401,8 @@ window.addEventListener('message', (event) => {
         setStrings(message.strings);
         syncId = message.syncId;
         applyMetrics(message.options);
+        setOverviewRulerOptions(message.options);
+        setStickyScrollOptions(message.options);
         createEditor(message.text, message.options);
       } else {
         applyRemote(message.text, sentSeq, message.syncId);
@@ -404,6 +410,8 @@ window.addEventListener('message', (event) => {
       break;
     case 'options':
       applyMetrics(message.options);
+      setOverviewRulerOptions(message.options);
+      setStickyScrollOptions(message.options);
       if (view) {
         view.dispatch({ effects: [
           reconfigureLineNumbers(message.options.lineNumbers),

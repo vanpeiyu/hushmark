@@ -37,6 +37,9 @@ function build(list) {
   return { list: sorted, decorations };
 }
 
+/** 文書の診断（位置の順）。スクロールバーの目印（overviewRuler.js）に使う */
+export const diagnosticsOf = (state) => state.field(diagnosticsField, false)?.list ?? [];
+
 /** pos を含む診断 */
 const diagnosticsAt = (state, pos) => state.field(diagnosticsField).list.filter((d) => d.from <= pos && pos <= Math.max(d.to, d.from + 1));
 

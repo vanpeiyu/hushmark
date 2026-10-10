@@ -2,6 +2,8 @@
 
 ## 未リリース
 
+- 表示している位置を含む見出しを、エディタの上端に固定して出すようにしました（Sticky Scroll。`editor.stickyScroll.*`）。
+- スクロールバーの上に、検索の一致、診断、カーソルの位置の目印を出すようにしました。
 - 検索ウィジェットで、選択範囲内の検索（Alt+L）、大文字と小文字を保った置換（Alt+P）、すべての一致の選択（Alt+Enter）、検索語の履歴（↑ / ↓）を使えるようにしました。
 - `editor.wordSegmenterLocales` に `ja` などを指定すると、語の単位の移動と削除、ダブルクリックでの選択で、日本語の文を語に分けるようにしました。`editor.wordBreak` の `keepAll` にも従います（表のセルの中を含む）。
 - VSCode のエディタの次の設定に従うようにしました。選んだ文字列と同じ文字列のハイライト（`editor.selectionHighlight`）、何も選ばずにコピーしたときの行全体のコピー（`editor.emptySelectionClipboard`）、字下げの空白とタブ（`editor.insertSpaces`、`editor.detectIndentation`。これまで Tab の字下げは空白 2 つでした）、空白と見えない文字の表示（`editor.renderWhitespace` など）、スクロール（`editor.cursorSurroundingLines`、`editor.scrollBeyondLastLine`、`editor.smoothScrolling`、`editor.padding.top`、`editor.scrollbar.*`）、`editor.mouseWheelZoom`、`editor.links`、`editor.hover.*`。

@@ -79,6 +79,8 @@ The following VS Code editor settings (their values for Markdown) are respected.
 | `editor.padding.top` / `editor.scrollbar.verticalScrollbarSize` / `editor.scrollbar.horizontalScrollbarSize` | Top padding (1em when `0`) / scrollbar sizes |
 | `editor.mouseWheelZoom` / `editor.links` / `editor.hover.enabled` / `editor.hover.delay` | Ctrl+wheel changes the font size (without changing settings) / whether Ctrl+Click opens links / whether hovers (diagnostic messages, images) are shown / their delay |
 | `editor.wordSegmenterLocales` / `editor.wordBreak` | With a locale such as `ja`, word movement and deletion (Ctrl+← / →, Ctrl+Backspace, and so on) and double-click split Japanese text into words (by default, a run of Japanese characters is one word) / with `keepAll`, Japanese text is not broken in the middle of words |
+| `editor.stickyScroll.enabled` / `editor.stickyScroll.maxLineCount` | Whether the headings containing the visible position stick to the top (Sticky Scroll) / how many lines. Click a stuck heading to go to it |
+| `editor.hideCursorInOverviewRuler` / `editor.overviewRulerBorder` | Whether the cursor is hidden among the marks on the scrollbar (find matches, diagnostics, cursor) / whether the marks have a border |
 | `editor.folding` / `editor.showFoldingControls` | Whether folding (heading sections, lists, blockquotes, code blocks) is available / when the folding controls to the right of the line numbers are shown |
 
 The keyboard shortcuts are the same as in the VS Code editor. Elsewhere in this README, keys are written for Windows and Linux. On macOS, read Ctrl as Cmd and Alt as Option unless noted otherwise.
