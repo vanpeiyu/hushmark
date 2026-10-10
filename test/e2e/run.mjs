@@ -1072,4 +1072,25 @@ if (!remote) {
   await sleep(1500);
 }
 
+// 39. 日本語の語の単位の移動（editor.wordSegmenterLocales）
+if (!remote) {
+  const settingsFile = path.join(path.dirname(file), '..', 'ud', 'User', 'settings.json');
+  const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8').replace(/^﻿/, ''));
+  await loadDoc(['今日は良い天気です。', '', '後']);
+  await clickPos(0);
+  await press(cdp, 'ArrowRight', isMac ? ALT : CTRL);
+  await sleep(200);
+  const whole = await web('__hushmarkView.state.selection.main.head');
+  check('既定では、日本語の文字の並びを 1 つの語として扱う（VSCode の既定と同じ）', whole === '今日は良い天気です'.length, whole);
+  fs.writeFileSync(settingsFile, JSON.stringify({ ...settings, 'editor.wordSegmenterLocales': ['ja'] }, null, 2));
+  await sleep(1500);
+  await clickPos(0);
+  await press(cdp, 'ArrowRight', isMac ? ALT : CTRL);
+  await sleep(200);
+  const first = await web('__hushmarkView.state.selection.main.head');
+  check('editor.wordSegmenterLocales: ja を指定すると、日本語の語の終わりに止まる', first > 0 && first < '今日は良い天気です'.length, first);
+  fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+  await sleep(1500);
+}
+
 finish();

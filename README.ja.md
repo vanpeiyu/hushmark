@@ -78,6 +78,7 @@
 | `editor.cursorSurroundingLines` / `editor.scrollBeyondLastLine` / `editor.smoothScrolling` | カーソルの上下に残す行数 / 最後の行より先にスクロールできるか / スクロールのアニメーション |
 | `editor.padding.top` / `editor.scrollbar.verticalScrollbarSize` / `editor.scrollbar.horizontalScrollbarSize` | 上の余白（`0` のときは 1em） / スクロールバーの太さ |
 | `editor.mouseWheelZoom` / `editor.links` / `editor.hover.enabled` / `editor.hover.delay` | Ctrl+ホイールで文字の大きさを変える（設定は変えない） / Ctrl+クリックでリンクを開くか / ホバー（診断のメッセージ、画像）を出すか / 出すまでの時間 |
+| `editor.wordSegmenterLocales` / `editor.wordBreak` | 語の単位の移動と削除（Ctrl+← / →、Ctrl+Backspace など）とダブルクリックで、`ja` などを指定すると日本語の文を語に分ける（既定では日本語の文字の並びを 1 語として扱う） / `keepAll` にすると、日本語の文を語の途中で折り返さない |
 | `editor.folding` / `editor.showFoldingControls` | 折りたたみ（見出しの節、リスト、引用、コードブロック）を使うか / 行番号の右の折りたたみの印をいつ出すか |
 
 キー操作は次のとおりで、VSCode のエディタと同じです。この README のほかの箇所では Windows と Linux のキーで書きます。macOS では、とくに断りがなければ Ctrl を Cmd に、Alt を Option に読み替えてください。

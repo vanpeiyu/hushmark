@@ -28,6 +28,7 @@ import { applyDiagnostics, diagnosticActions, diagnostics } from './diagnostics.
 import { completion, completionActions } from './completion.js';
 import { applyLinks, documentLinks } from './documentLinks.js';
 import { editorSettings, redetectIndentation, reconfigureEditorSettings } from './editorSettings.js';
+import { reconfigureWordSegmentation, wordSegmentation } from './wordSegments.js';
 
 const vscode = acquireVsCodeApi();
 
@@ -146,6 +147,7 @@ function createEditor(text, options) {
       completion(requestCompletion),
       documentLinks(),
       editorSettings(options, text),
+      wordSegmentation(options),
       keymap.of([...searchKeymap, indentWithTab, ...defaultKeymap]),
       EditorView.contentAttributes.of({ spellcheck: 'false', autocorrect: 'off', autocapitalize: 'off' }),
       EditorView.updateListener.of(sendLocalChanges),
@@ -411,6 +413,7 @@ window.addEventListener('message', (event) => {
           tabSize.reconfigure(tabSizeOf(message.options)),
           ...reconfigureEditing(message.options),
           reconfigureEditorSettings(message.options),
+          reconfigureWordSegmentation(message.options),
         ] });
         view.requestMeasure();
       }

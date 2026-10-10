@@ -75,6 +75,8 @@ function applyEditorLook(options) {
   style.setProperty('--md-scroll-behavior', options.smoothScrolling ? 'smooth' : 'auto');
   style.setProperty('--md-scrollbar-width', `${Math.max(0, Number(options.verticalScrollbarSize) || 14)}px`);
   style.setProperty('--md-scrollbar-height', `${Math.max(0, Number(options.horizontalScrollbarSize) || 12)}px`);
+  // 折り返す位置（editor.wordBreak）。keepAll は、日本語の文を語の途中で折り返さない
+  style.setProperty('--md-word-break', options.wordBreak === 'keepAll' ? 'keep-all' : 'normal');
 }
 
 /**
