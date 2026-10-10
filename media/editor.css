@@ -1027,7 +1027,7 @@ body.md-style-reference .cm-md-table-block > .cm-md-trow-body:nth-child(2n + 4) 
   box-sizing: border-box;
   vertical-align: top;
   white-space: pre-wrap;
-  word-break: normal;
+  word-break: var(--md-word-break, normal);
   overflow-wrap: break-word;
 }
 
@@ -1120,7 +1120,7 @@ body #editor .cm-line.cm-md-trow-delim.cm-md-tdelim-hidden::before,
 .cm-md-tmeasure-cell {
   width: 0;
   white-space: pre-wrap;
-  word-break: normal;
+  word-break: var(--md-word-break, normal);
   overflow-wrap: normal;
 }
 
@@ -1324,4 +1324,9 @@ body.md-caret-smooth #editor .cm-cursor {
 #editor .cm-scroller::-webkit-scrollbar {
   width: var(--md-scrollbar-width, 14px);
   height: var(--md-scrollbar-height, 12px);
+}
+
+/* 折り返す位置（editor.wordBreak）。keepAll は日本語の文を語の途中で折り返さない */
+#editor .cm-content {
+  word-break: var(--md-word-break, normal);
 }

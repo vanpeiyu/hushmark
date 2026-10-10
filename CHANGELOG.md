@@ -2,6 +2,7 @@
 
 ## 未リリース
 
+- `editor.wordSegmenterLocales` に `ja` などを指定すると、語の単位の移動と削除、ダブルクリックでの選択で、日本語の文を語に分けるようにしました。`editor.wordBreak` の `keepAll` にも従います（表のセルの中を含む）。
 - VSCode のエディタの次の設定に従うようにしました。選んだ文字列と同じ文字列のハイライト（`editor.selectionHighlight`）、何も選ばずにコピーしたときの行全体のコピー（`editor.emptySelectionClipboard`）、字下げの空白とタブ（`editor.insertSpaces`、`editor.detectIndentation`。これまで Tab の字下げは空白 2 つでした）、空白と見えない文字の表示（`editor.renderWhitespace` など）、スクロール（`editor.cursorSurroundingLines`、`editor.scrollBeyondLastLine`、`editor.smoothScrolling`、`editor.padding.top`、`editor.scrollbar.*`）、`editor.mouseWheelZoom`、`editor.links`、`editor.hover.*`。
 - VSCode のカーソルの設定（`editor.cursorStyle`、`editor.cursorBlinking`、`editor.cursorWidth`、`editor.cursorSmoothCaretAnimation`）と、文字の設定（`editor.fontWeight`、`editor.fontLigatures`、`editor.letterSpacing`）に従うようにしました。合字は、VSCode の既定と同じく既定では使いません。
 - 他の拡張機能の機能を使えるようにしました。診断（スペルミスなどの波線と、F8 での移動）、クイックフィックス（Ctrl+.）、補完、リネーム（F2）、ドキュメントの書式設定、ドキュメントリンクです。
