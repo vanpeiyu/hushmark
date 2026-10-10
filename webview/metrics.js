@@ -24,7 +24,39 @@ export function applyMetrics(options) {
   const root = document.documentElement.style;
   root.setProperty('--md-font-size', `${fontSize}px`);
   root.setProperty('--md-line', `${lineHeightPx(fontSize, options.lineHeight)}px`);
+  applyEditorLook(options);
   if (options.style) applyStyle(options.style);
+}
+
+const CURSOR_STYLES = ['line', 'block', 'underline', 'line-thin', 'block-outline', 'underline-thin'];
+const CURSOR_BLINKING = ['blink', 'smooth', 'phase', 'expand', 'solid'];
+
+/**
+ * VSCode のエディタの見た目の設定。カーソル（editor.cursorStyle・cursorBlinking・cursorWidth・
+ * cursorSmoothCaretAnimation）は body の class と変数で、文字（editor.fontWeight・fontLigatures・letterSpacing）は
+ * 変数で決める（editor.css）
+ */
+function applyEditorLook(options) {
+  const body = document.body;
+  for (const name of [...body.classList]) if (/^md-(cursor|blink|caret)-/.test(name)) body.classList.remove(name);
+  body.classList.add(
+    `md-cursor-${CURSOR_STYLES.includes(options.cursorStyle) ? options.cursorStyle : 'line'}`,
+    `md-blink-${CURSOR_BLINKING.includes(options.cursorBlinking) ? options.cursorBlinking : 'blink'}`,
+  );
+  if (options.cursorSmoothCaretAnimation === 'on' || options.cursorSmoothCaretAnimation === 'explicit') {
+    body.classList.add('md-caret-smooth');
+  }
+  const style = body.style;
+  // editor.cursorWidth は 0 のとき既定（2px）。VSCode と同じく line のときだけ効く
+  if (options.cursorWidth > 0) style.setProperty('--md-cursor-width', `${Math.round(options.cursorWidth)}px`);
+  else style.removeProperty('--md-cursor-width');
+  const weight = String(options.fontWeight || 'normal');
+  style.setProperty('--md-font-weight', /^(normal|bold|\d{1,3})$/.test(weight) ? weight : 'normal');
+  // editor.fontLigatures: false は合字を使わない、true は使う、文字列は font-feature-settings の値
+  const ligatures = options.fontLigatures;
+  style.setProperty('--md-font-features', ligatures === true ? '"liga" on, "calt" on'
+    : typeof ligatures === 'string' && ligatures.trim() && /^[\w\s"',-]+$/.test(ligatures) ? ligatures : '"liga" off, "calt" off');
+  style.setProperty('--md-letter-spacing', `${Number(options.letterSpacing) || 0}px`);
 }
 
 /**

@@ -361,7 +361,8 @@ function measureHost(view) {
   const probe = host.appendChild(document.createElement('span'));
   probe.className = 'cm-md-tmeasure-space';
   probe.textContent = ' '.repeat(10);
-  const font = getComputedStyle(probe).font + document.body.className;
+  const probeStyle = getComputedStyle(probe);
+  const font = `${probeStyle.font} ${probeStyle.letterSpacing} ${probeStyle.fontFeatureSettings} ${document.body.className}`;
   if (font !== metrics.font) {
     metrics.font = font;
     metrics.segments.clear();

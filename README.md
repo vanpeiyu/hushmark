@@ -58,7 +58,7 @@ The following VS Code editor settings (their values for Markdown) are respected.
 
 | Setting | Behavior |
 |---|---|
-| `editor.fontFamily` | Font |
+| `editor.fontFamily` / `editor.fontWeight` / `editor.fontLigatures` / `editor.letterSpacing` | Font / font weight / ligatures (not used with the default `false`) / letter spacing |
 | `editor.fontSize` | Font size |
 | `editor.lineHeight` | Line height. When `0` (default), 1.85 times the font size, which is wider than VS Code's automatic 1.35 times to suit CJK text |
 | `editor.lineNumbers` | Line numbers. `off` hides them and `interval` shows every 10th line. `relative` is shown the same as `on`. For tables, each row shows the number of its line |
@@ -70,6 +70,7 @@ The following VS Code editor settings (their values for Markdown) are respected.
 | `editor.multiCursorModifier` | The modifier for adding cursors by clicking. With `alt` (default), Alt+Click adds a cursor and Ctrl+Click opens a link; with `ctrlCmd`, the other way around |
 | `editor.autoClosingBrackets` | When `never`, brackets (`(`, `[`, `{`, `<`) are not closed automatically |
 | `editor.autoSurround` | Whether typing a symbol (`*`, `` ` ``, `_`, `~`, brackets, quotes, and so on) over selected text surrounds the selection |
+| `editor.cursorStyle` / `editor.cursorBlinking` / `editor.cursorWidth` / `editor.cursorSmoothCaretAnimation` | Cursor shape / blinking / width (with `line`) / smooth movement |
 | `editor.folding` / `editor.showFoldingControls` | Whether folding (heading sections, lists, blockquotes, code blocks) is available / when the folding controls to the right of the line numbers are shown |
 
 The keyboard shortcuts are the same as in the VS Code editor. Elsewhere in this README, keys are written for Windows and Linux. On macOS, read Ctrl as Cmd and Alt as Option unless noted otherwise.

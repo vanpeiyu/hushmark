@@ -214,7 +214,7 @@ body {
 }
 
 #editor .cm-cursor {
-  border-left: 2px solid var(--md-caret);
+  border-left: var(--md-cursor-width, 2px) solid var(--md-caret);
 }
 
 /*
@@ -1236,4 +1236,51 @@ body.md-style-soft .cm-md-trow-delim > .cm-md-tpipe {
 .cm-md-doclink:hover {
   text-decoration: underline;
   cursor: pointer;
+}
+
+/*
+ * ================================================================ VSCode のエディタの見た目の設定（metrics.js）
+ * 文字の太さ（editor.fontWeight）、合字（editor.fontLigatures）、文字の間隔（editor.letterSpacing）は、エディタ全体に指定する。
+ * 表の列の幅を測る箱（tableCells.js）もエディタの中にあるので、同じ指定で測る
+ */
+#editor .cm-editor {
+  font-weight: var(--md-font-weight, normal);
+  font-feature-settings: var(--md-font-features, normal);
+  letter-spacing: var(--md-letter-spacing, 0);
+}
+
+/* カーソルの形（editor.cursorStyle）。block と underline の幅は 1 文字（半角）分 */
+body.md-cursor-line-thin #editor .cm-cursor { border-left-width: 1px; }
+body.md-cursor-block #editor .cm-cursor,
+body.md-cursor-block-outline #editor .cm-cursor,
+body.md-cursor-underline #editor .cm-cursor,
+body.md-cursor-underline-thin #editor .cm-cursor {
+  border-left: none;
+  width: 1ch;
+  margin-left: 0;
+}
+body.md-cursor-block #editor .cm-cursor { background-color: color-mix(in srgb, var(--md-caret) 55%, transparent); }
+body.md-cursor-block-outline #editor .cm-cursor { box-shadow: inset 0 0 0 1px var(--md-caret); }
+body.md-cursor-underline #editor .cm-cursor { box-shadow: inset 0 -2px 0 var(--md-caret); }
+body.md-cursor-underline-thin #editor .cm-cursor { box-shadow: inset 0 -1px 0 var(--md-caret); }
+
+/* カーソルの点滅（editor.cursorBlinking）。blink は CodeMirror の既定（明滅）。CodeMirror は点滅をやり直すときに
+   アニメーションの名前を cm-blink と cm-blink2 で入れ替えるので、名前を変える expand でも両方を用意する */
+body.md-blink-solid #editor .cm-cursorLayer { animation: none !important; }
+body.md-blink-smooth #editor .cm-cursorLayer,
+body.md-blink-phase #editor .cm-cursorLayer { animation-timing-function: ease-in-out !important; }
+body.md-blink-expand #editor .cm-cursorLayer .cm-cursor { animation: md-cursor-expand 1.2s ease-in-out infinite; }
+@keyframes md-cursor-expand {
+  0%, 20%, 80%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0); }
+}
+
+/* カーソルの移動のアニメーション（editor.cursorSmoothCaretAnimation） */
+body.md-caret-smooth #editor .cm-cursor {
+  transition: left 80ms ease-out, top 80ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.md-caret-smooth #editor .cm-cursor { transition: none; }
+  body.md-blink-expand #editor .cm-cursorLayer .cm-cursor { animation: none; }
 }

@@ -1023,4 +1023,22 @@ if (!remote) {
   fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
 }
 
+// 37. VSCode のエディタの見た目の設定（カーソルの形、文字の間隔、合字）
+if (!remote) {
+  const settingsFile = path.join(path.dirname(file), '..', 'ud', 'User', 'settings.json');
+  const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8').replace(/^﻿/, ''));
+  const look = () => web(`JSON.stringify((() => {
+    const editor = getComputedStyle(document.querySelector('.cm-editor'));
+    return { block: document.body.classList.contains('md-cursor-block'), spacing: editor.letterSpacing, features: editor.fontFeatureSettings };
+  })())`).then(JSON.parse);
+  const before = await look();
+  check('editor.fontLigatures の既定（false）: 合字を使わない', /"liga" 0/.test(before.features) && /"calt" 0/.test(before.features), before);
+  fs.writeFileSync(settingsFile, JSON.stringify({ ...settings, 'editor.cursorStyle': 'block', 'editor.letterSpacing': 1.5 }, null, 2));
+  for (let i = 0; i < 20 && !(await look()).block; i++) await sleep(300);
+  const after = await look();
+  check('editor.cursorStyle と editor.letterSpacing: 設定を変えるとすぐに見た目に反映する', after.block && after.spacing === '1.5px', after);
+  fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+  for (let i = 0; i < 20 && (await look()).block; i++) await sleep(300);
+}
+
 finish();

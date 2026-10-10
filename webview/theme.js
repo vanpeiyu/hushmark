@@ -33,6 +33,8 @@ export const CUSTOMIZABLE_COLORS = {
 
 let current = null;
 let observer = null;
+/** 前に body に入れた配色の変数の名前 */
+let applied = [];
 
 /** 配色の名前（bg、strongFg など）から CSS の変数の名前（--md-bg、--md-strong-fg など） */
 const variableName = (name) => `--md-${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
@@ -70,9 +72,11 @@ function render({ color, colorScheme, customColor, colorCustomizations }) {
   if (!highContrast) Object.assign(palette, customizations(colorCustomizations, color));
 
   const names = Object.keys(palette).map(variableName);
-  // 前に入れた変数のうち、今回使わないもの（ハイコントラストに切り替えたときなど）を消す
-  for (const name of [...body.style]) if (name.startsWith('--md-') && name !== '--md-font' && !names.includes(name)) body.style.removeProperty(name);
+  // 前に入れた配色の変数のうち、今回使わないもの（ハイコントラストに切り替えたときなど）を消す。
+  // body にはほかの設定の変数（--md-font、--md-letter-spacing など。metrics.js）もあるので、配色の変数だけを扱う
+  for (const name of applied) if (!names.includes(name)) body.style.removeProperty(name);
   for (const [name, value] of Object.entries(palette)) body.style.setProperty(variableName(name), value);
+  applied = names;
 }
 
 /** hushmark.colorCustomizations のうち、いまの色に当てるもの。"[green]" のようなキーの中は、その色のときだけ当てる */

@@ -659,6 +659,8 @@ const OPTION_SETTINGS = [
   'editor.lineNumbers', 'editor.fontFamily', 'editor.fontSize', 'editor.lineHeight', 'editor.wrappingIndent', 'editor.tabSize',
   'editor.wordWrap', 'editor.renderLineHighlight', 'editor.renderLineHighlightOnlyWhenFocus',
   'editor.multiCursorModifier', 'editor.autoClosingBrackets', 'editor.autoSurround', 'editor.folding', 'editor.showFoldingControls',
+  'editor.cursorStyle', 'editor.cursorBlinking', 'editor.cursorWidth', 'editor.cursorSmoothCaretAnimation',
+  'editor.fontWeight', 'editor.fontLigatures', 'editor.letterSpacing',
 ];
 
 /** テキストエディタの設定のうち、Webview でも合わせるもの */
@@ -679,6 +681,13 @@ function editorOptions(document) {
     autoSurround: editor.get('autoSurround', 'languageDefined'),
     folding: editor.get('folding', true),
     showFoldingControls: editor.get('showFoldingControls', 'mouseover'),
+    cursorStyle: editor.get('cursorStyle', 'line'),
+    cursorBlinking: editor.get('cursorBlinking', 'blink'),
+    cursorWidth: Number(editor.get('cursorWidth', 0)) || 0,
+    cursorSmoothCaretAnimation: editor.get('cursorSmoothCaretAnimation', 'off'),
+    fontWeight: String(editor.get('fontWeight', 'normal')),
+    fontLigatures: editor.get('fontLigatures', false),
+    letterSpacing: Number(editor.get('letterSpacing', 0)) || 0,
     // "[markdown]" の中の editor.fontFamily も、テキストエディタと同じく効かせる（document を渡して読む）
     style: { ...styleOptions(hushmark), fontFamily: safeFontFamily(editor.get('fontFamily')) },
   };
