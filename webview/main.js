@@ -70,25 +70,44 @@ let sentSeq = 0;
 /** 最後に受け取った全文の番号。編集に添えて、拡張機能本体がこの編集の基準の全文を知るのに使う */
 let syncId = 0;
 
-// VSCode の Webview は Ctrl+Z / Ctrl+Y / Ctrl+F を横取りして VSCode 側のコマンドにする。
-// stopPropagation でその前に止め、エディタ自身の取り消しと検索を使う。
-// Ctrl+B（サイドバー開閉）なども同じ理由で止める。
+// VSCode の Webview は Ctrl+Z / Ctrl+Y を横取りして VSCode 側のコマンドにする。
+// stopPropagation でその前に止め、エディタ自身の取り消しを使う（VSCode の取り消しは文書の側の履歴を使うため）。
 // mac は macOS でのキー（VSCode の macOS 版に合わせる）
 const ownKeys = (key, run, mac) => ({ key, mac, run, preventDefault: true, stopPropagation: true });
+
+/**
+ * VSCode のコマンド（hushmark.bold など、package.json）で行う操作。キーは VSCode のキーボード ショートカットで
+ * 割り当てるので、利用者が変えられる。拡張機能本体から { type: 'run', action } で呼ばれる
+ */
+const actions = {
+  bold: () => toggleWrap('**')(view),
+  italic: () => toggleWrap('*')(view),
+  toggleWordWrap: () => toggleWrapping(view),
+  find: () => openFind(view),
+  replace: () => openReplace(view),
+  // フォルダー内の検索は VSCode に任せるが、テキストエディタと同じく選択中の文字列を検索語として渡す
+  findInFiles: () => searchInFiles(false)(view),
+  replaceInFiles: () => searchInFiles(true)(view),
+};
+
+/**
+ * actions の既定のキー。エディタでは処理せずに VSCode に渡す（stopPropagation しない）。
+ * ブラウザの既定の動作（macOS の Option+Z で文字が入るなど）だけは止める
+ */
+const passKey = (key, mac) => ({ key, mac, run: () => false, preventDefault: true });
 
 const editorKeymap = [
   ownKeys('Mod-z', undo),
   ownKeys('Mod-y', redo),
   ownKeys('Mod-Shift-z', redo),
-  ownKeys('Mod-f', openFind),
+  passKey('Mod-f'),
   // macOS の Cmd+H はアプリを隠す操作なので、VSCode の macOS 版と同じく Cmd+Option+F で置換を開く
-  ownKeys('Mod-h', openReplace, 'Mod-Alt-f'),
-  // フォルダー内の検索は VSCode に任せるが、テキストエディタと同じく選択中の文字列を検索語として渡す
-  ownKeys('Mod-Shift-f', searchInFiles(false)),
-  ownKeys('Mod-Shift-h', searchInFiles(true)),
-  ownKeys('Mod-b', toggleWrap('**')),
-  ownKeys('Mod-i', toggleWrap('*')),
-  ownKeys('Alt-z', toggleWrapping),
+  passKey('Mod-h', 'Mod-Alt-f'),
+  passKey('Mod-Shift-f'),
+  passKey('Mod-Shift-h'),
+  passKey('Mod-b'),
+  passKey('Mod-i'),
+  passKey('Alt-z'),
 ];
 
 function createEditor(text, options) {
@@ -346,6 +365,9 @@ window.addEventListener('message', (event) => {
       insertRequests.get(message.id)?.(message.text);
       insertRequests.delete(message.id);
       break;
+    case 'run':
+      if (view && actions[message.action]) actions[message.action]();
+      break;
     case 'revealAnchor':
       if (view) revealAnchor(view, message.fragment);
       break;
@@ -384,4 +406,10 @@ window.addEventListener('focus', () => {
   if (view && (!document.activeElement || document.activeElement === document.body)) view.focus();
 });
 
+// フォーカスの有無を拡張機能本体に知らせる。VSCode のキーの割り当ての条件（hushmark.editorFocus）に使う
+// window の focus は、Webview の中の要素にフォーカスが戻ったときに来ないことがあるので、要素の focusin でも知らせる
+window.addEventListener('focus', () => vscode.postMessage({ type: 'focus', focused: true }));
+document.addEventListener('focusin', () => vscode.postMessage({ type: 'focus', focused: true }));
+window.addEventListener('blur', () => vscode.postMessage({ type: 'focus', focused: false }));
 vscode.postMessage({ type: 'ready' });
+if (document.hasFocus()) vscode.postMessage({ type: 'focus', focused: true });

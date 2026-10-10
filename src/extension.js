@@ -26,6 +26,8 @@ function activate(context) {
     vscode.commands.registerCommand('hushmark.open', (uri) => reopenWith(uri, VIEW_TYPE)),
     vscode.commands.registerCommand('hushmark.openSource', (uri) => reopenWith(uri, 'default')),
     vscode.commands.registerCommand('hushmark.goToHeading', () => provider.goToHeading()),
+    ...Object.entries(WEBVIEW_COMMANDS).map(([command, action]) =>
+      vscode.commands.registerCommand(command, () => provider.runInWebview(action))),
   );
 }
 
@@ -42,6 +44,24 @@ function activeTabUri() {
   if (tab && tab.input && tab.input.uri instanceof vscode.Uri) return tab.input.uri;
   return vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.uri;
 }
+
+/**
+ * Webview の中の操作を呼ぶコマンド（package.json の commands と keybindings）。
+ * キーは VSCode のキーボード ショートカットで割り当てるので、利用者が変えられる。Webview はこれらのキーを自分では処理せず、
+ * VSCode に渡す。VSCode がコマンドを実行し、ここからフォーカスのある Webview に操作を指示する
+ */
+const WEBVIEW_COMMANDS = {
+  'hushmark.bold': 'bold',
+  'hushmark.italic': 'italic',
+  'hushmark.toggleWordWrap': 'toggleWordWrap',
+  'hushmark.find': 'find',
+  'hushmark.replace': 'replace',
+  'hushmark.findInFiles': 'findInFiles',
+  'hushmark.replaceInFiles': 'replaceInFiles',
+};
+
+/** Webview にフォーカスがあるか。キーの割り当ての条件（when）に使う */
+const FOCUS_CONTEXT = 'hushmark.editorFocus';
 
 class LiveEditorProvider {
   constructor(context) {
@@ -93,6 +113,22 @@ class LiveEditorProvider {
     pick.show();
   }
 
+  /** フォーカスのある Webview（なければ前面の Webview）で操作を行う */
+  runInWebview(action) {
+    const entries = [...this.webviews.values()].flatMap((set) => [...set]);
+    const entry = entries.find((e) => e.focused) || entries.find((e) => e.panel.active);
+    if (entry) entry.panel.webview.postMessage({ type: 'run', action });
+  }
+
+  /** Webview のどれかにフォーカスがあるかを、キーの割り当ての条件に反映する */
+  updateFocusContext() {
+    const focused = [...this.webviews.values()].some((set) => [...set].some((e) => e.focused));
+    if (focused !== this.focusContext) {
+      this.focusContext = focused;
+      vscode.commands.executeCommand('setContext', FOCUS_CONTEXT, focused);
+    }
+  }
+
   /** 文書を開き、Hushmark で開いたときは見出しに移す */
   async openWithAnchor(target, fragment) {
     const key = target.toString();
@@ -138,6 +174,10 @@ class LiveEditorProvider {
             break;
           case 'log': log('[webview]', message.text); break;
           case 'findInFiles': findInFiles(message); break;
+          case 'focus':
+            entry.focused = !!message.focused;
+            this.updateFocusContext();
+            break;
           case 'resolveImage':
             resolveImage(message.href, document.uri).then((src) => webview.postMessage({ type: 'image', id: message.id, src }));
             break;
@@ -166,6 +206,7 @@ class LiveEditorProvider {
     panel.onDidDispose(() => {
       this.webviews.get(key).delete(entry);
       if (this.webviews.get(key).size === 0) this.webviews.delete(key);
+      this.updateFocusContext();
       subscriptions.forEach((s) => s.dispose());
       unwatch();
     });
