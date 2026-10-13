@@ -42,6 +42,25 @@ test('wrapSegments: 空白 1 つは行末にぶら下げ、2 つ以上続く空�
   assert.equal(wrapSegments(segmentsOf('ab cdefgh  jk'), 9).lines, 3);
 });
 
+test('wrapSegments: セルの先頭に続く空白（幅 0 の単位の後ろの空白）も幅を取って折り返す', () => {
+  const lead = (n, text) => [{ w: 0, space: n, spaces: n, graphemes: [] }, ...segmentsOf(text)];
+  // 空白 5 つのうち 4 つが幅を取り、最後の 1 つは ab の前に置く
+  assert.equal(wrapSegments(lead(5, 'ab'), 8).lines, 1);
+  assert.equal(wrapSegments(lead(5, 'ab'), 4).lines, 2);
+  // 空白 1 つの後ろの語が行に収まらなければ、空白の後ろで折り返す（ブラウザーと同じ）
+  assert.equal(wrapSegments(lead(1, 'abcd'), 4).lines, 2);
+  // 末尾に続く空白は、ぶら下げる 1 つを除いて中身の幅に数える
+  const trailing = segmentsOf('ab');
+  trailing[0].space = 4;
+  trailing[0].spaces = 4;
+  assert.equal(naturalWidth(trailing), 5);
+});
+
+test('表を置ける幅が足りなくても、各列に 1 桁は割り当てる', () => {
+  const rows = [['見出し', '説明'], ['本文', '長めの説明の文']].map((r) => r.map((t) => ({ segments: segmentsOf(t) })));
+  assert.deepEqual(layoutColumns(rows, -100, 1), [1, 1]);
+});
+
 test('収まる表は、どの列も最大の幅にする', () => {
   assert.deepEqual(layout([['スタイル', '見出し'], ['soft', '帯と色']], 88), [8, 6]);
 });

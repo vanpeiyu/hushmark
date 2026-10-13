@@ -5,7 +5,7 @@
 // 文字の間で折る（overflow-wrap: break-word）。
 // 空白 1 つは、ブラウザーと同じく行末にぶら下げ、幅に数えない（white-space: pre-wrap）。2 つ以上続く空白は、
 // 最後の 1 つを除いて幅に数え、1 つずつ折り返す（tableCells.js で white-space: break-spaces にしている）。
-// そのうち先頭の空白は、直前の単位と切り離せない。
+// そのうち先頭の空白は、直前の単位と切り離せない。セルの先頭に続く空白は、幅 0 の単位の後ろの空白として受け取る。
 //
 // 列の幅は、桁（unit、半角 1 文字の幅）の整数倍で決める。収まらない表では、次の費用が最小の配分を選ぶ。
 // - 表の高さ（行ごとの、最も行数の多いセルの行数の合計）
@@ -40,19 +40,22 @@ const EPSILON = 0.01;
 export function wrapSegments(segments, width) {
   let lines = 1;
   let cur = 0;
+  // 行に何か置いたか（幅 0 の単位も含む）。行の先頭では、ぶら下げた空白を数えない
+  let filled = false;
   let pending = 0;
   const breaks = [];
   // 折り返せない並びを置く。前のぶら下げた空白と合わせて行に収まらなければ次の行に送り、行より広ければ文字の間で折る
   const place = (w, graphemes, mark) => {
-    if (cur > 0 && cur + pending + w > width + EPSILON) {
+    if (filled && cur + pending + w > width + EPSILON) {
       lines++;
       breaks.push(mark);
       cur = 0;
-    } else if (cur > 0) {
+      filled = false;
+    } else if (filled) {
       cur += pending;
     }
     pending = 0;
-    if (cur === 0 && w > width + EPSILON) {
+    if (!filled && w > width + EPSILON) {
       graphemes.forEach((g, j) => {
         if (cur > 0 && cur + g > width + EPSILON) {
           lines++;
@@ -64,6 +67,7 @@ export function wrapSegments(segments, width) {
     } else {
       cur += w;
     }
+    filled = true;
   };
   segments.forEach((seg, i) => {
     if (seg.spaces < 2) {
@@ -78,10 +82,14 @@ export function wrapSegments(segments, width) {
   return { lines, breaks: breaks.join(',') };
 }
 
-/** 中身の幅（折り返さないときの幅） */
+/** 中身の幅（折り返さないときの幅）。最後の単位の後ろの空白は、ぶら下げる 1 つを除いて数える */
 export function naturalWidth(segments) {
   let width = 0;
-  segments.forEach((seg, i) => { width += seg.w + (i < segments.length - 1 ? seg.space : 0); });
+  segments.forEach((seg, i) => {
+    width += seg.w;
+    if (i < segments.length - 1) width += seg.space;
+    else if (seg.spaces >= 2) width += (seg.space * (seg.spaces - 1)) / seg.spaces;
+  });
   return width;
 }
 
@@ -100,7 +108,8 @@ export function layoutColumns(rows, available, unit) {
   // 収まるなら、どの列も折り返さない
   if (natural.reduce((s, w) => s + w, 0) <= available + EPSILON) return natural.map((w) => Math.ceil(w));
 
-  const units = Math.floor(available / unit);
+  // 表を置ける幅が足りなくても、各列に 1 桁は割り当てる（表は画面より広くなる）
+  const units = Math.max(n, Math.floor(available / unit));
   const maxUnits = natural.map((w) => Math.max(1, Math.ceil(w / unit - EPSILON)));
   const short = rows.map((row) => row.map((cell) => naturalWidth(cell ? cell.segments : []) <= SHORT_COLUMNS * unit + EPSILON));
 
