@@ -7,7 +7,7 @@
 // 列の幅は tableLayout.js で決める。そのために、各セルの中身を画面の外で描き、折り返せない単位の幅を測る。
 // カーソルが表の中にある間は幅を変えず、表から出たときに計算し直す（入力のたびに右の列が動かないように）。
 
-import { EditorSelection, Prec, StateEffect } from '@codemirror/state';
+import { EditorSelection, EditorState, Prec, StateEffect } from '@codemirror/state';
 import { BlockWrapper, Decoration, EditorView, ViewPlugin, WidgetType, keymap } from '@codemirror/view';
 import { syntaxTree } from '@codemirror/language';
 import { cellParser } from './markdownSetup.js';
@@ -25,6 +25,8 @@ const pipeShown = Decoration.mark({ class: 'cm-md-tpipe cm-md-tpipe-shown' });
  * （pre-wrap のままでは、続く空白は行末にぶら下がって箱からはみ出す）。最後の 1 つは、空白 1 つと同じく行末にぶら下げる
  */
 const spaceRun = Decoration.mark({ class: 'cm-md-tspaces' });
+/** セルの先頭の空白 1 つ。幅はセルの箱の左の余白で取る */
+const leadingBlank = Decoration.replace({});
 
 // ---------------------------------------------------------------------------
 // 表の構造
@@ -147,14 +149,18 @@ function tableStructure(state, table) {
 // ---------------------------------------------------------------------------
 // 装飾
 
-/** セルの先頭と末尾の空白の幅（桁）。折り返した 2 行目以降を先頭の空白の幅だけ右に寄せ、1 行目の文字の先頭とそろえる */
-const leadingColumns = (text, tabSize) => blankColumns(/^[ \t]*/.exec(text)[0], tabSize);
-const trailingColumns = (text, tabSize) => blankColumns(/[ \t]*$/.exec(text)[0], tabSize);
+/**
+ * セルの先頭と末尾の、箱の幅に取っておく空白の幅（桁）。それぞれ空白 1 つ分まで。
+ * 先頭の空白 1 つは隠し、その幅をセルの箱の左の余白にする（すべての行の文字の先頭がそろう）。
+ * それより多い空白（列をそろえるための空白など）は、セルの中身と同じく幅を取って折り返す
+ */
+const leadingColumns = (text, tabSize) => blankColumns(/^[ \t]?/.exec(text)[0], tabSize);
+const trailingColumns = (text, tabSize) => (/^[ \t]*$/.test(text) ? 0 : blankColumns(/[ \t]?$/.exec(text)[0], tabSize));
 /** 空白の幅（桁）。タブがなければ文字数（入力のたびに全セルで数えるので、文字の分割を避ける） */
 const blankColumns = (blank, tabSize) => (blank.includes('\t') ? columnsOf(blank, tabSize) : blank.length);
 
-/** 先頭の空白の幅だけ、2 行目以降を寄せる指定 */
-const hangingStyle = (columns) => (columns > 0 ? `padding-left: ${columns}ch; text-indent: -${columns}ch;` : '');
+/** 先頭の空白の幅だけ、すべての行を寄せる指定（その空白は隠す） */
+const leadingStyle = (columns) => (columns > 0 ? `padding-left: ${columns}ch;` : '');
 
 /** 中身のないセル（|| の間や、ソースで省略されたセル）の箱 */
 class EmptyCellWidget extends WidgetType {
@@ -236,12 +242,17 @@ function tableDecorations(state, table, widths, activeLines, pads) {
       if (align) classes.push(`cm-md-tcell-${align}`);
       const width = extra ? null : boxWidth(col);
       if (cell.to > cell.from) {
-        const style = (width ? `width: ${width};` : '') + hangingStyle(leadingColumns(cell.text, state.tabSize));
+        const style = (width ? `width: ${width};` : '') + leadingStyle(leadingColumns(cell.text, state.tabSize));
         decorations.push(Decoration.mark({ class: classes.join(' '), attributes: style ? { style } : undefined }).range(cell.from, cell.to));
-        // セルの前後の空白は除く（先頭の空白は 2 行目以降の字下げにしている）
-        const content = cell.text.trim();
-        const start = cell.from + cell.text.indexOf(content);
-        for (const m of content.matchAll(/[ \t]{2,}/g)) spaces.push(spaceRun.range(start + m.index, start + m.index + m[0].length - 1));
+        // 先頭の空白 1 つは、幅を箱の余白にして隠す。文字として残すと、その後ろが折り返す位置になり、
+        // 列より長い語で始まるセルの 1 行目が空になるため
+        const lead = /^[ \t]/.test(cell.text) ? 1 : 0;
+        if (lead) spaces.push(leadingBlank.range(cell.from, cell.from + 1));
+        for (const m of cell.text.matchAll(/[ \t]{2,}/g)) {
+          const from = Math.max(cell.from + m.index, cell.from + lead);
+          const to = cell.from + m.index + m[0].length - 1;
+          if (to > from) spaces.push(spaceRun.range(from, to));
+        }
       } else {
         decorations.push(Decoration.widget({ widget: new EmptyCellWidget(classes.join(' '), widths ? widths[col] + pads[col] : null), side: 1 }).range(cell.from));
       }
@@ -260,7 +271,7 @@ function tableDecorations(state, table, widths, activeLines, pads) {
   return { cells: Decoration.set(decorations, true), spaces: Decoration.set(spaces) };
 }
 
-/** 列ごとの、セルの前後の空白の幅（px）。列の中で最も広いもの */
+/** 列ごとの、箱の幅に取っておくセルの前後の空白の幅（px）。列の中で最も広いもの */
 function columnPads(table, tabSize) {
   const pads = new Array(table.columns).fill(0);
   for (const row of table.rows) {
@@ -405,17 +416,42 @@ function availableWidth(view, table) {
   return inner - linePad - prefix - pipes * metrics.space;
 }
 
+/**
+ * セルの中身の単位に、前後の空白のうち隠す先頭の 1 つを除いた空白を足す。
+ * 先頭の空白は幅 0 の単位の後ろの空白、末尾の空白は最後の単位の後ろの空白にする。
+ * セルが空白で終わるときは、最後に幅 0 の単位を置き、最後の空白も幅に数える。最後の空白が箱からはみ出すと、
+ * その前後の位置のカーソルが同じ場所（箱の右端）に描かれるため
+ */
+function withBlanks(segments, raw) {
+  const lead = /^[ \t]*/.exec(raw)[0].length;
+  const trail = lead === raw.length ? 0 : /[ \t]*$/.exec(raw)[0].length;
+  const out = segments.map((seg) => ({ ...seg }));
+  if (lead > 1) out.unshift({ w: 0, space: (lead - 1) * metrics.space, spaces: lead - 1, graphemes: [] });
+  if (trail > 0 && out.length) {
+    const last = out[out.length - 1];
+    last.space += trail * metrics.space;
+    last.spaces += trail;
+  }
+  if ((trail > 0 || lead > 1) && out.length) out.push({ w: 0, space: 0, spaces: 0, graphemes: [] });
+  return out;
+}
+
 function computeWidths(view, table) {
   const host = measureHost(view);
-  const rows = table.rows.filter((row) => row.kind !== 'delim');
-  const cells = rows.map((row) => row.cells.slice(0, table.columns).map((cell) => ({ text: visibleText(cell.text.trim()), head: row.kind === 'head' })));
+  // 区切りの行（|---|）も、- が列より長ければ折り返すので、行の数を数えるのに含める
+  const rows = table.rows;
+  const cells = rows.map((row) => row.cells.slice(0, table.columns).map((cell) => ({ text: visibleText(cell.text.trim()), head: row.kind === 'head', raw: cell.text })));
   measureSegments(host, cells.flat());
+  const pads = columnPads(table, view.state.tabSize);
+  // 箱の中で文字に使える幅は、列の幅と、前後の余白のうちセルの左の余白（隠した先頭の空白）を除いた分
   const layoutRows = cells.map((row) => {
-    const out = row.map((cell) => ({ segments: metrics.segments.get(segmentKey(cell)) }));
+    const out = row.map((cell, col) => ({
+      segments: withBlanks(metrics.segments.get(segmentKey(cell)), cell.raw),
+      extra: pads[col] - leadingColumns(cell.raw, view.state.tabSize) * metrics.space,
+    }));
     while (out.length < table.columns) out.push({ segments: [] });
     return out;
   });
-  const pads = columnPads(table, view.state.tabSize);
   const available = availableWidth(view, table) - pads.reduce((s, p) => s + p, 0);
   return layoutColumns(layoutRows, available, metrics.space);
 }
@@ -726,10 +762,37 @@ const escapePipe = EditorView.inputHandler.of((view, from, to, text) => {
   return true;
 });
 
+/**
+ * セルの末尾（次の | の直前）のカーソルは、前の文字の側に描く（assoc: -1）。後ろの側に描くと、行の上端にある | の
+ * 前に描かれ、折り返して 2 行以上になったセルでは、最後の行の末尾ではなくセルの右上に出るため
+ */
+const cellEndCursor = EditorState.transactionFilter.of((tr) => {
+  if (!tr.selection) return tr;
+  const sel = tr.selection;
+  const doc = tr.newDoc;
+  // | の直前にあるカーソルだけ、表のセルの末尾かを調べる（そのときだけ新しい状態を作る）
+  const candidate = (r) => r.empty && r.assoc !== -1 && r.head < doc.length && doc.sliceString(r.head, r.head + 1) === '|';
+  if (!sel.ranges.some(candidate)) return tr;
+  const { state } = tr;
+  let changed = false;
+  const ranges = sel.ranges.map((r) => {
+    if (!candidate(r)) return r;
+    const here = cellAt(state, r.head);
+    if (!here || here.col < 0) return r;
+    const cell = here.row.cells[here.col];
+    if (cell.to !== r.head || cell.to === cell.from) return r;
+    changed = true;
+    return EditorSelection.cursor(r.head, -1, r.bidiLevel ?? undefined, r.goalColumn);
+  });
+  if (!changed) return tr;
+  return [tr, { selection: EditorSelection.create(ranges, sel.mainIndex), sequential: true }];
+});
+
 export function tableCells() {
   return [
     tablePlugin,
     escapePipe,
+    cellEndCursor,
     // Markdown のリストの継続（Enter）より先に効かせる
     Prec.highest(keymap.of([
       { key: 'Tab', run: moveCell(1) },

@@ -5,7 +5,7 @@
 // 文字の間で折る（overflow-wrap: break-word）。
 // 空白 1 つは、ブラウザーと同じく行末にぶら下げ、幅に数えない（white-space: pre-wrap）。2 つ以上続く空白は、
 // 最後の 1 つを除いて幅に数え、1 つずつ折り返す（tableCells.js で white-space: break-spaces にしている）。
-// そのうち先頭の空白は、直前の単位と切り離せない。
+// そのうち先頭の空白は、直前の単位と切り離せない。セルの先頭に続く空白は、幅 0 の単位の後ろの空白として受け取る。
 //
 // 列の幅は、桁（unit、半角 1 文字の幅）の整数倍で決める。収まらない表では、次の費用が最小の配分を選ぶ。
 // - 表の高さ（行ごとの、最も行数の多いセルの行数の合計）
@@ -40,19 +40,22 @@ const EPSILON = 0.01;
 export function wrapSegments(segments, width) {
   let lines = 1;
   let cur = 0;
+  // 行に何か置いたか（幅 0 の単位も含む）。行の先頭では、ぶら下げた空白を数えない
+  let filled = false;
   let pending = 0;
   const breaks = [];
   // 折り返せない並びを置く。前のぶら下げた空白と合わせて行に収まらなければ次の行に送り、行より広ければ文字の間で折る
   const place = (w, graphemes, mark) => {
-    if (cur > 0 && cur + pending + w > width + EPSILON) {
+    if (filled && cur + pending + w > width + EPSILON) {
       lines++;
       breaks.push(mark);
       cur = 0;
-    } else if (cur > 0) {
+      filled = false;
+    } else if (filled) {
       cur += pending;
     }
     pending = 0;
-    if (cur === 0 && w > width + EPSILON) {
+    if (!filled && w > width + EPSILON) {
       graphemes.forEach((g, j) => {
         if (cur > 0 && cur + g > width + EPSILON) {
           lines++;
@@ -64,6 +67,7 @@ export function wrapSegments(segments, width) {
     } else {
       cur += w;
     }
+    filled = true;
   };
   segments.forEach((seg, i) => {
     if (seg.spaces < 2) {
@@ -78,29 +82,36 @@ export function wrapSegments(segments, width) {
   return { lines, breaks: breaks.join(',') };
 }
 
-/** 中身の幅（折り返さないときの幅） */
+/** 中身の幅（折り返さないときの幅）。最後の単位の後ろの空白は、ぶら下げる 1 つを除いて数える */
 export function naturalWidth(segments) {
   let width = 0;
-  segments.forEach((seg, i) => { width += seg.w + (i < segments.length - 1 ? seg.space : 0); });
+  segments.forEach((seg, i) => {
+    width += seg.w;
+    if (i < segments.length - 1) width += seg.space;
+    else if (seg.spaces >= 2) width += (seg.space * (seg.spaces - 1)) / seg.spaces;
+  });
   return width;
 }
 
 /**
  * 列の幅を決める。
- * @param {{ segments: Segment[] }[][]} rows 行ごとのセル。rows[0] は見出しの行。列の数は rows[0] の長さ
+ * @param {{ segments: Segment[], extra?: number }[][]} rows 行ごとのセル。rows[0] は見出しの行。列の数は rows[0] の長さ。
+ *   extra は、列の幅のほかにセルの文字に使える幅（px）。箱に取っておく末尾の空白の分など
  * @param {number} available 列の中身に使える幅（px）。| やセルの前後の空白の幅は除いたもの
  * @param {number} unit 1 桁の幅（px）
  * @returns {number[]} 列ごとの中身の幅（px）
  */
 export function layoutColumns(rows, available, unit) {
   const n = rows[0].length;
-  const cellsOf = (col) => rows.map((row) => (row[col] ? row[col].segments : []));
+  const cellsOf = (col) => rows.map((row) => ({ segments: row[col] ? row[col].segments : [], extra: (row[col] && row[col].extra) || 0 }));
+  const wrapCells = (col, k) => cellsOf(col).map((cell) => wrapSegments(cell.segments, k * unit + cell.extra));
   const natural = [];
-  for (let col = 0; col < n; col++) natural.push(Math.max(0, ...cellsOf(col).map(naturalWidth)));
+  for (let col = 0; col < n; col++) natural.push(Math.max(0, ...cellsOf(col).map((cell) => naturalWidth(cell.segments) - cell.extra)));
   // 収まるなら、どの列も折り返さない
   if (natural.reduce((s, w) => s + w, 0) <= available + EPSILON) return natural.map((w) => Math.ceil(w));
 
-  const units = Math.floor(available / unit);
+  // 表を置ける幅が足りなくても、各列に 1 桁は割り当てる（表は画面より広くなる）
+  const units = Math.max(n, Math.floor(available / unit));
   const maxUnits = natural.map((w) => Math.max(1, Math.ceil(w / unit - EPSILON)));
   const short = rows.map((row) => row.map((cell) => naturalWidth(cell ? cell.segments : []) <= SHORT_COLUMNS * unit + EPSILON));
 
@@ -110,7 +121,7 @@ export function layoutColumns(rows, available, unit) {
     const key = col * 100000 + k;
     let v = memo.get(key);
     if (!v) {
-      v = cellsOf(col).map((segs) => wrapSegments(segs, k * unit).lines);
+      v = wrapCells(col, k).map((w) => w.lines);
       memo.set(key, v);
     }
     return v;
@@ -201,7 +212,7 @@ export function layoutColumns(rows, available, unit) {
     }
   }
 
-  const widths = distributeSlack(best.tight, units, maxUnits, (col, k) => cellsOf(col).map((segs) => wrapSegments(segs, k * unit)));
+  const widths = distributeSlack(best.tight, units, maxUnits, wrapCells);
   return widths.map((k, col) => Math.min(k * unit, Math.ceil(natural[col])));
 }
 

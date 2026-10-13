@@ -148,7 +148,7 @@ When you open a result of Search (Ctrl+Shift+F) with a double-click or Enter, th
 
 ### Editing tables
 
-Each line of a table's source stays one line, and the columns are aligned so that it looks like a table. You edit cell text as you edit other text, and you can select across cells or from outside a table into it. Inside a cell, bold and link syntax is shown only while the cursor touches it, and long content wraps at the cell width (even when `editor.wordWrap` is `off`).
+Each line of a table's source stays one line, and the columns are aligned so that it looks like a table. You edit cell text as you edit other text, and you can select across cells or from outside a table into it. Inside a cell, bold and link syntax is shown only while the cursor touches it, and long content wraps at the cell width (even when `editor.wordWrap` is `off`). Spaces that align columns in a text editor, and the `-` of the delimiter row, wrap like any other text.
 
 Column widths are chosen to keep the table short and to avoid wrapping short cells. They stay fixed while the cursor is in the table and are recalculated when it leaves.
 
