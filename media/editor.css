@@ -1031,6 +1031,11 @@ body.md-style-reference .cm-md-table-block > .cm-md-trow-body:nth-child(2n + 4) 
   overflow-wrap: break-word;
 }
 
+/* セルの中で続く空白（最後の 1 つを除く）。途中で折り返し、箱からはみ出さないようにする（tableCells.js） */
+.cm-md-tspaces {
+  white-space: break-spaces;
+}
+
 .cm-md-tpipe {
   display: inline-block;
   width: 1ch;
