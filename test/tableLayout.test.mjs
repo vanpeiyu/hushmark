@@ -13,10 +13,10 @@ function segmentsOf(text) {
   for (const { segment: g } of seg.segment(text.trim())) {
     const w = displayWidth(g);
     const last = out[out.length - 1];
-    if (g === ' ') { if (last) last.space += 1; continue; }
+    if (g === ' ') { if (last) { last.space += 1; last.spaces += 1; } continue; }
     const glue = last && last.space === 0 && ((w === 1 && last.narrow) || NO_START.has(g) || NO_END.has(last.text.slice(-1)));
     if (glue) { last.text += g; last.w += w; last.graphemes.push(w); last.narrow = last.narrow && w === 1; }
-    else out.push({ text: g, w, space: 0, graphemes: [w], narrow: w === 1 });
+    else out.push({ text: g, w, space: 0, spaces: 0, graphemes: [w], narrow: w === 1 });
   }
   return out;
 }
@@ -30,6 +30,16 @@ test('wrapSegments: 単位を詰めて折り返し、単位より狭い列では
   assert.equal(wrapSegments(segmentsOf('code --install-extension hushmark-0.4.0.vsix'), 24).lines, 2);
   assert.equal(wrapSegments(segmentsOf('abcdefghij'), 4).lines, 3);
   assert.equal(naturalWidth(segmentsOf('a b  c')), 6);
+});
+
+test('wrapSegments: 空白 1 つは行末にぶら下げ、2 つ以上続く空白は途中で折り返す', () => {
+  // 空白 1 つは幅に数えないので、行が語で埋まっても次の行の先頭に回らない
+  assert.deepEqual(wrapSegments(segmentsOf('abcd ef'), 4), { lines: 2, breaks: '1' });
+  // 空白 10 個のうち 9 個は幅を取り、1 行目に 2 個、2・3 行目に 4 個ずつ入る。最後の 1 つはぶら下がる
+  assert.equal(wrapSegments(segmentsOf('ab          cd'), 4).lines, 4);
+  assert.equal(wrapSegments(segmentsOf('ab          cd'), 14).lines, 1);
+  // 続く空白の先頭は直前の語と切り離せない
+  assert.equal(wrapSegments(segmentsOf('ab cdefgh  jk'), 9).lines, 3);
 });
 
 test('収まる表は、どの列も最大の幅にする', () => {

@@ -20,6 +20,11 @@ const widthsMeasured = StateEffect.define();
 
 const pipeHidden = Decoration.mark({ class: 'cm-md-tpipe' });
 const pipeShown = Decoration.mark({ class: 'cm-md-tpipe cm-md-tpipe-shown' });
+/**
+ * セルの中で 2 つ以上続く空白の、最後の 1 つを除いた部分。white-space: break-spaces にして、途中で折り返せるようにする
+ * （pre-wrap のままでは、続く空白は行末にぶら下がって箱からはみ出す）。最後の 1 つは、空白 1 つと同じく行末にぶら下げる
+ */
+const spaceRun = Decoration.mark({ class: 'cm-md-tspaces' });
 
 // ---------------------------------------------------------------------------
 // 表の構造
@@ -203,11 +208,13 @@ class TableToolsWidget extends WidgetType {
 }
 
 /**
- * 1 つの表の装飾（位置の順）。表の中身、カーソルのある行、列の幅が同じなら作り直さずに使い回す
- * @returns {import('@codemirror/state').Range<Decoration>[]}
+ * 1 つの表の装飾。表の中身、カーソルのある行、列の幅が同じなら作り直さずに使い回す。
+ * cells はセルの箱など、spaces は続く空白（強調などの装飾より内側に置く）
+ * @returns {{ cells: import('@codemirror/state').RangeSet<Decoration>, spaces: import('@codemirror/state').RangeSet<Decoration> }}
  */
 function tableDecorations(state, table, widths, activeLines, pads) {
   const decorations = [];
+  const spaces = [];
   const last = table.rows.length - 1;
   table.rows.forEach((row, index) => {
     const active = activeLines.has(row.line.number);
@@ -231,6 +238,10 @@ function tableDecorations(state, table, widths, activeLines, pads) {
       if (cell.to > cell.from) {
         const style = (width ? `width: ${width};` : '') + hangingStyle(leadingColumns(cell.text, state.tabSize));
         decorations.push(Decoration.mark({ class: classes.join(' '), attributes: style ? { style } : undefined }).range(cell.from, cell.to));
+        // セルの前後の空白は除く（先頭の空白は 2 行目以降の字下げにしている）
+        const content = cell.text.trim();
+        const start = cell.from + cell.text.indexOf(content);
+        for (const m of content.matchAll(/[ \t]{2,}/g)) spaces.push(spaceRun.range(start + m.index, start + m.index + m[0].length - 1));
       } else {
         decorations.push(Decoration.widget({ widget: new EmptyCellWidget(classes.join(' '), widths ? widths[col] + pads[col] : null), side: 1 }).range(cell.from));
       }
@@ -246,7 +257,7 @@ function tableDecorations(state, table, widths, activeLines, pads) {
       }).range(row.line.to));
     }
   });
-  return Decoration.set(decorations, true);
+  return { cells: Decoration.set(decorations, true), spaces: Decoration.set(spaces) };
 }
 
 /** 列ごとの、セルの前後の空白の幅（px）。列の中で最も広いもの */
@@ -328,13 +339,15 @@ function measureSegments(host, cells) {
         range.setEnd(node, index + segment.length);
         const rect = range.getClientRects()[0];
         if (!rect) continue;
-        const isSpace = /^\s+$/.test(segment);
-        if (isSpace) {
-          if (current) current.space += metrics.space * segment.length;
+        if (/^[ \t]+$/.test(segment)) {
+          if (current) {
+            current.space += metrics.space * segment.length;
+            current.spaces += segment.length;
+          }
           continue;
         }
         if (!current || rect.top > lastTop + rect.height / 2) {
-          current = { left: rect.left, right: rect.right, space: 0, graphemes: [] };
+          current = { left: rect.left, right: rect.right, space: 0, spaces: 0, graphemes: [] };
           segments.push(current);
           lastTop = rect.top;
         }
@@ -342,7 +355,7 @@ function measureSegments(host, cells) {
         current.graphemes.push(rect.width);
       }
     }
-    metrics.segments.set(todo[i][0], segments.map((s) => ({ w: s.right - s.left, space: s.space, graphemes: s.graphemes })));
+    metrics.segments.set(todo[i][0], segments.map((s) => ({ w: s.right - s.left, space: s.space, spaces: s.spaces, graphemes: s.graphemes })));
   });
   for (const box of boxes) box.remove();
 }
@@ -445,6 +458,7 @@ const tablePlugin = ViewPlugin.fromClass(class {
       }
     }
     const sets = [];
+    const spaceSets = [];
     const wrappers = [];
     const cache = new Map();
     const structures = new Map();
@@ -465,7 +479,8 @@ const tablePlugin = ViewPlugin.fromClass(class {
       let set = this.cache.get(key);
       if (!set) set = tableDecorations(state, table, widths, activeLines, pads);
       cache.set(key, set);
-      sets.push(set);
+      sets.push(set.cells);
+      spaceSets.push(set.spaces);
       if (table.rows.length) {
         const width = widths ? widths.reduce((s, w, i) => s + w + pads[i], 0) + (table.columns + 1) * metrics.space : null;
         wrappers.push(BlockWrapper.create({
@@ -478,9 +493,13 @@ const tablePlugin = ViewPlugin.fromClass(class {
     this.cache = cache;
     this.structures = structures;
     // 表ごとの装飾は位置の順に並んでいるので、まとめて 1 つの集合にする
-    const all = [];
-    for (const set of sets) for (const cursor = set.iter(); cursor.value; cursor.next()) all.push(cursor.value.range(cursor.from, cursor.to));
-    this.decorations = Decoration.set(all);
+    const flatten = (list) => {
+      const all = [];
+      for (const set of list) for (const cursor = set.iter(); cursor.value; cursor.next()) all.push(cursor.value.range(cursor.from, cursor.to));
+      return Decoration.set(all);
+    };
+    this.decorations = flatten(sets);
+    this.spaces = flatten(spaceSets);
     this.wrappers = BlockWrapper.set(wrappers);
   }
 
@@ -539,6 +558,8 @@ const tablePlugin = ViewPlugin.fromClass(class {
   provide: (plugin) => [
     // セルの箱は、強調などのほかの装飾より外側に置く（内側に入ると箱が分かれ、flex の項目が増えてしまう）
     EditorView.outerDecorations.of((view) => view.plugin(plugin)?.decorations ?? Decoration.none),
+    // 続く空白の要素は、強調やインラインコードの要素を分けないよう、最も内側に置く
+    Prec.highest(EditorView.decorations.of((view) => view.plugin(plugin)?.spaces ?? Decoration.none)),
     // 表の行をまとめる要素。マウスを載せるとボタンを出すのに使う
     EditorView.blockWrappers.of((view) => view.plugin(plugin)?.wrappers ?? BlockWrapper.set([])),
   ],

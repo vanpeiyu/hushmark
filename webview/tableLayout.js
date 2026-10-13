@@ -3,6 +3,9 @@
 // セルの中身は、折り返せない単位（segment）の並びとして受け取る。単位の幅は、ブラウザーで実際に描いて測ったもの
 // （tableCells.js）。折り返しは、ブラウザーと同じく、行に収まるだけ単位を詰める。1 つの単位が列より広いときは、
 // 文字の間で折る（overflow-wrap: break-word）。
+// 空白 1 つは、ブラウザーと同じく行末にぶら下げ、幅に数えない（white-space: pre-wrap）。2 つ以上続く空白は、
+// 最後の 1 つを除いて幅に数え、1 つずつ折り返す（tableCells.js で white-space: break-spaces にしている）。
+// そのうち先頭の空白は、直前の単位と切り離せない。
 //
 // 列の幅は、桁（unit、半角 1 文字の幅）の整数倍で決める。収まらない表では、次の費用が最小の配分を選ぶ。
 // - 表の高さ（行ごとの、最も行数の多いセルの行数の合計）
@@ -25,8 +28,8 @@ const SEARCH_BUDGET = 20000;
 const EPSILON = 0.01;
 
 /**
- * @typedef {{ w: number, space: number, graphemes: number[] }} Segment
- *   w は単位の幅（後ろの空白を除く）、space は後ろの空白の幅、graphemes は 1 文字ずつの幅（px）
+ * @typedef {{ w: number, space: number, spaces: number, graphemes: number[] }} Segment
+ *   w は単位の幅（後ろの空白を除く）、space は後ろの空白の幅、spaces は後ろの空白の数、graphemes は 1 文字ずつの幅（px）
  */
 
 /**
@@ -39,27 +42,38 @@ export function wrapSegments(segments, width) {
   let cur = 0;
   let pending = 0;
   const breaks = [];
-  segments.forEach((seg, i) => {
-    if (cur > 0 && cur + pending + seg.w > width + EPSILON) {
+  // 折り返せない並びを置く。前のぶら下げた空白と合わせて行に収まらなければ次の行に送り、行より広ければ文字の間で折る
+  const place = (w, graphemes, mark) => {
+    if (cur > 0 && cur + pending + w > width + EPSILON) {
       lines++;
-      breaks.push(i);
+      breaks.push(mark);
       cur = 0;
     } else if (cur > 0) {
       cur += pending;
     }
-    if (cur === 0 && seg.w > width + EPSILON) {
-      seg.graphemes.forEach((g, j) => {
+    pending = 0;
+    if (cur === 0 && w > width + EPSILON) {
+      graphemes.forEach((g, j) => {
         if (cur > 0 && cur + g > width + EPSILON) {
           lines++;
-          breaks.push(`${i}.${j}`);
+          breaks.push(`${mark}.${j}`);
           cur = 0;
         }
         cur += g;
       });
     } else {
-      cur += seg.w;
+      cur += w;
     }
-    pending = seg.space;
+  };
+  segments.forEach((seg, i) => {
+    if (seg.spaces < 2) {
+      place(seg.w, seg.graphemes, i);
+    } else {
+      const space = seg.space / seg.spaces;
+      place(seg.w + space, [...seg.graphemes, space], i);
+      for (let s = 1; s < seg.spaces - 1; s++) place(space, [space], `${i}+${s}`);
+    }
+    pending = seg.spaces < 2 ? seg.space : seg.space / seg.spaces;
   });
   return { lines, breaks: breaks.join(',') };
 }
