@@ -61,6 +61,13 @@ test('表を置ける幅が足りなくても、各列に 1 桁は割り当て�
   assert.deepEqual(layoutColumns(rows, -100, 1), [1, 1]);
 });
 
+test('セルの箱に取っておく余白（extra）も、文字に使える幅に数える', () => {
+  const cell = (text, extra) => ({ segments: segmentsOf(text), extra });
+  // 余白が 1 桁あれば、4 文字の語は 3 桁の列に収まる
+  assert.deepEqual(layoutColumns([[cell('abcd', 1)]], 100, 1), [3]);
+  assert.deepEqual(layoutColumns([[cell('abcd', 0)]], 100, 1), [4]);
+});
+
 test('収まる表は、どの列も最大の幅にする', () => {
   assert.deepEqual(layout([['スタイル', '見出し'], ['soft', '帯と色']], 88), [8, 6]);
 });

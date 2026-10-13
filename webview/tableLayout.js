@@ -95,16 +95,18 @@ export function naturalWidth(segments) {
 
 /**
  * 列の幅を決める。
- * @param {{ segments: Segment[] }[][]} rows 行ごとのセル。rows[0] は見出しの行。列の数は rows[0] の長さ
+ * @param {{ segments: Segment[], extra?: number }[][]} rows 行ごとのセル。rows[0] は見出しの行。列の数は rows[0] の長さ。
+ *   extra は、列の幅のほかにセルの文字に使える幅（px）。箱に取っておく末尾の空白の分など
  * @param {number} available 列の中身に使える幅（px）。| やセルの前後の空白の幅は除いたもの
  * @param {number} unit 1 桁の幅（px）
  * @returns {number[]} 列ごとの中身の幅（px）
  */
 export function layoutColumns(rows, available, unit) {
   const n = rows[0].length;
-  const cellsOf = (col) => rows.map((row) => (row[col] ? row[col].segments : []));
+  const cellsOf = (col) => rows.map((row) => ({ segments: row[col] ? row[col].segments : [], extra: (row[col] && row[col].extra) || 0 }));
+  const wrapCells = (col, k) => cellsOf(col).map((cell) => wrapSegments(cell.segments, k * unit + cell.extra));
   const natural = [];
-  for (let col = 0; col < n; col++) natural.push(Math.max(0, ...cellsOf(col).map(naturalWidth)));
+  for (let col = 0; col < n; col++) natural.push(Math.max(0, ...cellsOf(col).map((cell) => naturalWidth(cell.segments) - cell.extra)));
   // 収まるなら、どの列も折り返さない
   if (natural.reduce((s, w) => s + w, 0) <= available + EPSILON) return natural.map((w) => Math.ceil(w));
 
@@ -119,7 +121,7 @@ export function layoutColumns(rows, available, unit) {
     const key = col * 100000 + k;
     let v = memo.get(key);
     if (!v) {
-      v = cellsOf(col).map((segs) => wrapSegments(segs, k * unit).lines);
+      v = wrapCells(col, k).map((w) => w.lines);
       memo.set(key, v);
     }
     return v;
@@ -210,7 +212,7 @@ export function layoutColumns(rows, available, unit) {
     }
   }
 
-  const widths = distributeSlack(best.tight, units, maxUnits, (col, k) => cellsOf(col).map((segs) => wrapSegments(segs, k * unit)));
+  const widths = distributeSlack(best.tight, units, maxUnits, wrapCells);
   return widths.map((k, col) => Math.min(k * unit, Math.ceil(natural[col])));
 }
 

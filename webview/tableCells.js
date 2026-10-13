@@ -417,19 +417,22 @@ function availableWidth(view, table) {
 }
 
 /**
- * セルの中身の単位に、前後の空白のうち箱の幅に取っておく 1 つずつを除いた空白を足す。
- * 先頭の空白は幅 0 の単位の後ろの空白、末尾の空白は最後の単位の後ろの空白にする
+ * セルの中身の単位に、前後の空白のうち隠す先頭の 1 つを除いた空白を足す。
+ * 先頭の空白は幅 0 の単位の後ろの空白、末尾の空白は最後の単位の後ろの空白にする。
+ * セルが空白で終わるときは、最後に幅 0 の単位を置き、最後の空白も幅に数える。最後の空白が箱からはみ出すと、
+ * その前後の位置のカーソルが同じ場所（箱の右端）に描かれるため
  */
 function withBlanks(segments, raw) {
   const lead = /^[ \t]*/.exec(raw)[0].length;
   const trail = lead === raw.length ? 0 : /[ \t]*$/.exec(raw)[0].length;
   const out = segments.map((seg) => ({ ...seg }));
   if (lead > 1) out.unshift({ w: 0, space: (lead - 1) * metrics.space, spaces: lead - 1, graphemes: [] });
-  if (trail > 1 && out.length) {
+  if (trail > 0 && out.length) {
     const last = out[out.length - 1];
-    last.space += (trail - 1) * metrics.space;
-    last.spaces += trail - 1;
+    last.space += trail * metrics.space;
+    last.spaces += trail;
   }
+  if ((trail > 0 || lead > 1) && out.length) out.push({ w: 0, space: 0, spaces: 0, graphemes: [] });
   return out;
 }
 
@@ -439,12 +442,16 @@ function computeWidths(view, table) {
   const rows = table.rows;
   const cells = rows.map((row) => row.cells.slice(0, table.columns).map((cell) => ({ text: visibleText(cell.text.trim()), head: row.kind === 'head', raw: cell.text })));
   measureSegments(host, cells.flat());
+  const pads = columnPads(table, view.state.tabSize);
+  // 箱の中で文字に使える幅は、列の幅と、前後の余白のうちセルの左の余白（隠した先頭の空白）を除いた分
   const layoutRows = cells.map((row) => {
-    const out = row.map((cell) => ({ segments: withBlanks(metrics.segments.get(segmentKey(cell)), cell.raw) }));
+    const out = row.map((cell, col) => ({
+      segments: withBlanks(metrics.segments.get(segmentKey(cell)), cell.raw),
+      extra: pads[col] - leadingColumns(cell.raw, view.state.tabSize) * metrics.space,
+    }));
     while (out.length < table.columns) out.push({ segments: [] });
     return out;
   });
-  const pads = columnPads(table, view.state.tabSize);
   const available = availableWidth(view, table) - pads.reduce((s, p) => s + p, 0);
   return layoutColumns(layoutRows, available, metrics.space);
 }
