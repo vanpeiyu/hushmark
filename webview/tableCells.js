@@ -7,7 +7,7 @@
 // 列の幅は tableLayout.js で決める。そのために、各セルの中身を画面の外で描き、折り返せない単位の幅を測る。
 // カーソルが表の中にある間は幅を変えず、表から出たときに計算し直す（入力のたびに右の列が動かないように）。
 
-import { EditorSelection, Prec, StateEffect } from '@codemirror/state';
+import { EditorSelection, EditorState, Prec, StateEffect } from '@codemirror/state';
 import { BlockWrapper, Decoration, EditorView, ViewPlugin, WidgetType, keymap } from '@codemirror/view';
 import { syntaxTree } from '@codemirror/language';
 import { cellParser } from './markdownSetup.js';
@@ -762,10 +762,37 @@ const escapePipe = EditorView.inputHandler.of((view, from, to, text) => {
   return true;
 });
 
+/**
+ * セルの末尾（次の | の直前）のカーソルは、前の文字の側に描く（assoc: -1）。後ろの側に描くと、行の上端にある | の
+ * 前に描かれ、折り返して 2 行以上になったセルでは、最後の行の末尾ではなくセルの右上に出るため
+ */
+const cellEndCursor = EditorState.transactionFilter.of((tr) => {
+  if (!tr.selection) return tr;
+  const sel = tr.selection;
+  const doc = tr.newDoc;
+  // | の直前にあるカーソルだけ、表のセルの末尾かを調べる（そのときだけ新しい状態を作る）
+  const candidate = (r) => r.empty && r.assoc !== -1 && r.head < doc.length && doc.sliceString(r.head, r.head + 1) === '|';
+  if (!sel.ranges.some(candidate)) return tr;
+  const { state } = tr;
+  let changed = false;
+  const ranges = sel.ranges.map((r) => {
+    if (!candidate(r)) return r;
+    const here = cellAt(state, r.head);
+    if (!here || here.col < 0) return r;
+    const cell = here.row.cells[here.col];
+    if (cell.to !== r.head || cell.to === cell.from) return r;
+    changed = true;
+    return EditorSelection.cursor(r.head, -1, r.bidiLevel ?? undefined, r.goalColumn);
+  });
+  if (!changed) return tr;
+  return [tr, { selection: EditorSelection.create(ranges, sel.mainIndex), sequential: true }];
+});
+
 export function tableCells() {
   return [
     tablePlugin,
     escapePipe,
+    cellEndCursor,
     // Markdown のリストの継続（Enter）より先に効かせる
     Prec.highest(keymap.of([
       { key: 'Tab', run: moveCell(1) },

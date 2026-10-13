@@ -4,7 +4,7 @@ import { EditorSelection } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { markdownSupport } from '../webview/markdownSetup.js';
 import { livePreview, setFocus } from '../webview/livePreview.js';
-import { cellSpans, tableAt, visibleText } from '../webview/tableCells.js';
+import { cellSpans, tableAt, tableCells, visibleText } from '../webview/tableCells.js';
 import { parsedState } from './parsedState.mjs';
 
 function decorate(doc, cursor) {
@@ -218,4 +218,17 @@ test('tableAt: 引用・リスト・字下げの中の表も、行頭の位置�
     assert.ok(table, doc);
     assert.deepEqual([table.from, table.to], [0, doc.length], doc);
   }
+});
+
+test('表のセルの末尾（| の直前）のカーソルは、前の文字の側に描く', () => {
+  const doc = '| a | b |\n| --- | --- |\n| c | d |\n\nx | y\n';
+  const state = parsedState({ doc, extensions: [markdownSupport(), tableCells()] });
+  const at = (pos) => state.update({ selection: EditorSelection.cursor(pos) }).state.selection.main;
+  // セル「a」の末尾
+  assert.equal(at(doc.indexOf('| b')).assoc, -1);
+  // 行末の | の直前（セル「b」の末尾）
+  assert.equal(at(doc.indexOf('b |') + 2).assoc, -1);
+  // セルの先頭（| の直後）と、表の外の | の直前は変えない
+  assert.equal(at(1).assoc, 0);
+  assert.equal(at(doc.indexOf('| y')).assoc, 0);
 });
