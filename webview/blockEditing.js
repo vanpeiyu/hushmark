@@ -311,6 +311,23 @@ function itemAround(state, line) {
   return null;
 }
 
+/**
+ * コードブロックの最初の行の行頭で Backspace：何もしない。開きのフェンスの行とつながると、コードが言語名になって
+ * コードブロックが壊れるため（中身のない行では、通常どおり消す）
+ */
+function keepCodeStart({ state }) {
+  const pos = singleCursor(state);
+  if (pos === null) return false;
+  const line = state.doc.lineAt(pos);
+  if (pos !== line.from || line.number === 1 || !line.text.trim()) return false;
+  for (let node = syntaxTree(state).resolveInner(pos, 1); node; node = node.parent) {
+    if (node.name !== 'FencedCode') continue;
+    const fence = node.getChild('CodeMark');
+    return !!fence && state.doc.lineAt(fence.from).number === line.number - 1;
+  }
+  return false;
+}
+
 /** 見出しの文字の先頭で Backspace：「## 」をまとめて消して段落にする（引用の「> 」と同じ） */
 function deleteHeadingMark({ state, dispatch }) {
   const pos = singleCursor(state);
@@ -325,6 +342,9 @@ function deleteHeadingMark({ state, dispatch }) {
 /** リストの項目以外での Tab：選択範囲がなければ、カーソルの位置に次のタブ位置までの空白（またはタブ）を入れる */
 function insertTab({ state, dispatch }) {
   if (state.readOnly || state.selection.ranges.some((r) => !r.empty)) return false;
+  // 複数のカーソルがすべて項目の行にあるときは、項目を字下げする（CodeMirror の indentMore に任せる）
+  if (state.selection.ranges.length > 1 &&
+      state.selection.ranges.every((r) => lineMarkup(state, state.doc.lineAt(r.head))?.listMark)) return false;
   const unit = indentString(state, getIndentUnit(state));
   dispatch(state.update(state.changeByRange((range) => {
     const line = state.doc.lineAt(range.head);
@@ -537,7 +557,7 @@ export function blockEditing() {
       { key: 'Enter', run: insertNewline },
       { key: 'Shift-Enter', run: insertLineBreakInItem },
       { key: 'Tab', run: (view) => indentItem(view) || insertTab(view) },
-      { key: 'Backspace', run: (view) => deleteHeadingMark(view) || deleteItemMarkup(view) },
+      { key: 'Backspace', run: (view) => deleteHeadingMark(view) || deleteItemMarkup(view) || keepCodeStart(view) },
       { key: 'Delete', run: joinNextItem },
       { key: 'Home', run: lineBoundary(false, false), shift: lineBoundary(false, true) },
       { key: 'End', run: lineBoundary(true, false), shift: lineBoundary(true, true) },

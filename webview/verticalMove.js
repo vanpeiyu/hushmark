@@ -10,6 +10,7 @@
 
 import { Annotation, EditorSelection } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
+import { syntaxTree } from '@codemirror/language';
 import { columnsOf, posAtColumn } from './textWidth.js';
 import { tableAt } from './tableCells.js';
 import { lineMarkup, visibleEdge } from './blockEditing.js';
@@ -124,6 +125,7 @@ function moveInTable(view, range, forward) {
 function move(forward, extend) {
   return (view) => {
     const { state } = view;
+    if (forward && !extend && blockAtDocEnd(view)) return true;
     const inTable = state.selection.ranges.map((range) => moveInTable(view, range, forward));
     if (inTable.every((m) => m)) {
       const ranges = state.selection.ranges.map((range, i) =>
@@ -145,6 +147,32 @@ function move(forward, extend) {
     sticky = { pos: selection.main.head, column: moved[state.selection.mainIndex].column };
     return true;
   };
+}
+
+/**
+ * 文書の最後の行がコードブロックの閉じのフェンスか表の行で、そこで ↓ を押したとき：後ろに空の行を作ってそこに移る。
+ * そのままでは外に出られず、続けて打った文字でフェンスや表が壊れるため（Typora や Notion と同じ）
+ */
+function blockAtDocEnd(view) {
+  const { state } = view;
+  if (state.selection.ranges.length > 1 || !state.selection.main.empty) return false;
+  const line = state.doc.lineAt(state.selection.main.head);
+  if (line.number !== state.doc.lines || !line.text.trim()) return false;
+  const rowEnd = rowEndOf(view, state.selection.main.head, state.selection.main.assoc, line);
+  if (rowEnd < line.to) return false;
+  let closes = false;
+  for (let node = syntaxTree(state).resolveInner(line.to, -1); node; node = node.parent) {
+    if (node.name === 'FencedCode') {
+      const marks = node.getChildren('CodeMark');
+      closes = marks.length > 1 && state.doc.lineAt(marks[marks.length - 1].from).number === line.number;
+      break;
+    }
+  }
+  if (!closes && !tableAt(state, line.from)) return false;
+  // 表の直後の行に書いた文字は表の行になるので、表の後ろには空行を挟む
+  const insert = closes ? state.lineBreak : state.lineBreak + state.lineBreak;
+  view.dispatch({ changes: { from: line.to, insert }, selection: EditorSelection.cursor(line.to + insert.length), scrollIntoView: true, userEvent: 'input' });
+  return true;
 }
 
 export function verticalMove() {
