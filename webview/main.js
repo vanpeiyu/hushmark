@@ -13,6 +13,7 @@ import { lineNumberGutter, reconfigureLineNumbers } from './lineNumbers.js';
 import { applyMetrics } from './metrics.js';
 import { markdownSupport } from './markdownSetup.js';
 import { blockEditing } from './blockEditing.js';
+import { toggleInline } from './inlineFormat.js';
 import { reconfigureWrapIndent, wrapIndent } from './wrapIndent.js';
 import { lineHighlight, reconfigureLineHighlight } from './lineHighlight.js';
 import { verticalMove } from './verticalMove.js';
@@ -90,8 +91,8 @@ const ownKeys = (key, run, mac) => ({ key, mac, run, preventDefault: true, stopP
  * 割り当てるので、利用者が変えられる（commandKeys.js）。拡張機能本体から { type: 'run', action } で呼ばれる
  */
 const actions = {
-  bold: () => toggleWrap('**')(view),
-  italic: () => toggleWrap('*')(view),
+  bold: () => toggleInline('**')(view),
+  italic: () => toggleInline('*')(view),
   toggleWordWrap: () => toggleWrapping(view),
   find: () => openFind(view),
   replace: () => openReplace(view),
@@ -365,35 +366,6 @@ function selectedLine(target) {
   const sel = target.state.selection.main;
   const text = target.state.sliceDoc(sel.from, sel.to);
   return text.includes('\n') ? '' : text;
-}
-
-/** 選択範囲を記号で囲む。すでに囲まれていれば外す。 */
-function toggleWrap(marker) {
-  const len = marker.length;
-  return (target) => {
-    const { state } = target;
-    target.dispatch(state.changeByRange((range) => {
-      const before = state.sliceDoc(range.from - len, range.from);
-      const after = state.sliceDoc(range.to, range.to + len);
-      if (before === marker && after === marker) {
-        return {
-          changes: [
-            { from: range.from - len, to: range.from },
-            { from: range.to, to: range.to + len },
-          ],
-          range: EditorSelection.range(range.from - len, range.to - len),
-        };
-      }
-      return {
-        changes: [
-          { from: range.from, insert: marker },
-          { from: range.to, insert: marker },
-        ],
-        range: EditorSelection.range(range.from + len, range.to + len),
-      };
-    }));
-    return true;
-  };
 }
 
 window.addEventListener('message', (event) => {
