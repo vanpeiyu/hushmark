@@ -9,7 +9,7 @@
 // - 最初の項目では Tab で字下げしない（親になる項目がなく、4 桁の字下げはコードブロックになるため）。
 //   番号付きの項目を Tab で新しい入れ子にしたときは、番号を 1 にする
 // - 項目の末尾で Delete を押すと、次の項目の記号を消して内容だけをつなげる
-// - Home は、記号の後ろ（内容の先頭）と行頭を行き来する
+// - Home は、記号の後ろ（内容の先頭）と行頭を行き来する。Home と End は、行頭や行末の隠した記号の手前で止まらない
 // - 記号を隠した行で記号のあたりをクリックしたら、カーソルを内容の先頭に置く
 // - 見出しの文字の先頭で Enter を押すと上に空の行を入れ、Backspace を押すと「## 」をまとめて消す
 //   （「## 」は左の余白に出ているので、利用者には見出しの先頭に見える）
@@ -21,6 +21,7 @@ import { EditorSelection, EditorState, Prec, countColumn } from '@codemirror/sta
 import { keymap } from '@codemirror/view';
 import { getIndentUnit, indentString, syntaxTree } from '@codemirror/language';
 import { insertNewlineContinueMarkupCommand } from '@codemirror/lang-markdown';
+import { rowEndOf, rowStartOf } from './verticalMove.js';
 
 /** 2 つ目の項目で空の項目を下に送って「緩いリスト」にする CodeMirror の動きは使わない */
 const continueMarkup = insertNewlineContinueMarkupCommand({ nonTightLists: false });
@@ -309,29 +310,35 @@ function joinNextItem({ state, dispatch }) {
 }
 
 /**
- * Home：記号のある行の最初の見た目の行では、内容の先頭と行頭を行き来する。
- * 折り返した 2 つ目以降の見た目の行と、記号のない行は CodeMirror に任せる
+ * Home の行き先。折り返した 2 つ目以降の見た目の行では、その見た目の行の先頭（すでにそこにいれば行の先頭へ）。
+ * 行の先頭では、記号のある行は記号の後ろ（内容の先頭）と行頭を、字下げのある行は字下げの後ろと行頭を行き来する
+ * （CodeMirror の Home と同じ。ただし行頭の ** などを幅ごと隠していても、その前を行頭とする）
  */
 function homeTarget(view, range) {
   const { state } = view;
   const line = state.doc.lineAt(range.head);
+  const rowStart = rowStartOf(view, range.head, range.assoc, line);
+  if (rowStart > line.from && range.head !== rowStart) return rowStart;
   const markup = lineMarkup(state, line);
-  if (!markup) return null;
-  const rowStart = view.moveToLineBoundary(range, false).head;
-  if (rowStart > markup.contentStart) return null;
-  return range.head === markup.contentStart ? line.from : markup.contentStart;
+  if (markup) return range.head === markup.contentStart ? line.from : markup.contentStart;
+  const space = /^\s*/.exec(line.text)[0].length;
+  return space && range.head !== line.from + space ? line.from + space : line.from;
 }
 
-const home = (extend) => (view) => {
+/** End の行き先。見た目の行の末尾（すでにそこにいれば行末）。行末の ** やリンクの (URL) を隠していても、その後ろ */
+function endTarget(view, range) {
+  const line = view.state.doc.lineAt(range.head);
+  const rowEnd = rowEndOf(view, range.head, range.assoc, line);
+  return rowEnd === range.head ? line.to : rowEnd;
+}
+
+const lineBoundary = (forward, extend) => (view) => {
   const { state } = view;
-  let handled = false;
   const selection = EditorSelection.create(state.selection.ranges.map((range) => {
-    const target = homeTarget(view, range);
-    if (target === null) return null;
-    handled = true;
-    return extend ? EditorSelection.range(range.anchor, target) : EditorSelection.cursor(target);
-  }).map((r, i) => r || state.selection.ranges[i]), state.selection.mainIndex);
-  if (!handled) return false;
+    const target = forward ? endTarget(view, range) : homeTarget(view, range);
+    const assoc = forward ? -1 : 1;
+    return extend ? EditorSelection.range(range.anchor, target, assoc) : EditorSelection.cursor(target, assoc);
+  }), state.selection.mainIndex);
   view.dispatch({ selection, scrollIntoView: true, userEvent: 'select' });
   return true;
 };
@@ -363,8 +370,10 @@ export function blockEditing() {
       { key: 'Tab', run: (view) => indentItem(view) || insertTab(view) },
       { key: 'Backspace', run: deleteHeadingMark },
       { key: 'Delete', run: joinNextItem },
-      { key: 'Home', run: home(false), shift: home(true) },
-      { mac: 'Cmd-ArrowLeft', run: home(false), shift: home(true) },
+      { key: 'Home', run: lineBoundary(false, false), shift: lineBoundary(false, true) },
+      { key: 'End', run: lineBoundary(true, false), shift: lineBoundary(true, true) },
+      { mac: 'Cmd-ArrowLeft', run: lineBoundary(false, false), shift: lineBoundary(false, true) },
+      { mac: 'Cmd-ArrowRight', run: lineBoundary(true, false), shift: lineBoundary(true, true) },
     ])),
     clickToContent,
   ];

@@ -33,7 +33,7 @@ const rowBoundary = (view, pos, assoc, forward) =>
  * pos がある見た目の行の先頭。最初の見た目の行なら行頭を返す
  * （行頭の ** などを幅ごと隠していると、CodeMirror は隠した記号の後ろを見た目の行の先頭として返すため）
  */
-function rowStartOf(view, pos, assoc, line) {
+export function rowStartOf(view, pos, assoc, line) {
   const start = rowBoundary(view, pos, assoc, false);
   if (start <= line.from) return line.from;
   const first = view.coordsAtPos(line.from, 1);
@@ -50,12 +50,24 @@ function hangingEnd(state, line) {
     : line.from;
 }
 
+/**
+ * pos がある見た目の行の末尾。最後の見た目の行なら行末を返す
+ * （行末の ** やリンクの (URL) を幅ごと隠していると、CodeMirror は隠した記号の前を見た目の行の末尾として返すため）
+ */
+export function rowEndOf(view, pos, assoc, line) {
+  const end = rowBoundary(view, pos, assoc, true);
+  if (end >= line.to) return line.to;
+  const last = view.coordsAtPos(line.to, -1);
+  const here = view.coordsAtPos(end, -1);
+  return last && here && Math.abs(last.top - here.top) < 1 ? line.to : end;
+}
+
 /** range を 1 行上か下の行に、桁を保って動かした先。行の中で動くとき（折り返した行の途中）は null */
 function moveRange(view, range, forward) {
   const { state } = view;
   const line = state.doc.lineAt(range.head);
   const rowStart = rowStartOf(view, range.head, range.assoc, line);
-  const rowEnd = rowBoundary(view, range.head, range.assoc, true);
+  const rowEnd = rowEndOf(view, range.head, range.assoc, line);
   if (forward ? rowEnd < line.to : rowStart > line.from) return null;
   const number = line.number + (forward ? 1 : -1);
   if (number < 1 || number > state.doc.lines) return null;
@@ -68,7 +80,7 @@ function moveRange(view, range, forward) {
   // 下へは移動先の行の最初の見た目の行、上へは最後の見た目の行に着く
   let from = forward ? target.from : rowStartOf(view, target.to, -1, target);
   if (from === target.from) from = hangingEnd(state, target);
-  const to = forward ? rowBoundary(view, target.from, 1, true) : target.to;
+  const to = forward ? rowEndOf(view, target.from, 1, target) : target.to;
   return { head: posAtColumn(state.sliceDoc(from, to), from, column, state.tabSize), column };
 }
 
