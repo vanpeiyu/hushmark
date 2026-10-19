@@ -120,6 +120,15 @@ function insertNewline({ state, dispatch }) {
   if (pos === null) return continueMarkup({ state, dispatch });
   const line = state.doc.lineAt(pos);
   const br = state.lineBreak;
+  const stray = strayFenceAfter(state, line, pos);
+  if (stray) {
+    // コードブロックの閉じのフェンスを打って Enter を押したとき、次の行が自動で入れた閉じのフェンス（いまは
+    // 新しいコードブロックの始まりとして読まれている）なら、それを消して閉じのフェンスの後ろに出る（Typora と同じ）
+    const markup = lineMarkup(state, line);
+    const insert = br + (markup ? continuationPrefix(state, line, markup) : /^[ \t]*/.exec(line.text)[0]);
+    dispatch(state.update({ changes: { from: line.to, to: stray.to, insert }, selection: { anchor: line.to + insert.length }, scrollIntoView: true, userEvent: 'input' }));
+    return true;
+  }
   const fence = unclosedFenceAt(state, line);
   if (fence && !/\S/.test(state.sliceDoc(pos, line.to))) {
     // 閉じていないコードブロックを開いた行の末尾：閉じのフェンスも入れ、間の行に移る（Typora と同じ）。
@@ -371,6 +380,36 @@ function unclosedFenceAt(state, line) {
     return { mark: match[1], prefix };
   }
   return null;
+}
+
+/**
+ * line がコードブロックの閉じのフェンスで、pos がその末尾にあり、次の行が同じフェンスだけの行
+ * （閉じていない新しいコードブロックの始まり）なら、その次の行
+ */
+function strayFenceAfter(state, line, pos) {
+  if (pos !== line.to || line.number === state.doc.lines) return null;
+  const fenceText = (l) => {
+    const markup = lineMarkup(state, l);
+    return state.sliceDoc(markup ? markup.contentStart : l.from, l.to).trim();
+  };
+  const text = fenceText(line);
+  if (!/^(`{3,}|~{3,})$/.test(text)) return null;
+  const next = state.doc.line(line.number + 1);
+  if (fenceText(next) !== text) return null;
+  let closes = false;
+  let opens = false;
+  for (let node = syntaxTree(state).resolveInner(line.to, -1); node; node = node.parent) {
+    if (node.name !== 'FencedCode') continue;
+    const marks = node.getChildren('CodeMark');
+    closes = marks.length > 1 && marks[marks.length - 1].from >= line.from && state.doc.lineAt(marks[0].from).number < line.number;
+    break;
+  }
+  for (let node = syntaxTree(state).resolveInner(next.to, -1); node; node = node.parent) {
+    if (node.name !== 'FencedCode') continue;
+    opens = node.getChildren('CodeMark').length === 1 && state.doc.lineAt(node.from).number === next.number;
+    break;
+  }
+  return closes && opens ? next : null;
 }
 
 function inFencedCode(state, pos) {

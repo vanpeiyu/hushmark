@@ -156,7 +156,7 @@ Because the syntax is hidden, keys act on what you see, as in Typora and Obsidia
 | Enter at the start of the content of a list item or heading | Inserts an empty item or line above, keeping the item's checkbox and the heading as they are |
 | Enter at the end of a list item with sub-items | Adds an item as the first sub-item |
 | Enter on an empty blockquote line | Leaves the blockquote |
-| Enter after ` ``` ` | Adds the closing ` ``` ` |
+| Enter after ` ``` ` | Adds the closing ` ``` `. If you type the closing ` ``` ` yourself and press Enter, the extra fence is removed |
 | Shift+Enter in a list item or blockquote | Starts a new line in the same item or blockquote. Enter on that line adds the next item |
 | Tab / Shift+Tab in a list item | Indents / outdents the item. The first item of a list is not indented, because it has no parent item. Outside list items, Tab inserts spaces at the cursor, as in the text editor |
 | Backspace at the start of the content | Deletes the `#` of a heading, or the marker of the first item in a list, at once. In other list items, the first Backspace turns the item into a continuation of the item above and the second joins it to the line above |

@@ -609,13 +609,13 @@ check('見出しの空白の前後: 描かれるカーソルが空白の幅だ�
   afterMarks > betweenMarks, { beforeText, afterMarks, betweenMarks, spaceWidth });
 
 // 16. 表のセルの端で → を押していくと、| をまたいで次のセルに入る（テキストエディタと同じくソースの順に動く）。
-// | の直後（隠した空白の前）は、空白の後ろと同じ場所に描かれるので止まらない
+// 中身の後ろの空白の後ろと、| の直後（隠した空白の前）には止まらないので、1 回で次のセルの先頭に移る
 const arrowTableDoc = ['| 果物 | 値 |', '|---|---|', '| りんご | 12 |', '', '後'];
 await loadDoc(arrowTableDoc);
 await clickPos(await cellPos('りんご', 3));
-for (let i = 0; i < 2; i++) await press(cdp, 'ArrowRight');
+await press(cdp, 'ArrowRight');
 await sleep(150);
-check('セルの末尾から → を 2 回: 次のセルの先頭（空白と | をまたぐ）', (await web('__hushmarkView.state.selection.main.head')) === (await cellPos('12')));
+check('セルの末尾から → を 1 回: 次のセルの先頭（空白と | をまたぐ）', (await web('__hushmarkView.state.selection.main.head')) === (await cellPos('12')));
 // 最後の | の後ろをクリックしても、カーソルは最後のセルの中に置く（| の外で打つと新しい列になるため）
 await clickPos(await web('__hushmarkView.state.doc.line(3).to'));
 await sleep(150);

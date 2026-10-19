@@ -127,3 +127,9 @@ test('deleteItemMarkup: 最初の項目では記号をまとめて消し、続�
   assert.equal(run(deleteItemMarkup, '- [ ] a\n      |\n- [ ] c'), '- [ ] a|\n- [ ] c');
   assert.equal(run(deleteItemMarkup, 'para\n|text'), null);
 });
+
+test('insertNewline: 閉じのフェンスを打って Enter を押すと、自動で入れた閉じのフェンスを消して外に出る', () => {
+  assert.equal(run(insertNewline, '```\ncode\n```|\n```'), '```\ncode\n```\n|');
+  assert.equal(run(insertNewline, '- ```\n  code\n  ```|\n  ```'), '- ```\n  code\n  ```\n  |');
+  assert.equal(run(insertNewline, '> ```\n> code\n> ```|\n> ```'), '> ```\n> code\n> ```\n> |');
+});

@@ -864,6 +864,9 @@ const keepInCells = EditorState.transactionFilter.of((tr) => {
   // 行の先頭で ← ：前の行の最後のセルへ（表の外なら、前の行の末尾へ）
   const previousRow = () => cellIn(here.rowIndex - 1, -1, Infinity, true) ??
     (row.line.number > 1 ? row.line.from - 1 : contentRange(row.cells[0]).from);
+  // 行の最後で → ：次の行の最初のセルへ（表の外なら、次の行の先頭へ）
+  const nextRow = () => cellIn(here.rowIndex + 1, 1, 0, false) ??
+    (row.line.number < state.doc.lines ? row.line.to + 1 : contentRange(row.cells[row.cells.length - 1]).to);
   let target = pos;
   if (row.kind === 'delim') {
     // クリックでは、区切りの行のセルの中なら入れる（揃え位置を変えるため）。行の左右の余白なら、近い行のセルへ
@@ -879,8 +882,7 @@ const keepInCells = EditorState.transactionFilter.of((tr) => {
     if (!row.cells.length) return tr;
     const after = pos >= row.cells[0].from;
     if (!pointer && sameLine && after && !backward) {
-      // 行の最後で → ：次の行へ
-      target = cellIn(here.rowIndex + 1, 1, 0, false) ?? (row.line.number < state.doc.lines ? row.line.to + 1 : contentRange(row.cells[row.cells.length - 1]).to);
+      target = nextRow();
     } else if (!pointer && sameLine && !after && backward) {
       target = previousRow();
     } else {
@@ -888,7 +890,12 @@ const keepInCells = EditorState.transactionFilter.of((tr) => {
     }
   } else {
     const cell = row.cells[here.col];
-    if (pos === cell.from && /^[ \t]/.test(cell.text)) {
+    const next = row.cells[here.col + 1];
+    if (pos === cell.to && pos > cell.from && /\S[ \t]$/.test(cell.text)) {
+      // 中身の後ろの空白の後ろ（| の直前）には止まらない。→ なら次のセルの先頭へ、← やクリックなら中身の末尾へ
+      if (!backward && !pointer && sameLine) target = next ? contentRange(next).from : nextRow();
+      else target = contentRange(cell).to;
+    } else if (pos === cell.from && /^[ \t]/.test(cell.text)) {
       const prev = row.cells[here.col - 1];
       if (!backward || pointer) target = cell.from + 1;
       else target = prev ? prev.to : previousRow();
@@ -919,6 +926,15 @@ function confineToCells(state, range, change, isDelete) {
     if (here.col < 0 || !isDelete) return null;
     const { from, to } = editableRange(here.row.cells[here.col]);
     if (change.from >= from && change.to <= to) return null;
+    // 残しておく空白の中にカーソルがあるとき（末尾の空白の後ろでの Backspace など）は、その手前の文字を消す
+    if (change.from >= to && change.to > to && range.head > to) {
+      const length = change.to - change.from;
+      return to - length >= from ? [{ from: to - length, to, insert: change.insert }] : [];
+    }
+    if (change.to <= from && change.from < from && range.head < from) {
+      const length = change.to - change.from;
+      return from + length <= to ? [{ from, to: from + length, insert: change.insert }] : [];
+    }
     const clamped = { from: Math.max(change.from, from), to: Math.min(change.to, to), insert: change.insert };
     return clamped.to > clamped.from || clamped.insert ? [clamped] : [];
   }
