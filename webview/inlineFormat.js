@@ -94,8 +94,8 @@ export function toggleInline(marker) {
 // ---------------------------------------------------------------------------
 // 語の単位の削除（Ctrl+Backspace / Ctrl+Delete）の範囲の調整
 
-/** 記号を隠す要素と、その中身の範囲 */
-function hiddenElement(node) {
+/** 記号を隠す要素なら、その中身の範囲 */
+export function hiddenElement(node) {
   switch (node.name) {
     case 'Emphasis': case 'StrongEmphasis': case 'Strikethrough': case 'InlineCode': {
       const marks = node.getChildren(node.name === 'Strikethrough' ? 'StrikethroughMark' : node.name === 'InlineCode' ? 'CodeMark' : 'EmphasisMark');

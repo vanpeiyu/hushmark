@@ -5,12 +5,14 @@
 //   最上位のリストを抜けるときは空行を入れ、次に書く段落が最後の項目の続きにならないようにする
 // - 内容の先頭で Enter を押すと、上に空の項目を入れる。元の項目のチェックはそのまま
 // - 子を持つ項目の末尾で Enter を押すと、最初の子の位置に項目を作る（親子の関係を変えない）
-// - Shift+Enter は、項目の中の改行にする（内容の位置まで字下げする）
+// - Shift+Enter は、項目や引用の中の改行にする（内容の位置まで字下げする）。続きの行で Enter を押すと次の項目を作る
+// - 項目の行頭の Backspace は、最初の項目なら記号をまとめて消し、続きの行なら前の行とつなげる
 // - 最初の項目では Tab で字下げしない（親になる項目がなく、4 桁の字下げはコードブロックになるため）。
 //   番号付きの項目を Tab で新しい入れ子にしたときは、番号を 1 にする
 // - 項目の末尾で Delete を押すと、次の項目の記号を消して内容だけをつなげる
 // - Home は、記号の後ろ（内容の先頭）と行頭を行き来する。Home と End は、行頭や行末の隠した記号の手前で止まらない
-// - 記号を隠した行で記号のあたりをクリックしたら、カーソルを内容の先頭に置く
+// - 記号を隠した行で記号のあたりをクリックしたら、カーソルを内容の先頭に置く。行末の右をクリックしたら、
+//   隠した閉じの記号の後ろに置く（行頭の強調の左なら、開きの記号の前）
 // - 見出しの文字の先頭で Enter を押すと上に空の行を入れ、Backspace を押すと「## 」をまとめて消す
 //   （「## 」は左の余白に出ているので、利用者には見出しの先頭に見える）
 // - 空の引用の行で Enter を押すと引用を抜ける（入れ子なら 1 段浅くする）
@@ -23,6 +25,7 @@ import { keymap } from '@codemirror/view';
 import { getIndentUnit, indentString, syntaxTree } from '@codemirror/language';
 import { insertNewlineContinueMarkupCommand } from '@codemirror/lang-markdown';
 import { rowEndOf, rowStartOf } from './verticalMove.js';
+import { hiddenElement } from './inlineFormat.js';
 
 /** 2 つ目の項目で空の項目を下に送って「緩いリスト」にする CodeMirror の動きは使わない */
 const continueMarkup = insertNewlineContinueMarkupCommand({ nonTightLists: false });
@@ -133,6 +136,27 @@ function insertNewline({ state, dispatch }) {
     return true;
   }
   const markup = lineMarkup(state, line);
+  if (!markup) {
+    // 項目の続きの行（Shift+Enter で作った行など）：次の項目を作る。続きの行の改行は Shift+Enter
+    const item = continuedItem(state, line);
+    if (item) {
+      const itemLine = state.doc.lineAt(item.from);
+      const itemMarkup = lineMarkup(state, itemLine);
+      let prefix = emptyItemPrefix(state, itemLine, itemMarkup);
+      const changes = [];
+      if (item.parent.name === 'OrderedList') {
+        const n = itemNumber(state, item);
+        prefix = prefix.replace(/\d+/, String(n + 1));
+        if (isSequential(state, item.parent)) changes.push(...renumber(state, item.nextSibling, n + 2));
+      }
+      let from = pos;
+      while (from > line.from && /[ \t]/.test(state.sliceDoc(from - 1, from))) from--;
+      const after = state.sliceDoc(pos, line.to).replace(/^[ \t]+/, '');
+      changes.push({ from, to: line.to, insert: br + prefix + after });
+      dispatch(state.update({ changes, selection: { anchor: from + br.length + prefix.length }, scrollIntoView: true, userEvent: 'input' }));
+      return true;
+    }
+  }
   if (!markup || pos < markup.contentStart) return continueMarkup({ state, dispatch });
   const content = state.sliceDoc(markup.contentStart, line.to);
 
@@ -232,6 +256,61 @@ function setextUnderlineAfter(state, pos) {
   return null;
 }
 
+/**
+ * line が項目の続きの行（項目の最初の行ではない段落の行）なら、その項目。コードブロックの中は除く
+ */
+function continuedItem(state, line) {
+  const at = line.from + /^[ \t]*/.exec(line.text)[0].length;
+  for (let node = syntaxTree(state).resolveInner(at, 1); node; node = node.parent) {
+    if (node.name === 'FencedCode' || node.name === 'CodeBlock' || node.name === 'Blockquote' || node.name === 'Table') return null;
+    if (node.name === 'ListItem') return node.from < line.from ? node : null;
+  }
+  return null;
+}
+
+/**
+ * 項目の行頭で Backspace。
+ * - 最上位のリストの最初の項目の内容の先頭：記号（- [ ] など）をまとめて消して段落にする
+ * - 項目の続きの行の行頭（1 回目の Backspace で記号を空白にした行も含む）：前の行とつなげる
+ *   （空白を 1 つずつ消すと、見た目と違って前の項目の続きになる行が途中にできるため）
+ * そのほかは CodeMirror の Markdown の Backspace（記号を空白にする）に任せる
+ */
+function deleteItemMarkup({ state, dispatch }) {
+  const pos = singleCursor(state);
+  if (pos === null) return false;
+  const line = state.doc.lineAt(pos);
+  const markup = lineMarkup(state, line);
+  if (markup && markup.listMark && pos === markup.contentStart) {
+    const { item } = markup;
+    let prev = item.prevSibling;
+    while (prev && prev.name !== 'ListItem') prev = prev.prevSibling;
+    const nested = item.parent.parent && item.parent.parent.name === 'ListItem';
+    if (prev || nested) return false;
+    const changes = [{ from: markup.listMark.from, to: pos }];
+    if (item.parent.name === 'OrderedList' && isSequential(state, item.parent)) changes.push(...renumber(state, item.nextSibling, itemNumber(state, item)));
+    dispatch(state.update({ changes, userEvent: 'delete.backward' }));
+    return true;
+  }
+  if (markup || line.number === 1 || /\S/.test(state.sliceDoc(line.from, pos))) return false;
+  const prevLine = state.doc.line(line.number - 1);
+  // 空白だけの行（空のタスクの記号を空白にした行など）は構文木では項目に入らないので、上の行で調べる
+  const blank = !/\S/.test(line.text);
+  if (!(blank ? itemAround(state, prevLine) : continuedItem(state, line))) return false;
+  const to = Math.max(pos, line.from + /^[ \t]*/.exec(line.text)[0].length);
+  dispatch(state.update({ changes: { from: prevLine.to, to }, selection: { anchor: prevLine.to }, userEvent: 'delete.backward' }));
+  return true;
+}
+
+/** line を含む項目（コードブロックの中は除く） */
+function itemAround(state, line) {
+  const at = line.from + /^[ \t]*/.exec(line.text)[0].length;
+  for (let node = syntaxTree(state).resolveInner(at, 1); node; node = node.parent) {
+    if (node.name === 'FencedCode' || node.name === 'CodeBlock') return null;
+    if (node.name === 'ListItem') return node;
+  }
+  return null;
+}
+
 /** 見出しの文字の先頭で Backspace：「## 」をまとめて消して段落にする（引用の「> 」と同じ） */
 function deleteHeadingMark({ state, dispatch }) {
   const pos = singleCursor(state);
@@ -289,13 +368,13 @@ function continuationPrefix(state, line, markup) {
   return head + ' '.repeat(Math.max(contentCol - head.length, 0));
 }
 
-/** Shift+Enter：項目の中の改行。次の行を内容の桁まで字下げする（引用の > は残す） */
+/** Shift+Enter：項目や引用の中の改行。次の行を内容の桁まで字下げする（引用の > は残す） */
 function insertLineBreakInItem({ state, dispatch }) {
   const pos = singleCursor(state);
   if (pos === null) return false;
   const line = state.doc.lineAt(pos);
   const markup = lineMarkup(state, line);
-  if (!markup || !markup.listMark || pos < markup.contentStart) return false;
+  if (!markup || (!markup.listMark && markup.quoteEnd === null) || markup.heading || pos < markup.contentStart) return false;
   const indent = continuationPrefix(state, line, markup);
   let from = pos;
   while (from > markup.contentStart && /[ \t]/.test(state.sliceDoc(from - 1, from))) from--;
@@ -411,10 +490,45 @@ const clickToContent = EditorState.transactionFilter.of((tr) => {
   const line = state.doc.lineAt(pos);
   const wasActive = tr.startState.selection.ranges.some((r) => state.doc.lineAt(r.head).number === line.number);
   if (wasActive) return tr;
-  const markup = lineMarkup(state, line);
-  if (!markup || pos >= markup.contentStart) return tr;
-  return [tr, { selection: { anchor: markup.contentStart }, sequential: true }];
+  const target = visibleEdge(state, line, pos);
+  return target === pos ? tr : [tr, { selection: { anchor: target }, sequential: true }];
 });
+
+/**
+ * 記号を隠した行の pos を、見た目で同じ場所にある位置のうち、内容の外側に寄せる。
+ * - 行頭の記号（- や > など）の中か前は、内容の先頭へ
+ * - 行末で、後ろに隠した閉じの記号（** や ](URL) など）しかないなら、行末へ（End と同じ。打った文字が
+ *   太字やリンクの中に入らないように）
+ */
+export function visibleEdge(state, line, pos) {
+  const markup = lineMarkup(state, line);
+  const start = markup ? markup.contentStart : line.from;
+  if (pos < start) return start;
+  if (pos < line.to && onlyMarks(state, pos, line.to, true)) return line.to;
+  if (pos > start && onlyMarks(state, start, pos, false)) return start;
+  return pos;
+}
+
+/** from〜to が、強調やリンクの閉じの記号（closing でなければ開きの記号）だけからなるか */
+function onlyMarks(state, from, to, closing) {
+  const marks = [];
+  syntaxTree(state).iterate({
+    from,
+    to,
+    enter(ref) {
+      const inner = hiddenElement(ref.node);
+      if (inner) marks.push(closing ? { from: inner.to, to: ref.to } : { from: ref.from, to: inner.from });
+    },
+  });
+  marks.sort((a, b) => a.from - b.from);
+  let pos = from;
+  for (const range of marks) {
+    if (range.to <= pos) continue;
+    if (range.from > pos) return false;
+    pos = range.to;
+  }
+  return pos >= to;
+}
 
 export function blockEditing() {
   return [
@@ -423,7 +537,7 @@ export function blockEditing() {
       { key: 'Enter', run: insertNewline },
       { key: 'Shift-Enter', run: insertLineBreakInItem },
       { key: 'Tab', run: (view) => indentItem(view) || insertTab(view) },
-      { key: 'Backspace', run: deleteHeadingMark },
+      { key: 'Backspace', run: (view) => deleteHeadingMark(view) || deleteItemMarkup(view) },
       { key: 'Delete', run: joinNextItem },
       { key: 'Home', run: lineBoundary(false, false), shift: lineBoundary(false, true) },
       { key: 'End', run: lineBoundary(true, false), shift: lineBoundary(true, true) },
@@ -434,4 +548,4 @@ export function blockEditing() {
   ];
 }
 
-export const blockCommands = { insertNewline, insertLineBreakInItem, indentItem, insertTab, joinNextItem, deleteHeadingMark };
+export const blockCommands = { insertNewline, insertLineBreakInItem, indentItem, insertTab, joinNextItem, deleteHeadingMark, deleteItemMarkup };

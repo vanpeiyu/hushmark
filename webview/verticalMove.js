@@ -12,7 +12,7 @@ import { Annotation, EditorSelection } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { columnsOf, posAtColumn } from './textWidth.js';
 import { tableAt } from './tableCells.js';
-import { lineMarkup } from './blockEditing.js';
+import { lineMarkup, visibleEdge } from './blockEditing.js';
 
 
 /** 最後に動かした先と、そのときに保っていた桁。続けて動かすときは、短い行を通っても元の桁に戻る */
@@ -81,7 +81,7 @@ function moveRange(view, range, forward) {
   let from = forward ? target.from : rowStartOf(view, target.to, -1, target);
   if (from === target.from) from = hangingEnd(state, target);
   const to = forward ? rowEndOf(view, target.from, 1, target) : target.to;
-  return { head: posAtColumn(state.sliceDoc(from, to), from, column, state.tabSize), column };
+  return { head: posAtColumn(state.sliceDoc(from, to), from, column, state.tabSize), column, line: target };
 }
 
 /**
@@ -136,8 +136,10 @@ function move(forward, extend) {
     const moved = state.selection.ranges.map((range) => moveRange(view, range, forward));
     // どれか 1 つでも行の中の移動なら、CodeMirror の動き（見た目）に任せる
     if (moved.some((m) => m === null)) return false;
+    // カーソルを動かすときは、行頭の記号（- [ ] や > など）や強調の記号の中には着かず、内容の側に着く
+    // （そのまま打つと記号が壊れるため）。選択を広げるときは、行頭から行ごと選べるように桁のまま
     const ranges = state.selection.ranges.map((range, i) =>
-      (extend ? EditorSelection.range(range.anchor, moved[i].head) : EditorSelection.cursor(moved[i].head)));
+      (extend ? EditorSelection.range(range.anchor, moved[i].head) : EditorSelection.cursor(visibleEdge(state, moved[i].line, moved[i].head))));
     const selection = EditorSelection.create(ranges, state.selection.mainIndex);
     view.dispatch({ selection, scrollIntoView: true, userEvent: 'select', annotations: verticalMoved.of(true) });
     sticky = { pos: selection.main.head, column: moved[state.selection.mainIndex].column };

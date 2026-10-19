@@ -107,3 +107,23 @@ test('insertNewline: 閉じていないコードブロックを開いた行の�
   // すでに閉じていれば、閉じのフェンスは足さない
   assert.equal(run(insertNewline, '```|\ncode\n```'), null);
 });
+
+test('insertNewline: 項目の続きの行では、次の項目を作る', () => {
+  assert.equal(run(insertNewline, '- item\n  cont|\n- b'), '- item\n  cont\n- |\n- b');
+  assert.equal(run(insertNewline, '1. item\n   cont|\n2. b'), '1. item\n   cont\n2. |\n3. b');
+});
+
+test('insertLineBreakInItem: 引用の中では > を続ける', () => {
+  assert.equal(run(insertLineBreakInItem, '> quote| text'), '> quote\n> | text');
+});
+
+test('deleteItemMarkup: 最初の項目では記号をまとめて消し、続きの行では前の行とつなげる', () => {
+  const { deleteItemMarkup } = blockCommands;
+  assert.equal(run(deleteItemMarkup, '- [ ] |a\n- b'), '|a\n- b');
+  assert.equal(run(deleteItemMarkup, '1. |a\n2. b'), '|a\n1. b');
+  // 2 つ目以降の項目は CodeMirror に任せる（記号を空白にして、前の項目の続きの行にする）
+  assert.equal(run(deleteItemMarkup, '- ba\n- |nana'), null);
+  assert.equal(run(deleteItemMarkup, '- ba\n  |nana'), '- ba|nana');
+  assert.equal(run(deleteItemMarkup, '- [ ] a\n      |\n- [ ] c'), '- [ ] a|\n- [ ] c');
+  assert.equal(run(deleteItemMarkup, 'para\n|text'), null);
+});
