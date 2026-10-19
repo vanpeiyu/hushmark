@@ -279,8 +279,9 @@ function buildDecorations(state, span = null) {
 
         case 'HeaderMark': {
           if (parentName.startsWith('Setext')) {
-            // 下線（=== / ---）の行は、高さを変えずに見出しの下の余白として残す
-            if (isActive(from, to)) mark('cm-md-mark', from, to);
+            // 下線（=== / ---）の行は、高さを変えずに見出しの下の余白として残す。カーソルが見出しの文字の行にあるときも出す
+            // （見出しの末尾で改行すると下線が水平線に変わるので、見出しが下線で作られていることが見えるように）
+            if (isActive(node.parent.from, node.parent.to)) mark('cm-md-mark', from, to);
             else conceal(from, to);
           } else if (from === node.parent.from) {
             // 行頭の「# 」は本文の大きさで、行の左端（箱や線をそろえる基準線）より左の余白にぶら下げる。

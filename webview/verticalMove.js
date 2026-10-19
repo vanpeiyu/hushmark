@@ -12,6 +12,7 @@ import { Annotation, EditorSelection } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { columnsOf, posAtColumn } from './textWidth.js';
 import { tableAt } from './tableCells.js';
+import { lineMarkup } from './blockEditing.js';
 
 
 /** 最後に動かした先と、そのときに保っていた桁。続けて動かすときは、短い行を通っても元の桁に戻る */
@@ -40,6 +41,15 @@ function rowStartOf(view, pos, assoc, line) {
   return first && here && Math.abs(first.top - here.top) < 1 ? line.from : start;
 }
 
+/** 行頭の、左の余白に出す見出しの記号（「## 」）の後ろ。見出しでなければ行頭 */
+function hangingEnd(state, line) {
+  const markup = lineMarkup(state, line);
+  return markup && markup.heading && markup.heading.from === line.from && !markup.listMark && markup.quoteEnd === null &&
+    state.sliceDoc(markup.heading.to, markup.heading.to + 1) === ' '
+    ? markup.contentStart
+    : line.from;
+}
+
 /** range を 1 行上か下の行に、桁を保って動かした先。行の中で動くとき（折り返した行の途中）は null */
 function moveRange(view, range, forward) {
   const { state } = view;
@@ -50,11 +60,14 @@ function moveRange(view, range, forward) {
   const number = line.number + (forward ? 1 : -1);
   if (number < 1 || number > state.doc.lines) return null;
   const target = state.doc.line(number);
+  // 見出しの「## 」は左の余白に出しているので、桁に数えない（見出しの文字の先頭を本文の行頭とそろえる）
+  const sourceStart = rowStart === line.from ? Math.min(hangingEnd(state, line), range.head) : rowStart;
   const column = sticky && sticky.pos === range.head
     ? sticky.column
-    : columnsOf(state.sliceDoc(rowStart, range.head), state.tabSize);
+    : columnsOf(state.sliceDoc(sourceStart, range.head), state.tabSize);
   // 下へは移動先の行の最初の見た目の行、上へは最後の見た目の行に着く
-  const from = forward ? target.from : rowStartOf(view, target.to, -1, target);
+  let from = forward ? target.from : rowStartOf(view, target.to, -1, target);
+  if (from === target.from) from = hangingEnd(state, target);
   const to = forward ? rowBoundary(view, target.from, 1, true) : target.to;
   return { head: posAtColumn(state.sliceDoc(from, to), from, column, state.tabSize), column };
 }

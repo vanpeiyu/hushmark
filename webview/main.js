@@ -12,7 +12,7 @@ import { livePreview } from './livePreview.js';
 import { lineNumberGutter, reconfigureLineNumbers } from './lineNumbers.js';
 import { applyMetrics } from './metrics.js';
 import { markdownSupport } from './markdownSetup.js';
-import { listEditing } from './listEditing.js';
+import { blockEditing } from './blockEditing.js';
 import { reconfigureWrapIndent, wrapIndent } from './wrapIndent.js';
 import { lineHighlight, reconfigureLineHighlight } from './lineHighlight.js';
 import { verticalMove } from './verticalMove.js';
@@ -137,7 +137,7 @@ function createEditor(text, options) {
       tabSize.of(tabSizeOf(options)),
       wrapping.of(wrappingOf(wrapOn)),
       // Markdown の Enter や Backspace より先に効かせるので、markdownSupport より前に置く
-      listEditing(),
+      blockEditing(),
       markdownSupport(languages),
       syntaxHighlighting(classHighlighter),
       livePreview({ openLink: (href) => vscode.postMessage({ type: 'openLink', href }) }),

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EditorSelection } from '@codemirror/state';
 import { markdownSupport } from '../webview/markdownSetup.js';
-import { listCommands } from '../webview/listEditing.js';
+import { blockCommands } from '../webview/blockEditing.js';
 import { parsedState } from './parsedState.mjs';
 
 /** 文書の | の位置にカーソルを置いてコマンドを実行し、結果の文書とカーソルを | で表す */
@@ -14,7 +14,7 @@ function run(command, text) {
   const doc = state.doc.toString();
   return handled ? doc.slice(0, head) + '|' + doc.slice(head) : null;
 }
-const { insertNewline, insertLineBreakInItem, indentItem, joinNextItem } = listCommands;
+const { insertNewline, insertLineBreakInItem, indentItem, insertTab, joinNextItem, deleteHeadingMark } = blockCommands;
 
 test('insertNewline: 空の項目では、項目の数によらず 1 回でリストを抜け、空行を入れる', () => {
   assert.equal(run(insertNewline, '- a\n- |'), '- a\n\n|');
@@ -63,4 +63,33 @@ test('joinNextItem: 項目の末尾の Delete で、次の項目の記号を消�
   assert.equal(run(joinNextItem, '- a|\n- [ ] b'), '- a|b');
   assert.equal(run(joinNextItem, '1. a|\n2. b\n3. c'), '1. a|b\n2. c');
   assert.equal(run(joinNextItem, '- a|\npara'), null);
+});
+
+test('insertNewline: 見出しの文字の先頭では見出しを保ち、上に空の行を入れる', () => {
+  assert.equal(run(insertNewline, 'para\n## |Heading'), 'para\n\n## |Heading');
+  // 途中では扱わない（CodeMirror の Enter に任せる）
+  assert.equal(run(insertNewline, '## Head|ing'), null);
+});
+
+test('insertNewline: 空の引用の行で引用を抜け、入れ子なら 1 段浅くする', () => {
+  assert.equal(run(insertNewline, '> quote\n> |'), '> quote\n\n|');
+  assert.equal(run(insertNewline, '> quote\n>|'), '> quote\n\n|');
+  assert.equal(run(insertNewline, '> > deep\n> > |'), '> > deep\n> |');
+  assert.equal(run(insertNewline, '> quote|'), '> quote\n> |');
+});
+
+test('insertNewline: setext 見出しの末尾では、下線の後ろに新しい行を作る', () => {
+  assert.equal(run(insertNewline, 'Title|\n---\nbody'), 'Title\n---\n|\nbody');
+  assert.equal(run(insertNewline, 'Ti|tle\n---'), null);
+});
+
+test('deleteHeadingMark: 見出しの文字の先頭の Backspace で「## 」をまとめて消す', () => {
+  assert.equal(run(deleteHeadingMark, '## |Heading'), '|Heading');
+  assert.equal(run(deleteHeadingMark, '## |'), '|');
+  assert.equal(run(deleteHeadingMark, '## H|eading'), null);
+});
+
+test('insertTab: リストの項目以外では、カーソルの位置に次のタブ位置までの空白を入れる', () => {
+  assert.equal(run(insertTab, '## Hea|ding'), '## Hea  |ding');
+  assert.equal(run(insertTab, '|para'), '    |para');
 });

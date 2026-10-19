@@ -11,6 +11,11 @@
 // - 項目の末尾で Delete を押すと、次の項目の記号を消して内容だけをつなげる
 // - Home は、記号の後ろ（内容の先頭）と行頭を行き来する
 // - 記号を隠した行で記号のあたりをクリックしたら、カーソルを内容の先頭に置く
+// - 見出しの文字の先頭で Enter を押すと上に空の行を入れ、Backspace を押すと「## 」をまとめて消す
+//   （「## 」は左の余白に出ているので、利用者には見出しの先頭に見える）
+// - 空の引用の行で Enter を押すと引用を抜ける（入れ子なら 1 段浅くする）
+// - setext 見出しの末尾で Enter を押すと、下線の後ろに新しい行を作る
+// - リストの項目以外では、Tab でカーソルの位置に空白を入れる（VSCode のテキストエディタと同じ）
 
 import { EditorSelection, EditorState, Prec, countColumn } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
@@ -109,11 +114,41 @@ function insertNewline({ state, dispatch }) {
   const pos = singleCursor(state);
   if (pos === null) return continueMarkup({ state, dispatch });
   const line = state.doc.lineAt(pos);
-  const markup = lineMarkup(state, line);
-  if (!markup || !markup.listMark || pos < markup.contentStart) return continueMarkup({ state, dispatch });
-  const { item } = markup;
-  const content = state.sliceDoc(markup.contentStart, line.to);
   const br = state.lineBreak;
+  const underline = setextUnderlineAfter(state, pos);
+  if (underline) {
+    // setext 見出しの末尾：下線の後ろに新しい行を作る（下線の前で改行すると、見出しが段落に、下線が水平線に変わる）
+    dispatch(state.update({ changes: { from: underline.to, insert: br }, selection: { anchor: underline.to + br.length }, scrollIntoView: true, userEvent: 'input' }));
+    return true;
+  }
+  const markup = lineMarkup(state, line);
+  if (!markup || pos < markup.contentStart) return continueMarkup({ state, dispatch });
+  const content = state.sliceDoc(markup.contentStart, line.to);
+
+  if (!markup.listMark) {
+    // 見出しの文字の先頭：見出しはそのままにして、上に空の行を入れる。
+    // 「## 」は左の余白に出ているので、利用者には見出しの先頭で押したように見えるため
+    if (markup.heading && pos === markup.contentStart && /\S/.test(content)) {
+      const set = state.changes({ from: line.from, insert: br });
+      dispatch(state.update({ changes: set, selection: { anchor: set.mapPos(pos, 1) }, scrollIntoView: true, userEvent: 'input' }));
+      return true;
+    }
+    // 空の引用の行：入れ子なら 1 段浅く、そうでなければ引用を抜ける
+    if (markup.quoteEnd !== null && !markup.heading && !/\S/.test(content)) {
+      const prefix = state.sliceDoc(line.from, markup.quoteEnd);
+      const outer = prefix.replace(/>\s*$/, '').replace(/\s+$/, '');
+      if (outer.includes('>')) {
+        dispatch(state.update({ changes: { from: line.from, to: line.to, insert: `${outer} ` }, selection: { anchor: line.from + outer.length + 1 }, userEvent: 'input' }));
+        return true;
+      }
+      const prevBlank = line.number > 1 && !/[^\s>]/.test(state.doc.line(line.number - 1).text);
+      const insert = prevBlank ? '' : br;
+      dispatch(state.update({ changes: { from: line.from, to: line.to, insert }, selection: { anchor: line.from + insert.length }, scrollIntoView: true, userEvent: 'input' }));
+      return true;
+    }
+    return continueMarkup({ state, dispatch });
+  }
+  const { item } = markup;
 
   // 空の項目：入れ子なら 1 段浅く（CodeMirror に任せる）、最上位ならリストを抜ける
   if (!/\S/.test(content)) {
@@ -156,6 +191,44 @@ function insertNewline({ state, dispatch }) {
     }
   }
   return continueMarkup({ state, dispatch });
+}
+
+/** pos が setext 見出しの最後の文字の行の末尾なら、その下線の行 */
+function setextUnderlineAfter(state, pos) {
+  const line = state.doc.lineAt(pos);
+  if (pos !== line.to || line.number === state.doc.lines) return null;
+  for (let node = syntaxTree(state).resolveInner(pos, -1); node; node = node.parent) {
+    if (node.name === 'SetextHeading1' || node.name === 'SetextHeading2') {
+      const mark = node.getChild('HeaderMark');
+      const next = state.doc.line(line.number + 1);
+      return mark && mark.from >= next.from && mark.to <= next.to ? next : null;
+    }
+  }
+  return null;
+}
+
+/** 見出しの文字の先頭で Backspace：「## 」をまとめて消して段落にする（引用の「> 」と同じ） */
+function deleteHeadingMark({ state, dispatch }) {
+  const pos = singleCursor(state);
+  if (pos === null) return false;
+  const line = state.doc.lineAt(pos);
+  const markup = lineMarkup(state, line);
+  if (!markup || !markup.heading || markup.listMark || pos !== markup.contentStart) return false;
+  dispatch(state.update({ changes: { from: markup.heading.from, to: pos }, userEvent: 'delete.backward' }));
+  return true;
+}
+
+/** リストの項目以外での Tab：選択範囲がなければ、カーソルの位置に次のタブ位置までの空白（またはタブ）を入れる */
+function insertTab({ state, dispatch }) {
+  if (state.readOnly || state.selection.ranges.some((r) => !r.empty)) return false;
+  const unit = indentString(state, getIndentUnit(state));
+  dispatch(state.update(state.changeByRange((range) => {
+    const line = state.doc.lineAt(range.head);
+    const column = countColumn(line.text, state.tabSize, range.head - line.from);
+    const insert = unit === '\t' ? '\t' : ' '.repeat(state.tabSize - (column % state.tabSize));
+    return { changes: { from: range.head, insert }, range: EditorSelection.cursor(range.head + insert.length) };
+  }), { scrollIntoView: true, userEvent: 'input' }));
+  return true;
 }
 
 /** Shift+Enter：項目の中の改行。次の行を内容の桁まで字下げする（引用の > は残す） */
@@ -281,13 +354,14 @@ const clickToContent = EditorState.transactionFilter.of((tr) => {
   return [tr, { selection: { anchor: markup.contentStart }, sequential: true }];
 });
 
-export function listEditing() {
+export function blockEditing() {
   return [
     // Markdown の Enter と Backspace（Prec.high）より先に効かせる。main.js で markdownSupport より前に置く
     Prec.high(keymap.of([
       { key: 'Enter', run: insertNewline },
       { key: 'Shift-Enter', run: insertLineBreakInItem },
-      { key: 'Tab', run: indentItem },
+      { key: 'Tab', run: (view) => indentItem(view) || insertTab(view) },
+      { key: 'Backspace', run: deleteHeadingMark },
       { key: 'Delete', run: joinNextItem },
       { key: 'Home', run: home(false), shift: home(true) },
       { mac: 'Cmd-ArrowLeft', run: home(false), shift: home(true) },
@@ -296,4 +370,4 @@ export function listEditing() {
   ];
 }
 
-export const listCommands = { insertNewline, insertLineBreakInItem, indentItem, joinNextItem };
+export const blockCommands = { insertNewline, insertLineBreakInItem, indentItem, insertTab, joinNextItem, deleteHeadingMark };
