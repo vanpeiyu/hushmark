@@ -90,3 +90,87 @@ export function toggleInline(marker) {
     return true;
   };
 }
+
+// ---------------------------------------------------------------------------
+// 語の単位の削除（Ctrl+Backspace / Ctrl+Delete）の範囲の調整
+
+/** 記号を隠す要素と、その中身の範囲 */
+function hiddenElement(node) {
+  switch (node.name) {
+    case 'Emphasis': case 'StrongEmphasis': case 'Strikethrough': case 'InlineCode': {
+      const marks = node.getChildren(node.name === 'Strikethrough' ? 'StrikethroughMark' : node.name === 'InlineCode' ? 'CodeMark' : 'EmphasisMark');
+      return marks.length >= 2 ? { from: marks[0].to, to: marks[marks.length - 1].from } : null;
+    }
+    case 'Link': {
+      const marks = node.getChildren('LinkMark');
+      return marks.length >= 2 && node.getChild('URL') ? { from: marks[0].to, to: marks[1].from } : null;
+    }
+    default:
+      return null;
+  }
+}
+
+/**
+ * 語の単位の削除の範囲 from〜to を、記号の片方だけを消さないように直す。
+ * - 強調やリンクの閉じの記号（後ろへの削除では開きの記号）だけを消すことになるときは、代わりに中身の最後
+ *   （最初）の語を消す。中身がすべてなくなるときは、要素ごと消す
+ * - 項目や見出しの内容の先頭からの Ctrl+Backspace は、行頭の記号（「- [ ] 」など）をまとめて消す。
+ *   項目の末尾からの Ctrl+Delete は、次の項目の記号も消して内容だけをつなげる
+ * wordAt(text, pos, forward) は、text の中の pos から次 / 前の語の境目
+ * @returns {{ from: number, to: number }[]} 消す範囲
+ */
+export function adjustWordDeletion(state, from, to, forward, wordAt, lineMarkup) {
+  const head = forward ? from : to;
+  const line = state.doc.lineAt(head);
+  if (!forward && from >= line.from) {
+    const markup = lineMarkup(state, line);
+    if (markup && head === markup.contentStart) {
+      const start = markup.listMark ? markup.listMark.from : markup.heading ? markup.heading.from : from;
+      return [{ from: Math.min(from, start), to }];
+    }
+  }
+  if (forward && from === line.to && to === line.to + 1 && lineMarkup(state, line)?.listMark) {
+    // 項目の末尾から：次の項目の記号も消し、内容だけをつなげる（Delete と同じ）
+    const next = state.doc.line(line.number + 1);
+    const markup = lineMarkup(state, next);
+    if (markup && markup.listMark) return [{ from, to: markup.contentStart }];
+  }
+  let element = null;
+  syntaxTree(state).iterate({
+    from: Math.max(from - 1, 0),
+    to: Math.min(to + 1, state.doc.length),
+    enter(ref) {
+      if (element) return false;
+      const inner = hiddenElement(ref.node);
+      if (!inner) return undefined;
+      // 要素がすべて範囲に入っているか、範囲が中身の中だけなら直さない
+      if ((ref.from >= from && ref.to <= to) || (from >= inner.from && to <= inner.to)) return undefined;
+      if (to <= ref.from || from >= ref.to) return undefined;
+      element = { from: ref.from, to: ref.to, inner };
+      return false;
+    },
+  });
+  if (!element) return [{ from, to }];
+  const { inner } = element;
+  const text = state.sliceDoc(inner.from, inner.to);
+  if (!forward && to > inner.to) {
+    // 閉じの記号を消すことになる後ろからの削除：中身のうち範囲に入る部分、なければ最後の語
+    let start = Math.max(from, inner.from);
+    if (start >= inner.to) start = inner.from + wordAt(text, text.length, false);
+    // 中身の末尾に空白を残すと強調として成り立たないので、語の前の空白も消す
+    while (start > inner.from && /\s/.test(state.sliceDoc(start - 1, start))) start--;
+    const rest = to > element.to ? [{ from: element.to, to }] : [];
+    if (start <= inner.from) return [{ from: Math.min(from, element.from), to }];
+    return [{ from: start, to: inner.to }, ...rest];
+  }
+  if (forward && from < inner.from) {
+    let end = Math.min(to, inner.to);
+    if (end <= inner.from) end = inner.from + wordAt(text, 0, true);
+    while (end < inner.to && /\s/.test(state.sliceDoc(end, end + 1))) end++;
+    const rest = from < element.from ? [{ from, to: element.from }] : [];
+    if (end >= inner.to) return [{ from, to: Math.max(to, element.to) }];
+    return [...rest, { from: inner.from, to: end }];
+  }
+  // 中身から始めて開きの記号（後ろへは閉じの記号）にかかる削除：中身の端で止める
+  return [{ from: Math.max(from, inner.from), to: Math.min(to, inner.to) }];
+}

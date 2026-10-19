@@ -39,3 +39,27 @@ test('toggleInline: 選択がないとき', () => {
   assert.equal(run('**', 'abc wo|rd def'), 'abc **wo|rd** def');
   assert.equal(run('**', '日本|語'), '日本**|**語');
 });
+
+test('adjustWordDeletion: 隠した記号の片方だけを消さない', async () => {
+  const { adjustWordDeletion } = await import('../webview/inlineFormat.js');
+  const { lineMarkup } = await import('../webview/blockEditing.js');
+  const { nextBoundary } = await import('../webview/wordSegments.js');
+  const wordAt = (text, pos, forward) => nextBoundary(text, pos, forward);
+  const del = (doc, from, to, forward) => {
+    const state = parsedState({ doc, extensions: [markdownSupport([])] });
+    return state.update({ changes: adjustWordDeletion(state, from, to, forward, wordAt, lineMarkup) }).state.doc.toString();
+  };
+  // リンクの後ろから：閉じの記号だけでなく、リンクの文字の最後の語を消す
+  // 中身の端に空白を残すと強調として成り立たないので、語の前の空白も消す
+  assert.equal(del('see [two words](u)', 15, 18, false), 'see [two](u)');
+  assert.equal(del('a **b c**', 7, 9, false), 'a **b**');
+  // 中身がなくなるなら要素ごと
+  assert.equal(del('a **b**', 6, 7, false), 'a ');
+  // 後ろへの削除で開きの記号にかかるとき：中身の最初の語を消し、中身がなくなるなら要素ごと
+  assert.equal(del('x **bold** y', 1, 4, true), 'x y');
+  assert.equal(del('x **two words** y', 1, 4, true), 'x**words** y');
+  // 項目の内容の先頭から：行頭の記号をまとめて消す
+  assert.equal(del('- [ ] two', 4, 6, false), 'two');
+  // 項目の末尾から：次の項目の記号も消す
+  assert.equal(del('- a\n- b', 3, 4, true), '- ab');
+});
