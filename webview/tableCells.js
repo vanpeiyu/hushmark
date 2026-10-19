@@ -7,7 +7,7 @@
 // 列の幅は tableLayout.js で決める。そのために、各セルの中身を画面の外で描き、折り返せない単位の幅を測る。
 // カーソルが表の中にある間は幅を変えず、表から出たときに計算し直す（入力のたびに右の列が動かないように）。
 
-import { EditorSelection, EditorState, Prec, StateEffect } from '@codemirror/state';
+import { EditorSelection, EditorState, Prec, StateEffect, Transaction } from '@codemirror/state';
 import { BlockWrapper, Decoration, EditorView, ViewPlugin, WidgetType, keymap } from '@codemirror/view';
 import { syntaxTree } from '@codemirror/language';
 import { cellParser } from './markdownSetup.js';
@@ -692,9 +692,10 @@ function moveRow(direction) {
     // セルの中身を選んでいるとき（Tab で移った後など）も、選んだ文字列を消さずにセルを移る
     const here = cellAt(state, sel.head);
     if (here && !sel.empty && state.doc.lineAt(sel.anchor).number !== here.row.line.number) return false;
-    // セルの外（最後の | の後ろなど）では、テキストエディタと同じく改行する
-    if (!here || here.row.kind === 'delim' || here.col < 0) return false;
-    const { structure, col } = here;
+    if (!here) return false;
+    const { structure } = here;
+    // セルの外（行頭の | の前、最後の | の後ろ）や区切りの行でも、改行すると表が壊れるので、いちばん近いセルの列として動く
+    const col = here.col >= 0 ? here.col : (sel.head <= here.row.from ? 0 : Math.max(here.row.cells.length - 1, 0));
     let index = here.rowIndex + direction;
     if (structure.rows[index] && structure.rows[index].kind === 'delim') index += direction;
     const target = structure.rows[index];
@@ -708,10 +709,15 @@ function moveRow(direction) {
     const first = structure.rows[0].line;
     const last = structure.rows[structure.rows.length - 1].line;
     if (direction > 0) {
-      if (last.number === state.doc.lines) {
-        view.dispatch({ changes: { from: last.to, insert: '\n' }, selection: EditorSelection.cursor(last.to + 1), scrollIntoView: true });
+      // 表の直後の行に書いた文字は表の行になるので、空行を挟んだ行に出る（なければ作る）
+      const next = last.number < state.doc.lines ? state.doc.line(last.number + 1) : null;
+      const after = last.number + 1 < state.doc.lines ? state.doc.line(last.number + 2) : null;
+      if (next && !next.text.trim() && after && !after.text.trim()) {
+        view.dispatch({ selection: EditorSelection.cursor(after.from), scrollIntoView: true, userEvent: 'select' });
+      } else if (next && !next.text.trim()) {
+        view.dispatch({ changes: { from: next.to, insert: '\n' }, selection: EditorSelection.cursor(next.to + 1), scrollIntoView: true, userEvent: 'input' });
       } else {
-        view.dispatch({ selection: EditorSelection.cursor(state.doc.line(last.number + 1).from), scrollIntoView: true, userEvent: 'select' });
+        view.dispatch({ changes: { from: last.to, insert: '\n\n' }, selection: EditorSelection.cursor(last.to + 2), scrollIntoView: true, userEvent: 'input' });
       }
     } else if (first.number > 1) {
       view.dispatch({ selection: EditorSelection.cursor(state.doc.line(first.number - 1).to), scrollIntoView: true, userEvent: 'select' });
@@ -735,6 +741,16 @@ function moveCell(direction) {
     const cells = here.structure.rows.filter((r) => r.kind !== 'delim').flatMap((r) => r.cells);
     let current = -1;
     cells.forEach((cell, i) => { if (cell.from <= pos) current = i; });
+    // 見出しより列の少ない行（打っている途中の行）の最後のセルでは、同じ行に次のセルを作る
+    const { row } = here;
+    if (direction > 0 && row.kind !== 'delim' && row.cells.length < here.structure.columns &&
+        row.cells.length > 0 && pos >= row.cells[row.cells.length - 1].from) {
+      const text = row.text.replace(/[ \t]+$/, '');
+      const end = row.from + text.length;
+      const insert = /(^|[^\\])\|$/.test(text) ? ' ' : ' | ';
+      view.dispatch({ changes: { from: end, to: row.line.to, insert }, selection: EditorSelection.cursor(end + insert.length), scrollIntoView: true, userEvent: 'input' });
+      return true;
+    }
     const next = current + direction;
     if (next < 0) return true;
     if (next >= cells.length) return addRow(view, pos);
@@ -788,6 +804,129 @@ const cellEndCursor = EditorState.transactionFilter.of((tr) => {
   return [tr, { selection: EditorSelection.create(ranges, sel.mainIndex), sequential: true }];
 });
 
+/** Home / End（Shift で選択）：セルの中身の先頭 / 末尾へ。行の端の | の外に出て、そこで打った文字が新しい列にならないように */
+function cellBoundary(forward, extend) {
+  return (view) => {
+    const { state } = view;
+    if (state.selection.ranges.length > 1) return false;
+    const sel = state.selection.main;
+    const here = cellAt(state, sel.head);
+    if (!here || here.row.kind === 'delim' || !here.row.cells.length) return false;
+    const cell = here.row.cells[here.col >= 0 ? here.col : (sel.head <= here.row.from ? 0 : here.row.cells.length - 1)];
+    const range = contentRange(cell);
+    const target = forward ? range.to : range.from;
+    view.dispatch({
+      selection: extend ? EditorSelection.range(sel.anchor, target) : EditorSelection.cursor(target, forward ? -1 : 1),
+      scrollIntoView: true,
+      userEvent: 'select',
+    });
+    return true;
+  };
+}
+
+/**
+ * キーやクリックで動いたカーソルを、表のセルの中に置く。
+ * - 行頭の | の前と最後の | の後ろは、いちばん近いセルの中身の端へ（そこで打つと新しい列になるため）
+ * - 区切りの行（|---|）は、動いてきた向きの次の行の同じ列へ（そこで打つと表全体が崩れるため）
+ * - | の直後の、隠した空白の前は、その空白の後ろへ（同じ場所に描かれ、→ を押しても動かないように見えるため）。
+ *   ← で来たときは前のセルの末尾へ
+ */
+const keepInCells = EditorState.transactionFilter.of((tr) => {
+  if (tr.docChanged || !tr.selection || !tr.isUserEvent('select')) return tr;
+  const { ranges } = tr.selection;
+  if (ranges.length !== 1 || !ranges[0].empty) return tr;
+  const pos = ranges[0].head;
+  const { state } = tr;
+  // 表の行は | を含む。含まない行では表を探さない
+  if (!state.doc.lineAt(pos).text.includes('|')) return tr;
+  const here = cellAt(state, pos);
+  if (!here) return tr;
+  const from = tr.startState.selection.main.head;
+  const backward = pos < from;
+  const { structure, row } = here;
+  let target = pos;
+  if (row.kind === 'delim') {
+    const col = Math.max(here.col, 0);
+    const rows = structure.rows;
+    let index = here.rowIndex + (backward ? -1 : 1);
+    if (!rows[index] || rows[index].kind === 'delim') index = rows.findIndex((r) => r.kind === 'head');
+    const cells = rows[index] ? rows[index].cells : [];
+    target = cells.length ? contentRange(cells[Math.min(col, cells.length - 1)]).to : pos;
+  } else if (here.col < 0) {
+    if (!row.cells.length) return tr;
+    target = pos < row.cells[0].from ? contentRange(row.cells[0]).from : contentRange(row.cells[row.cells.length - 1]).to;
+  } else {
+    const cell = row.cells[here.col];
+    if (pos === cell.from && /^[ \t]/.test(cell.text)) {
+      const prev = row.cells[here.col - 1];
+      target = backward && prev && !tr.isUserEvent('select.pointer') ? prev.to : cell.from + 1;
+    }
+  }
+  if (target === pos) return tr;
+  return [tr, { selection: EditorSelection.cursor(target, backward ? -1 : 1), sequential: true }];
+});
+
+/**
+ * セルの中から始めた削除（Backspace、Delete、Ctrl+Backspace など）を、そのセルの中にとどめる。
+ * セルの先頭の Backspace や末尾の Delete で | や改行を消すと、セルや行がつながって列がずれるため。
+ * 選択範囲を消すときは、利用者が選んだとおりに消す
+ */
+const deleteInCell = EditorState.transactionFilter.of((tr) => {
+  if (!tr.docChanged || !tr.isUserEvent('delete')) return tr;
+  const start = tr.startState;
+  const { ranges } = start.selection;
+  if (ranges.length !== 1 || !ranges[0].empty) return tr;
+  const pos = ranges[0].head;
+  if (!start.doc.lineAt(pos).text.includes('|')) return tr;
+  const here = cellAt(start, pos);
+  if (!here || here.row.kind === 'delim' || here.col < 0) return tr;
+  const cell = here.row.cells[here.col];
+  let changeFrom = null;
+  let changeTo = null;
+  tr.changes.iterChangedRanges((fromA, toA) => {
+    changeFrom = changeFrom === null ? fromA : Math.min(changeFrom, fromA);
+    changeTo = changeTo === null ? toA : Math.max(changeTo, toA);
+  });
+  // 先頭の空白 1 つ（隠している）と、中身の後ろの空白 1 つは、セルの形として残す
+  const lo = cell.from + (/^[ \t]/.test(cell.text) ? 1 : 0);
+  const hi = cell.to - (cell.text.length >= 2 && /[ \t]$/.test(cell.text) ? 1 : 0);
+  if (changeFrom >= lo && changeTo <= hi) return tr;
+  const from = Math.max(changeFrom, lo);
+  const to = Math.min(changeTo, hi);
+  if (to <= from) return [];
+  return {
+    changes: { from, to },
+    selection: EditorSelection.cursor(from),
+    userEvent: tr.annotation(Transaction.userEvent),
+    scrollIntoView: true,
+  };
+});
+
+/**
+ * 表と後ろの段落の間の空行を Backspace で消さない（空行の先頭でも、段落の先頭でも）。消すと、段落が表の行になるため。
+ * 代わりに、表の最後のセルの末尾に移る
+ */
+function keepBlankAfterTable(view) {
+  const { state } = view;
+  if (state.selection.ranges.length > 1 || !state.selection.main.empty) return false;
+  const pos = state.selection.main.head;
+  let line = state.doc.lineAt(pos);
+  if (pos !== line.from || line.number < 3) return false;
+  if (line.text.trim()) {
+    // 段落の先頭：上の行が空行なら、その空行について調べる
+    line = state.doc.line(line.number - 1);
+    if (line.text.trim()) return false;
+  } else {
+    if (line.number === state.doc.lines || !state.doc.line(line.number + 1).text.trim()) return false;
+  }
+  const prev = state.doc.line(line.number - 1);
+  const here = prev.text.includes('|') && cellAt(state, prev.to);
+  if (!here || here.rowIndex !== here.structure.rows.length - 1 || !here.row.cells.length) return false;
+  const target = contentRange(here.row.cells[here.row.cells.length - 1]).to;
+  view.dispatch({ selection: EditorSelection.cursor(target, -1), scrollIntoView: true, userEvent: 'select' });
+  return true;
+}
+
 export function tableCells() {
   return [
     tablePlugin,
@@ -799,6 +938,13 @@ export function tableCells() {
       { key: 'Shift-Tab', run: moveCell(-1) },
       { key: 'Enter', run: moveRow(1) },
       { key: 'Shift-Enter', run: moveRow(-1) },
+      { key: 'Home', run: cellBoundary(false, false), shift: cellBoundary(false, true) },
+      { key: 'End', run: cellBoundary(true, false), shift: cellBoundary(true, true) },
+      { mac: 'Cmd-ArrowLeft', run: cellBoundary(false, false), shift: cellBoundary(false, true) },
+      { mac: 'Cmd-ArrowRight', run: cellBoundary(true, false), shift: cellBoundary(true, true) },
+      { key: 'Backspace', run: keepBlankAfterTable },
     ])),
+    keepInCells,
+    deleteInCell,
   ];
 }

@@ -173,7 +173,11 @@ await press(cdp, 'Enter');
 await press(cdp, 'Enter');
 ts = await tableState();
 doc = await webDoc();
-check('Enter: 表の最後の行では、表の下の行に出る（表は壊さない）', ts.line === 12 && doc.split('\n')[10] === '| ぶどう |  |  |', { ts, line: doc.split('\n')[10] });
+// 表の直後の行に書いた文字は表の行になるので、空行を挟んだ新しい行に出る
+check('Enter: 表の最後の行では、空行を挟んだ表の下の行に出る（表は壊さない）',
+  ts.line === 13 && doc.split('\n')[10] === '| ぶどう |  |  |' && doc.split('\n')[11] === '' && doc.split('\n')[12] === '', { ts, lines: doc.split('\n').slice(10, 14) });
+// 足した行を消して元の文書に戻す
+await press(cdp, 'Backspace');
 
 await press(cdp, 'ArrowUp');
 await sleep(150);
@@ -436,7 +440,7 @@ duringEdit = await tableLayout();
 check('長いセル: 打っても列の幅は編集の前のまま', duringEdit.widths.join() === beforeEdit.widths.join(), { beforeEdit, duringEdit });
 check('長いセル: 打った文字が文書に入った', doc.split('\n')[4].includes('**長いとても長くなった備考**'), doc.split('\n')[4]);
 
-// 折り返したセルの中では、↑ / ↓ は見た目の行の間を動く。最初の見た目の行で ↑ を押すと上の行に移る
+// 折り返したセルの中では、↑ / ↓ は見た目の行の間を動く。最初の見た目の行で ↑ を押すと上の行に移る（区切りの行は飛ばす）
 await clickCellText('折り返す');
 await press(cdp, 'ArrowDown');
 await sleep(150);
@@ -446,7 +450,7 @@ await clickCellText('折り返す');
 await press(cdp, 'ArrowUp');
 await sleep(150);
 duringEdit = await tableLayout();
-check('長いセル: 最初の見た目の行で ↑ を押すと上の行（区切りの行）に移る', duringEdit.line === 4, duringEdit);
+check('長いセル: 最初の見た目の行で ↑ を押すと、区切りの行を飛ばして見出しの行に移る', duringEdit.line === 3, duringEdit);
 
 // 10. 行頭で「## 」と打ってから変換すると、変換中から見出しの大きさで出て、確定しても位置が動かない
 const headingDoc = ['本文', '', ''];
@@ -604,19 +608,18 @@ const spaceWidth = await web("Math.round(document.querySelector('.cm-md-heading-
 check('見出しの空白の前後: 描かれるカーソルが空白の幅だけ動く', Math.abs(beforeText - afterMarks - spaceWidth) <= 2 && spaceWidth > 0 &&
   afterMarks > betweenMarks, { beforeText, afterMarks, betweenMarks, spaceWidth });
 
-// 16. 表のセルの端で → を押していくと、| をまたいで次のセルに入る（テキストエディタと同じくソースの順に動く）
+// 16. 表のセルの端で → を押していくと、| をまたいで次のセルに入る（テキストエディタと同じくソースの順に動く）。
+// | の直後（隠した空白の前）は、空白の後ろと同じ場所に描かれるので止まらない
 const arrowTableDoc = ['| 果物 | 値 |', '|---|---|', '| りんご | 12 |', '', '後'];
 await loadDoc(arrowTableDoc);
 await clickPos(await cellPos('りんご', 3));
-for (let i = 0; i < 3; i++) await press(cdp, 'ArrowRight');
+for (let i = 0; i < 2; i++) await press(cdp, 'ArrowRight');
 await sleep(150);
-check('セルの末尾から → を 3 回: 次のセルの先頭（空白と | をまたぐ）', (await web('__hushmarkView.state.selection.main.head')) === (await cellPos('12')));
-// 最後の | の後ろで Enter を押すと、テキストエディタと同じく改行する（表の行を打ち足せる）
+check('セルの末尾から → を 2 回: 次のセルの先頭（空白と | をまたぐ）', (await web('__hushmarkView.state.selection.main.head')) === (await cellPos('12')));
+// 最後の | の後ろをクリックしても、カーソルは最後のセルの中に置く（| の外で打つと新しい列になるため）
 await clickPos(await web('__hushmarkView.state.doc.line(3).to'));
-await press(cdp, 'Enter');
-await type(cdp, '| みかん | 3 |');
-doc = await checkInSync('表の行末で Enter');
-check('表の行末で Enter: 改行して次の行を打てる', doc.split('\n')[3] === '| みかん | 3 |' && doc.split('\n')[2] === '| りんご | 12 |', doc.split('\n').slice(2, 5));
+await sleep(150);
+check('表の行末をクリック: 最後のセルの末尾に置く', (await web('__hushmarkView.state.selection.main.head')) === (await cellPos('12')) + 2);
 
 // 17. 表: ソースで省略されたセルは空の箱で列をそろえる。セルの中の裸の URL
 const sparseDoc = ['| h1 | h2 | h3 |', '|---|---|---|', '| https://example.com |', '', '後'];

@@ -97,9 +97,26 @@ function moveInTable(view, range, forward) {
   if (!near) return undefined;
   const c = view.coordsAtPos(range.head, range.assoc || 1);
   if (!c) return undefined;
-  const x = tableGoal && tableGoal.pos === range.head ? tableGoal.x : c.left;
-  const y = (c.top + c.bottom) / 2 + (forward ? 1 : -1) * view.defaultLineHeight;
-  const pos = view.posAtCoords({ x, y }, false);
+  // 表の外から入るときは、↑↓ で保ってきた桁の横位置（空行を通ってきたときも、元の行の桁）
+  const start = view.coordsAtPos(line.from, 1);
+  const x = tableGoal && tableGoal.pos === range.head ? tableGoal.x
+    : sticky && sticky.pos === range.head && start ? start.left + sticky.column * view.defaultCharacterWidth
+    : c.left;
+  let y = (c.top + c.bottom) / 2 + (forward ? 1 : -1) * view.defaultLineHeight;
+  let pos = view.posAtCoords({ x, y }, false);
+  // 区切りの行（|---|）は飛ばす。そこで打つと表全体が崩れるため
+  const delimiter = (at) => {
+    const found = tableAt(state, at);
+    if (!found) return false;
+    for (let child = found.node.firstChild; child; child = child.nextSibling) {
+      if (child.name === 'TableDelimiter') return state.doc.lineAt(child.from).number === state.doc.lineAt(at).number;
+    }
+    return false;
+  };
+  if (delimiter(pos)) {
+    y += (forward ? 1 : -1) * view.defaultLineHeight;
+    pos = view.posAtCoords({ x, y }, false);
+  }
   if (pos === range.head) return undefined;
   return { head: pos, x };
 }
