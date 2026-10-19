@@ -10,8 +10,10 @@
 
 import { Annotation, EditorSelection } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
+import { syntaxTree } from '@codemirror/language';
 import { columnsOf, posAtColumn } from './textWidth.js';
 import { tableAt } from './tableCells.js';
+import { lineMarkup, visibleEdge } from './blockEditing.js';
 
 
 /** 最後に動かした先と、そのときに保っていた桁。続けて動かすときは、短い行を通っても元の桁に戻る */
@@ -32,7 +34,7 @@ const rowBoundary = (view, pos, assoc, forward) =>
  * pos がある見た目の行の先頭。最初の見た目の行なら行頭を返す
  * （行頭の ** などを幅ごと隠していると、CodeMirror は隠した記号の後ろを見た目の行の先頭として返すため）
  */
-function rowStartOf(view, pos, assoc, line) {
+export function rowStartOf(view, pos, assoc, line) {
   const start = rowBoundary(view, pos, assoc, false);
   if (start <= line.from) return line.from;
   const first = view.coordsAtPos(line.from, 1);
@@ -40,23 +42,47 @@ function rowStartOf(view, pos, assoc, line) {
   return first && here && Math.abs(first.top - here.top) < 1 ? line.from : start;
 }
 
+/** 行頭の、左の余白に出す見出しの記号（「## 」）の後ろ。見出しでなければ行頭 */
+function hangingEnd(state, line) {
+  const markup = lineMarkup(state, line);
+  return markup && markup.heading && markup.heading.from === line.from && !markup.listMark && markup.quoteEnd === null &&
+    state.sliceDoc(markup.heading.to, markup.heading.to + 1) === ' '
+    ? markup.contentStart
+    : line.from;
+}
+
+/**
+ * pos がある見た目の行の末尾。最後の見た目の行なら行末を返す
+ * （行末の ** やリンクの (URL) を幅ごと隠していると、CodeMirror は隠した記号の前を見た目の行の末尾として返すため）
+ */
+export function rowEndOf(view, pos, assoc, line) {
+  const end = rowBoundary(view, pos, assoc, true);
+  if (end >= line.to) return line.to;
+  const last = view.coordsAtPos(line.to, -1);
+  const here = view.coordsAtPos(end, -1);
+  return last && here && Math.abs(last.top - here.top) < 1 ? line.to : end;
+}
+
 /** range を 1 行上か下の行に、桁を保って動かした先。行の中で動くとき（折り返した行の途中）は null */
 function moveRange(view, range, forward) {
   const { state } = view;
   const line = state.doc.lineAt(range.head);
   const rowStart = rowStartOf(view, range.head, range.assoc, line);
-  const rowEnd = rowBoundary(view, range.head, range.assoc, true);
+  const rowEnd = rowEndOf(view, range.head, range.assoc, line);
   if (forward ? rowEnd < line.to : rowStart > line.from) return null;
   const number = line.number + (forward ? 1 : -1);
   if (number < 1 || number > state.doc.lines) return null;
   const target = state.doc.line(number);
+  // 見出しの「## 」は左の余白に出しているので、桁に数えない（見出しの文字の先頭を本文の行頭とそろえる）
+  const sourceStart = rowStart === line.from ? Math.min(hangingEnd(state, line), range.head) : rowStart;
   const column = sticky && sticky.pos === range.head
     ? sticky.column
-    : columnsOf(state.sliceDoc(rowStart, range.head), state.tabSize);
+    : columnsOf(state.sliceDoc(sourceStart, range.head), state.tabSize);
   // 下へは移動先の行の最初の見た目の行、上へは最後の見た目の行に着く
-  const from = forward ? target.from : rowStartOf(view, target.to, -1, target);
-  const to = forward ? rowBoundary(view, target.from, 1, true) : target.to;
-  return { head: posAtColumn(state.sliceDoc(from, to), from, column, state.tabSize), column };
+  let from = forward ? target.from : rowStartOf(view, target.to, -1, target);
+  if (from === target.from) from = hangingEnd(state, target);
+  const to = forward ? rowEndOf(view, target.from, 1, target) : target.to;
+  return { head: posAtColumn(state.sliceDoc(from, to), from, column, state.tabSize), column, line: target };
 }
 
 /**
@@ -72,9 +98,26 @@ function moveInTable(view, range, forward) {
   if (!near) return undefined;
   const c = view.coordsAtPos(range.head, range.assoc || 1);
   if (!c) return undefined;
-  const x = tableGoal && tableGoal.pos === range.head ? tableGoal.x : c.left;
-  const y = (c.top + c.bottom) / 2 + (forward ? 1 : -1) * view.defaultLineHeight;
-  const pos = view.posAtCoords({ x, y }, false);
+  // 表の外から入るときは、↑↓ で保ってきた桁の横位置（空行を通ってきたときも、元の行の桁）
+  const start = view.coordsAtPos(line.from, 1);
+  const x = tableGoal && tableGoal.pos === range.head ? tableGoal.x
+    : sticky && sticky.pos === range.head && start ? start.left + sticky.column * view.defaultCharacterWidth
+    : c.left;
+  let y = (c.top + c.bottom) / 2 + (forward ? 1 : -1) * view.defaultLineHeight;
+  let pos = view.posAtCoords({ x, y }, false);
+  // 区切りの行（|---|）は飛ばす。そこで打つと表全体が崩れるため
+  const delimiter = (at) => {
+    const found = tableAt(state, at);
+    if (!found) return false;
+    for (let child = found.node.firstChild; child; child = child.nextSibling) {
+      if (child.name === 'TableDelimiter') return state.doc.lineAt(child.from).number === state.doc.lineAt(at).number;
+    }
+    return false;
+  };
+  if (delimiter(pos)) {
+    y += (forward ? 1 : -1) * view.defaultLineHeight;
+    pos = view.posAtCoords({ x, y }, false);
+  }
   if (pos === range.head) return undefined;
   return { head: pos, x };
 }
@@ -82,6 +125,7 @@ function moveInTable(view, range, forward) {
 function move(forward, extend) {
   return (view) => {
     const { state } = view;
+    if (forward && !extend && blockAtDocEnd(view)) return true;
     const inTable = state.selection.ranges.map((range) => moveInTable(view, range, forward));
     if (inTable.every((m) => m)) {
       const ranges = state.selection.ranges.map((range, i) =>
@@ -94,13 +138,41 @@ function move(forward, extend) {
     const moved = state.selection.ranges.map((range) => moveRange(view, range, forward));
     // どれか 1 つでも行の中の移動なら、CodeMirror の動き（見た目）に任せる
     if (moved.some((m) => m === null)) return false;
+    // カーソルを動かすときは、行頭の記号（- [ ] や > など）や強調の記号の中には着かず、内容の側に着く
+    // （そのまま打つと記号が壊れるため）。選択を広げるときは、行頭から行ごと選べるように桁のまま
     const ranges = state.selection.ranges.map((range, i) =>
-      (extend ? EditorSelection.range(range.anchor, moved[i].head) : EditorSelection.cursor(moved[i].head)));
+      (extend ? EditorSelection.range(range.anchor, moved[i].head) : EditorSelection.cursor(visibleEdge(state, moved[i].line, moved[i].head))));
     const selection = EditorSelection.create(ranges, state.selection.mainIndex);
     view.dispatch({ selection, scrollIntoView: true, userEvent: 'select', annotations: verticalMoved.of(true) });
     sticky = { pos: selection.main.head, column: moved[state.selection.mainIndex].column };
     return true;
   };
+}
+
+/**
+ * 文書の最後の行がコードブロックの閉じのフェンスか表の行で、そこで ↓ を押したとき：後ろに空の行を作ってそこに移る。
+ * そのままでは外に出られず、続けて打った文字でフェンスや表が壊れるため（Typora や Notion と同じ）
+ */
+function blockAtDocEnd(view) {
+  const { state } = view;
+  if (state.selection.ranges.length > 1 || !state.selection.main.empty) return false;
+  const line = state.doc.lineAt(state.selection.main.head);
+  if (line.number !== state.doc.lines || !line.text.trim()) return false;
+  const rowEnd = rowEndOf(view, state.selection.main.head, state.selection.main.assoc, line);
+  if (rowEnd < line.to) return false;
+  let closes = false;
+  for (let node = syntaxTree(state).resolveInner(line.to, -1); node; node = node.parent) {
+    if (node.name === 'FencedCode') {
+      const marks = node.getChildren('CodeMark');
+      closes = marks.length > 1 && state.doc.lineAt(marks[marks.length - 1].from).number === line.number;
+      break;
+    }
+  }
+  if (!closes && !tableAt(state, line.from)) return false;
+  // 表の直後の行に書いた文字は表の行になるので、表の後ろには空行を挟む
+  const insert = closes ? state.lineBreak : state.lineBreak + state.lineBreak;
+  view.dispatch({ changes: { from: line.to, insert }, selection: EditorSelection.cursor(line.to + insert.length), scrollIntoView: true, userEvent: 'input' });
+  return true;
 }
 
 export function verticalMove() {

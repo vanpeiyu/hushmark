@@ -6,13 +6,13 @@
 // editor.showFoldingControls）は editingOptions で受け取り、変わったら compartment で入れ替える。
 
 import { Annotation, Compartment, EditorSelection, EditorState, Prec, StateField } from '@codemirror/state';
-import { Decoration, EditorView, ViewPlugin, crosshairCursor, rectangularSelection } from '@codemirror/view';
+import { Decoration, EditorView, ViewPlugin, crosshairCursor, keymap, rectangularSelection } from '@codemirror/view';
 import {
   addCursorAbove, addCursorBelow, copyLineDown, copyLineUp, deleteLine, indentLess, indentMore, insertBlankLine,
   moveLineDown, moveLineUp, selectLine, selectParentSyntax, toggleBlockComment, toggleComment, undoSelection,
 } from '@codemirror/commands';
 import { selectNextOccurrence, selectSelectionMatches } from '@codemirror/search';
-import { closeBrackets } from '@codemirror/autocomplete';
+import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { codeFolding, foldAll, foldCode, foldGutter, unfoldAll, unfoldCode } from '@codemirror/language';
 import { isMac } from './platform.js';
 
@@ -141,7 +141,8 @@ const surroundInput = EditorView.inputHandler.of((view, from, to, text) => {
   if (state.selection.ranges.some((r) => r.empty)) return false;
   view.dispatch(state.changeByRange((range) => ({
     changes: [{ from: range.from, insert: text }, { from: range.to, insert: close }],
-    range: EditorSelection.range(range.anchor + (range.anchor > range.head ? 2 : 1), range.head + (range.anchor > range.head ? 1 : 2)),
+    // 囲んだ後も中身だけを選んでおく（続けて別の記号で囲める。VSCode と同じ）
+    range: EditorSelection.range(range.anchor + 1, range.head + 1),
   })), { userEvent: 'input.type' });
   return true;
 });
@@ -149,6 +150,8 @@ const surroundInput = EditorView.inputHandler.of((view, from, to, text) => {
 const closeBracketsCompartment = new Compartment();
 const closeBracketsExtension = () => (autoClosingBrackets === 'never' ? [] : [
   closeBrackets(),
+  // 自動で閉じた括弧の間で Backspace を押すと、両方を消す（VSCode の editor.autoClosingDelete の既定と同じ）
+  keymap.of(closeBracketsKeymap),
   EditorState.languageData.of(() => [{ closeBrackets: { brackets: CLOSE_BRACKETS } }]),
 ]);
 

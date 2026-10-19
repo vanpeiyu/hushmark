@@ -28,6 +28,25 @@ const focusField = StateField.define({
   },
 });
 
+/**
+ * IME で変換している間の、変換を始めた位置。変換中の文字列はカーソルの前に入るので、強調やリンクの直後で
+ * 変換を始めると、カーソルが要素から離れたとみなされて記号が隠れる。ところが CodeMirror は変換中の文字列の
+ * 近くの DOM を描き直さないので、閉じの記号だけが残った表示になり、確定するともう一度ずれる。
+ * 変換している間は、変換を始めた位置もカーソルが触れている範囲に含め、記号の表示を変換の前のままにする
+ */
+const composeStart = StateField.define({
+  create: () => null,
+  update(value, tr) {
+    if (tr.isUserEvent('input.type.compose')) {
+      return value === null ? tr.changes.mapPos(tr.startState.selection.main.from, -1) : tr.changes.mapPos(value, -1);
+    }
+    return tr.docChanged || tr.selection ? null : value;
+  },
+});
+
+/** 入れ子にできる強調 */
+const EMPHASIS = new Set(['Emphasis', 'StrongEmphasis', 'Strikethrough']);
+
 const hidden = Decoration.replace({});
 const concealed = Decoration.mark({ class: 'cm-md-conceal' });
 
@@ -51,11 +70,32 @@ export function livePreview({ openLink } = {}) {
   return [
     openLinkHandler.of(openLink),
     focusField,
+    composeStart,
     EditorView.focusChangeEffect.of((_state, focusing) => setFocus.of(focusing)),
     previewField,
     tableCells(),
-    EditorView.domEventHandlers({ mousedown: handleLinkClick }),
+    EditorView.domEventHandlers({ mousedown: handleLinkClick, beforeinput: replaceSelectionInput }),
   ];
+}
+
+/**
+ * 選択範囲があるときの文字の入力は、ブラウザーに DOM を書き換えさせずに、ここで置き換える。
+ * 行をまたぐ選択をブラウザーが置き換えると、行の DOM がつながり、CodeMirror は書き換わった DOM を読んで
+ * 変更を求める。そのとき、幅ごと隠した記号（DOM に文字がない）を消えたものとして読み、選択していない
+ * 後ろの強調の ** などを消すことがある。入力の処理（選択範囲を記号で囲むなど）は、CodeMirror と同じく
+ * EditorView.inputHandler に任せる
+ */
+function replaceSelectionInput(event, view) {
+  if (event.inputType !== 'insertText' || !event.data || view.composing || view.state.readOnly) return false;
+  const { state } = view;
+  if (state.selection.ranges.every((r) => r.empty)) return false;
+  event.preventDefault();
+  const { from, to } = state.selection.main;
+  const text = event.data;
+  const defaultInsert = () => state.update(state.replaceSelection(text), { scrollIntoView: true, userEvent: 'input.type' });
+  if (state.facet(EditorView.inputHandler).some((handler) => handler(view, from, to, text, defaultInsert))) return true;
+  view.dispatch(defaultInsert());
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -228,8 +268,20 @@ function buildDecorations(state, span = null) {
   };
   // インライン要素（強調・コード・リンクなど）の記号は、その要素にカーソルがかかっているときだけ薄く表示し、
   // それ以外では透明にする
-  const selection = state.field(focusField) ? state.selection.ranges : [];
-  const touches = (element) => selection.some((r) => element.from <= r.to && element.to >= r.from);
+  const selection = state.field(focusField) ? withComposition(state) : [];
+  const touchesSelf = (element) => selection.some((r) => element.from <= r.to && element.to >= r.from);
+  // 入れ子の強調（***a*** など）は、外側の要素の記号に接している内側の要素も、外側に触れていれば記号を出す。
+  // 外側の記号だけを出すと、ソースが *a* のように見えるため
+  const touches = (element) => {
+    for (let node = element; node; node = node.parent) {
+      if (touchesSelf(node)) return true;
+      const parent = node.parent;
+      if (!parent || !EMPHASIS.has(parent.name) || !EMPHASIS.has(node.name)) return false;
+      const marks = parent.getChildren(parent.name === 'Strikethrough' ? 'StrikethroughMark' : 'EmphasisMark');
+      if (marks.length < 2 || (node.from !== marks[0].to && node.to !== marks[marks.length - 1].from)) return false;
+    }
+    return false;
+  };
   const inlineMark = (from, to, element, hide = conceal) => {
     if (touches(element)) mark('cm-md-mark', from, to);
     else hide(from, to);
@@ -268,6 +320,9 @@ function buildDecorations(state, span = null) {
 
         case 'SetextHeading1': case 'SetextHeading2': {
           const underline = doc.lineAt(to);
+          // 段落の下の行で「-」や「- 」を打っている途中（箇条書きを書き始めるところ）は、見出しの見た目にしない。
+          // 1 文字打つごとに上の段落の大きさが変わり、行がずれるため
+          if (isActive(underline.from, underline.to) && underline.text.trim() === '-') return;
           if (underline.from > from) {
             lineClass(from, underline.from - 1, `cm-md-heading cm-md-h${name.slice(-1)}${isActive(from, to) ? ' cm-md-heading-active' : ''}`);
           }
@@ -276,8 +331,9 @@ function buildDecorations(state, span = null) {
 
         case 'HeaderMark': {
           if (parentName.startsWith('Setext')) {
-            // 下線（=== / ---）の行は、高さを変えずに見出しの下の余白として残す
-            if (isActive(from, to)) mark('cm-md-mark', from, to);
+            // 下線（=== / ---）の行は、高さを変えずに見出しの下の余白として残す。カーソルが見出しの文字の行にあるときも出す
+            // （見出しの末尾で改行すると下線が水平線に変わるので、見出しが下線で作られていることが見えるように）
+            if (isActive(node.parent.from, node.parent.to)) mark('cm-md-mark', from, to);
             else conceal(from, to);
           } else if (from === node.parent.from) {
             // 行頭の「# 」は本文の大きさで、行の左端（箱や線をそろえる基準線）より左の余白にぶら下げる。
@@ -499,6 +555,14 @@ export function isBareHeading(doc, node) {
   const mark = node.firstChild;
   return !!mark && mark.name === 'HeaderMark' && mark.from === node.from && mark.to === node.to &&
     mark.to === doc.lineAt(node.from).to;
+}
+
+/** 選択範囲。IME で変換している間は、主な選択範囲を変換を始めた位置まで広げる（composeStart） */
+function withComposition(state) {
+  const start = state.field(composeStart, false);
+  const { ranges, mainIndex } = state.selection;
+  if (start === null || start === undefined) return ranges;
+  return ranges.map((r, i) => (i === mainIndex && start < r.from ? { from: start, to: r.to } : r));
 }
 
 /** 選択範囲がかかっている行の範囲。エディタにフォーカスがないときはどの行も隠す対象にする。 */

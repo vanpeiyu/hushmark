@@ -146,6 +146,23 @@ As with the find widget of the VS Code editor, it appears in the upper right.
 
 When you open a result of Search (Ctrl+Shift+F) with a double-click or Enter, this editor receives focus, but the cursor does not move to the match, because VS Code does not pass the position to custom editors.
 
+### Editing lists, headings, and blockquotes
+
+Because the syntax is hidden, keys act on what you see, as in Typora and Obsidian.
+
+| Action | Behavior |
+|---|---|
+| Enter on an empty list item | Leaves the list (a nested item moves up one level). When leaving a top-level list, a blank line is added so that the next paragraph does not become part of the last item |
+| Enter at the start of the content of a list item or heading | Inserts an empty item or line above, keeping the item's checkbox and the heading as they are |
+| Enter at the end of a list item with sub-items | Adds an item as the first sub-item |
+| Enter on an empty blockquote line | Leaves the blockquote |
+| Enter after ` ``` ` | Adds the closing ` ``` `. If you type the closing ` ``` ` yourself and press Enter, the extra fence is removed |
+| Shift+Enter in a list item or blockquote | Starts a new line in the same item or blockquote. Enter on that line adds the next item |
+| Tab / Shift+Tab in a list item | Indents / outdents the item. The first item of a list is not indented, because it has no parent item. Outside list items, Tab inserts spaces at the cursor, as in the text editor |
+| Backspace at the start of the content | Deletes the `#` of a heading, or the marker of the first item in a list, at once. In other list items, the first Backspace turns the item into a continuation of the item above and the second joins it to the line above |
+| Home / End | Home moves to the start of the content (after `- [ ]` or `#`) and then to the start of the line. Home and End do not stop inside hidden syntax at the start or end of a line |
+| Ctrl+B / Ctrl+I | Toggles bold / italic. Pressing it again after typing leaves the bold text; inside bold text it removes the bold |
+
 ### Editing tables
 
 Each line of a table's source stays one line, and the columns are aligned so that it looks like a table. You edit cell text as you edit other text, and you can select across cells or from outside a table into it. Inside a cell, bold and link syntax is shown only while the cursor touches it, and long content wraps at the cell width (even when `editor.wordWrap` is `off`). Spaces that align columns in a text editor, and the `-` of the delimiter row, wrap like any other text.
@@ -154,12 +171,16 @@ Column widths are chosen to keep the table short and to avoid wrapping short cel
 
 | Action | Behavior |
 |---|---|
-| Tab / Shift+Tab | Selects the content of the next / previous cell. Tab in the last cell adds a row |
-| Enter / Shift+Enter | Moves to the cell in the same column of the row below / above. At the edge of the table, leaves the table |
-| ↑ / ↓ | Moves up / down by position on the screen, including between wrapped lines in a cell |
+| Tab / Shift+Tab | Selects the content of the next / previous cell. Tab in the last cell adds a row. In a row that has fewer cells than the header (a row you are typing), Tab adds the next cell to the row |
+| Enter / Shift+Enter | Moves to the cell in the same column of the row below / above. At the edge of the table, leaves the table. Below the table, the cursor goes to a new line after a blank line, because a line right after a table becomes a row of the table. After the last `\|` of a row you have typed, Enter starts a new line so that you can type the next row |
+| ↑ at the top of a document that starts with a table | Adds an empty line above the table |
+| ↑ / ↓ | Moves up / down by position on the screen, including between wrapped lines in a cell. Skips the delimiter row (`\|---\|`) |
+| Home / End | Moves to the start / end of the cell content |
+| Backspace / Delete | Deletes only within the cell. They do not delete the `\|` between cells or the line break. Deleting or typing over a selection across cells clears the content of each cell and keeps the `\|` |
+| Paste into a cell | Line breaks become spaces and `\|` is escaped |
 | Type `\|` in a cell | Escapes it as `\|` so that it does not split the cell |
 
-To change alignment (`:--:`), put the cursor on the delimiter row (`|---|`), which is then shown as source. Delete rows and columns by editing the source.
+To change alignment (`:--:`), click the delimiter row (`|---|`), which is then shown as source. Delete rows and columns by editing the source.
 
 When you hover over a table, "+ Row" and "+ Column" buttons appear in its upper right. They add a row or a column at the end.
 

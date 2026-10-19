@@ -4,6 +4,9 @@
 
 import { Compartment, EditorSelection, Prec } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
+import { deleteGroupBackward, deleteGroupForward } from '@codemirror/commands';
+import { adjustWordDeletion } from './inlineFormat.js';
+import { lineMarkup } from './blockEditing.js';
 
 const compartment = new Compartment();
 
@@ -49,10 +52,15 @@ function moveBy(locales, forward, extend) {
   };
 }
 
+/**
+ * 語の単位の削除。locales があればその言語の語の境目で、なければ CodeMirror の Ctrl+Backspace / Delete と
+ * 同じ範囲を消す。どちらも、隠した記号の片方だけを消さないように範囲を直す（adjustWordDeletion）
+ */
 function deleteBy(locales, forward) {
   return (view) => {
     const { state } = view;
     if (state.readOnly) return false;
+    const wordAt = (text, pos, fwd) => nextBoundary(text, pos, fwd, locales.length ? locales : undefined);
     view.dispatch(state.changeByRange((range) => {
       if (!range.empty) return { changes: { from: range.from, to: range.to }, range: EditorSelection.cursor(range.from) };
       const line = state.doc.lineAt(range.head);
@@ -60,42 +68,67 @@ function deleteBy(locales, forward) {
       let target;
       if (forward && offset === line.length) target = Math.min(line.to + 1, state.doc.length);
       else if (!forward && offset === 0) target = Math.max(line.from - 1, 0);
-      else target = line.from + nextBoundary(line.text, offset, forward, locales);
-      const from = Math.min(range.head, target);
-      const to = Math.max(range.head, target);
-      return { changes: { from, to }, range: EditorSelection.cursor(from) };
+      else if (locales.length) target = line.from + nextBoundary(line.text, offset, forward, locales);
+      else target = groupTarget(state, range, forward);
+      const changes = adjustWordDeletion(state, Math.min(range.head, target), Math.max(range.head, target), forward, wordAt, lineMarkup);
+      return { changes, range: EditorSelection.cursor(changes[0].from) };
     }), { userEvent: forward ? 'delete.forward' : 'delete.backward', scrollIntoView: true });
     return true;
   };
 }
 
-/** ダブルクリックした位置の語を選ぶ */
+/** CodeMirror の Ctrl+Backspace / Delete が消す範囲の、カーソルと反対の端 */
+function groupTarget(state, range, forward) {
+  let target = range.head;
+  (forward ? deleteGroupForward : deleteGroupBackward)({
+    state: state.update({ selection: EditorSelection.cursor(range.head) }).state,
+    dispatch: (tr) => { tr.changes.iterChangedRanges((fromA, toA) => { target = forward ? toA : fromA; }); },
+  });
+  return target;
+}
+
+/**
+ * ダブルクリックした位置の語を選ぶ。位置は、1 回目のクリックで置いたカーソルにする。
+ * 1 回目のクリックでカーソルが強調やリンクに入ると記号が出て文字がずれるので、2 回目のクリックの座標では
+ * 別の文字（記号や隣の語）に当たるため。locales がなければ CodeMirror の語の区切りを使う
+ */
 const selectWordOnDoubleClick = (locales) => EditorView.domEventHandlers({
   mousedown(event, view) {
-    if (event.detail !== 2 || event.button !== 0 || event.shiftKey || event.altKey) return false;
-    const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+    if (event.detail !== 2 || event.button !== 0 || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return false;
+    const sel = view.state.selection.main;
+    const pos = sel.empty ? sel.head : view.posAtCoords({ x: event.clientX, y: event.clientY });
     if (pos === null) return false;
     const line = view.state.doc.lineAt(pos);
     const offset = pos - line.from;
-    const word = wordSegments(line.text, locales).find((w) => w.from <= offset && offset < w.to) ||
-      wordSegments(line.text, locales).find((w) => w.to === offset);
+    let word;
+    if (locales.length) {
+      const words = wordSegments(line.text, locales);
+      const found = words.find((w) => w.from <= offset && offset < w.to) || words.find((w) => w.to === offset);
+      word = found && { from: line.from + found.from, to: line.from + found.to };
+    } else {
+      word = view.state.wordAt(pos);
+    }
     if (!word) return false;
     event.preventDefault();
-    view.dispatch({ selection: EditorSelection.range(line.from + word.from, line.from + word.to), userEvent: 'select.pointer' });
+    view.dispatch({ selection: EditorSelection.range(word.from, word.to), userEvent: 'select.pointer' });
     return true;
   },
 });
 
 function extensionFor(locales) {
-  if (!Array.isArray(locales) || locales.length === 0) return [];
+  // 語の単位の削除は、言語の指定がなくても受ける（隠した記号の片方だけを消さないように直すため）
+  const deleteKeys = (list) => Prec.high(keymap.of([
+    { key: 'Mod-Backspace', mac: 'Alt-Backspace', run: deleteBy(list, false) },
+    { key: 'Mod-Delete', mac: 'Alt-Delete', run: deleteBy(list, true) },
+  ]));
+  if (!Array.isArray(locales) || locales.length === 0) return [deleteKeys([]), selectWordOnDoubleClick([])];
   // macOS では Option が語の単位（VSCode と同じ）
   return [
     Prec.high(keymap.of([
       { key: 'Mod-ArrowLeft', mac: 'Alt-ArrowLeft', run: moveBy(locales, false, false), shift: moveBy(locales, false, true) },
       { key: 'Mod-ArrowRight', mac: 'Alt-ArrowRight', run: moveBy(locales, true, false), shift: moveBy(locales, true, true) },
-      { key: 'Mod-Backspace', mac: 'Alt-Backspace', run: deleteBy(locales, false) },
-      { key: 'Mod-Delete', mac: 'Alt-Delete', run: deleteBy(locales, true) },
     ])),
+    deleteKeys(locales),
     selectWordOnDoubleClick(locales),
   ];
 }
