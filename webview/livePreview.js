@@ -74,8 +74,28 @@ export function livePreview({ openLink } = {}) {
     EditorView.focusChangeEffect.of((_state, focusing) => setFocus.of(focusing)),
     previewField,
     tableCells(),
-    EditorView.domEventHandlers({ mousedown: handleLinkClick }),
+    EditorView.domEventHandlers({ mousedown: handleLinkClick, beforeinput: replaceSelectionInput }),
   ];
+}
+
+/**
+ * 選択範囲があるときの文字の入力は、ブラウザーに DOM を書き換えさせずに、ここで置き換える。
+ * 行をまたぐ選択をブラウザーが置き換えると、行の DOM がつながり、CodeMirror は書き換わった DOM を読んで
+ * 変更を求める。そのとき、幅ごと隠した記号（DOM に文字がない）を消えたものとして読み、選択していない
+ * 後ろの強調の ** などを消すことがある。入力の処理（選択範囲を記号で囲むなど）は、CodeMirror と同じく
+ * EditorView.inputHandler に任せる
+ */
+function replaceSelectionInput(event, view) {
+  if (event.inputType !== 'insertText' || !event.data || view.composing || view.state.readOnly) return false;
+  const { state } = view;
+  if (state.selection.ranges.every((r) => r.empty)) return false;
+  event.preventDefault();
+  const { from, to } = state.selection.main;
+  const text = event.data;
+  const defaultInsert = () => state.update(state.replaceSelection(text), { scrollIntoView: true, userEvent: 'input.type' });
+  if (state.facet(EditorView.inputHandler).some((handler) => handler(view, from, to, text, defaultInsert))) return true;
+  view.dispatch(defaultInsert());
+  return true;
 }
 
 // ---------------------------------------------------------------------------
