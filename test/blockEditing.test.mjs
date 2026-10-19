@@ -93,3 +93,17 @@ test('insertTab: リストの項目以外では、カーソルの位置に次の
   assert.equal(run(insertTab, '## Hea|ding'), '## Hea  |ding');
   assert.equal(run(insertTab, '|para'), '    |para');
 });
+
+test('insertNewline: リストの項目や引用の中でコードブロックを開くと、次の行を内容の位置にそろえる', () => {
+  assert.equal(run(insertNewline, '- ```|'), '- ```\n  |\n  ```');
+  assert.equal(run(insertNewline, '1. ```js|'), '1. ```js\n   |\n   ```');
+  assert.equal(run(insertNewline, '> ```|'), '> ```\n> |\n> ```');
+  assert.equal(run(insertNewline, '> ```\n> code|\n> ```'), '> ```\n> code\n> |\n> ```');
+});
+
+test('insertNewline: 閉じていないコードブロックを開いた行の末尾では、閉じのフェンスも入れる', () => {
+  assert.equal(run(insertNewline, 'para\n\n```py|\n\n# Head'), 'para\n\n```py\n|\n```\n\n# Head');
+  assert.equal(run(insertNewline, '~~~|'), '~~~\n|\n~~~');
+  // すでに閉じていれば、閉じのフェンスは足さない
+  assert.equal(run(insertNewline, '```|\ncode\n```'), null);
+});

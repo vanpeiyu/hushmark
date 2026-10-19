@@ -15,6 +15,7 @@
 //   （「## 」は左の余白に出ているので、利用者には見出しの先頭に見える）
 // - 空の引用の行で Enter を押すと引用を抜ける（入れ子なら 1 段浅くする）
 // - setext 見出しの末尾で Enter を押すと、下線の後ろに新しい行を作る
+// - 閉じていないコードブロックを開いた行の末尾で Enter を押すと、閉じのフェンスも入れる
 // - リストの項目以外では、Tab でカーソルの位置に空白を入れる（VSCode のテキストエディタと同じ）
 
 import { EditorSelection, EditorState, Prec, countColumn } from '@codemirror/state';
@@ -116,6 +117,15 @@ function insertNewline({ state, dispatch }) {
   if (pos === null) return continueMarkup({ state, dispatch });
   const line = state.doc.lineAt(pos);
   const br = state.lineBreak;
+  const fence = unclosedFenceAt(state, line);
+  if (fence && !/\S/.test(state.sliceDoc(pos, line.to))) {
+    // 閉じていないコードブロックを開いた行の末尾：閉じのフェンスも入れ、間の行に移る（Typora と同じ）。
+    // 閉じるまでは、後ろの文書がすべてコードとして描かれるため
+    const prefix = fence.prefix;
+    const insert = `${br}${prefix}${br}${prefix}${fence.mark}`;
+    dispatch(state.update({ changes: { from: pos, to: line.to, insert }, selection: { anchor: pos + br.length + prefix.length }, scrollIntoView: true, userEvent: 'input' }));
+    return true;
+  }
   const underline = setextUnderlineAfter(state, pos);
   if (underline) {
     // setext 見出しの末尾：下線の後ろに新しい行を作る（下線の前で改行すると、見出しが段落に、下線が水平線に変わる）
@@ -125,6 +135,14 @@ function insertNewline({ state, dispatch }) {
   const markup = lineMarkup(state, line);
   if (!markup || pos < markup.contentStart) return continueMarkup({ state, dispatch });
   const content = state.sliceDoc(markup.contentStart, line.to);
+
+  // リストの項目や引用の中でコードブロックを開いた行の末尾：次の行を内容の位置にそろえ、コードを項目や引用の中に書く
+  // （そろえないと、コードが項目や引用の外に出て、閉じの ``` が新しいコードブロックの始まりになる）
+  if (/^(`{3,}|~{3,})/.test(content) && !/\S/.test(state.sliceDoc(pos, line.to)) && !markup.heading) {
+    const insert = br + continuationPrefix(state, line, markup);
+    dispatch(state.update({ changes: { from: pos, to: line.to, insert }, selection: { anchor: pos + insert.length }, scrollIntoView: true, userEvent: 'input' }));
+    return true;
+  }
 
   if (!markup.listMark) {
     // 見出しの文字の先頭：見出しはそのままにして、上に空の行を入れる。
@@ -145,6 +163,12 @@ function insertNewline({ state, dispatch }) {
       const prevBlank = line.number > 1 && !/[^\s>]/.test(state.doc.line(line.number - 1).text);
       const insert = prevBlank ? '' : br;
       dispatch(state.update({ changes: { from: line.from, to: line.to, insert }, selection: { anchor: line.from + insert.length }, scrollIntoView: true, userEvent: 'input' }));
+      return true;
+    }
+    // 引用の中のコードブロックの行：「> 」と字下げを続ける（コードの中では Markdown の継続が働かないため）
+    if (markup.quoteEnd !== null && !markup.heading && inFencedCode(state, pos)) {
+      const insert = br + continuationPrefix(state, line, markup);
+      dispatch(state.update({ changes: { from: pos, insert }, selection: { anchor: pos + insert.length }, scrollIntoView: true, userEvent: 'input' }));
       return true;
     }
     return continueMarkup({ state, dispatch });
@@ -232,6 +256,39 @@ function insertTab({ state, dispatch }) {
   return true;
 }
 
+/**
+ * line が、閉じていないコードブロックを開いた行なら、そのフェンス（``` など）と、続きの行の行頭（引用の > や
+ * 項目の字下げ）
+ */
+function unclosedFenceAt(state, line) {
+  const markup = lineMarkup(state, line);
+  const start = markup ? markup.contentStart : line.from + /^[ \t]*/.exec(line.text)[0].length;
+  const match = /^(`{3,}|~{3,})/.exec(state.sliceDoc(start, line.to));
+  if (!match) return null;
+  for (let node = syntaxTree(state).resolveInner(start, 1); node; node = node.parent) {
+    if (node.name !== 'FencedCode') continue;
+    if (node.from !== start || node.getChildren('CodeMark').length > 1) return null;
+    const prefix = markup ? continuationPrefix(state, line, markup) : state.sliceDoc(line.from, start);
+    return { mark: match[1], prefix };
+  }
+  return null;
+}
+
+function inFencedCode(state, pos) {
+  for (let node = syntaxTree(state).resolveInner(pos, -1); node; node = node.parent) {
+    if (node.name === 'FencedCode') return true;
+  }
+  return false;
+}
+
+/** 項目や引用の続きの行の行頭：引用の > は残し、リストの記号は同じ幅の空白にする */
+function continuationPrefix(state, line, markup) {
+  if (!markup.listMark) return state.sliceDoc(line.from, markup.contentStart);
+  const contentCol = itemContentStart(state, line, markup) - line.from;
+  const head = line.text.slice(0, markup.listMark.from - line.from);
+  return head + ' '.repeat(Math.max(contentCol - head.length, 0));
+}
+
 /** Shift+Enter：項目の中の改行。次の行を内容の桁まで字下げする（引用の > は残す） */
 function insertLineBreakInItem({ state, dispatch }) {
   const pos = singleCursor(state);
@@ -239,9 +296,7 @@ function insertLineBreakInItem({ state, dispatch }) {
   const line = state.doc.lineAt(pos);
   const markup = lineMarkup(state, line);
   if (!markup || !markup.listMark || pos < markup.contentStart) return false;
-  const contentCol = itemContentStart(state, line, markup) - line.from;
-  const head = line.text.slice(0, markup.listMark.from - line.from);
-  const indent = head + ' '.repeat(Math.max(contentCol - head.length, 0));
+  const indent = continuationPrefix(state, line, markup);
   let from = pos;
   while (from > markup.contentStart && /[ \t]/.test(state.sliceDoc(from - 1, from))) from--;
   const insert = state.lineBreak + indent;
