@@ -154,12 +154,14 @@ Column widths are chosen to keep the table short and to avoid wrapping short cel
 
 | Action | Behavior |
 |---|---|
-| Tab / Shift+Tab | Selects the content of the next / previous cell. Tab in the last cell adds a row |
-| Enter / Shift+Enter | Moves to the cell in the same column of the row below / above. At the edge of the table, leaves the table |
-| ↑ / ↓ | Moves up / down by position on the screen, including between wrapped lines in a cell |
+| Tab / Shift+Tab | Selects the content of the next / previous cell. Tab in the last cell adds a row. In a row that has fewer cells than the header (a row you are typing), Tab adds the next cell to the row |
+| Enter / Shift+Enter | Moves to the cell in the same column of the row below / above. At the edge of the table, leaves the table. Below the table, the cursor goes to a new line after a blank line, because a line right after a table becomes a row of the table |
+| ↑ / ↓ | Moves up / down by position on the screen, including between wrapped lines in a cell. Skips the delimiter row (`\|---\|`) |
+| Home / End | Moves to the start / end of the cell content |
+| Backspace / Delete | Deletes only within the cell. They do not delete the `\|` between cells or the line break |
 | Type `\|` in a cell | Escapes it as `\|` so that it does not split the cell |
 
-To change alignment (`:--:`), put the cursor on the delimiter row (`|---|`), which is then shown as source. Delete rows and columns by editing the source.
+To change alignment (`:--:`), click the delimiter row (`|---|`), which is then shown as source. Delete rows and columns by editing the source.
 
 When you hover over a table, "+ Row" and "+ Column" buttons appear in its upper right. They add a row or a column at the end.
 

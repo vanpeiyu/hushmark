@@ -826,9 +826,11 @@ function cellBoundary(forward, extend) {
 
 /**
  * キーやクリックで動いたカーソルを、表のセルの中に置く。
- * - 行頭の | の前と最後の | の後ろは、いちばん近いセルの中身の端へ（そこで打つと新しい列になるため）
- * - 区切りの行（|---|）は、動いてきた向きの次の行の同じ列へ（そこで打つと表全体が崩れるため）
- * - | の直後の、隠した空白の前は、その空白の後ろへ（同じ場所に描かれ、→ を押しても動かないように見えるため）。
+ * - 行頭の | の前と最後の | の後ろは、いちばん近いセルの中身の端へ（そこで打つと新しい列になるため）。
+ *   ← → で行の端を越えたときは、隣の行へ
+ * - キーで区切りの行（|---|）に入ったときは、動いてきた向きの次の行へ（そこで打つと表全体が崩れるため）。
+ *   揃え位置を変えられるよう、クリックでは入れる
+ * - | の直後（隠した空白の前）は、その空白の後ろへ（同じ場所に描かれ、→ を押しても動かないように見えるため）。
  *   ← で来たときは前のセルの末尾へ
  */
 const keepInCells = EditorState.transactionFilter.of((tr) => {
@@ -843,23 +845,44 @@ const keepInCells = EditorState.transactionFilter.of((tr) => {
   if (!here) return tr;
   const from = tr.startState.selection.main.head;
   const backward = pos < from;
+  const pointer = tr.isUserEvent('select.pointer');
+  const sameLine = state.doc.lineAt(from).number === here.row.line.number;
   const { structure, row } = here;
+  const rows = structure.rows;
+  /** index の行（区切りの行なら direction の向きにもう 1 行）の、列 col のセルの位置。表の外なら null */
+  const cellIn = (index, direction, col, end) => {
+    if (rows[index] && rows[index].kind === 'delim') index += direction;
+    const cells = rows[index] ? rows[index].cells : null;
+    if (!cells || !cells.length) return null;
+    const range = contentRange(cells[col === Infinity ? cells.length - 1 : Math.min(col, cells.length - 1)]);
+    return end ? range.to : range.from;
+  };
+  // 行の先頭で ← ：前の行の最後のセルへ（表の外なら、前の行の末尾へ）
+  const previousRow = () => cellIn(here.rowIndex - 1, -1, Infinity, true) ??
+    (row.line.number > 1 ? row.line.from - 1 : contentRange(row.cells[0]).from);
   let target = pos;
   if (row.kind === 'delim') {
-    const col = Math.max(here.col, 0);
-    const rows = structure.rows;
-    let index = here.rowIndex + (backward ? -1 : 1);
-    if (!rows[index] || rows[index].kind === 'delim') index = rows.findIndex((r) => r.kind === 'head');
-    const cells = rows[index] ? rows[index].cells : [];
-    target = cells.length ? contentRange(cells[Math.min(col, cells.length - 1)]).to : pos;
+    if (pointer) return tr;
+    const direction = backward ? -1 : 1;
+    target = cellIn(here.rowIndex + direction, direction, Math.max(here.col, 0), true) ??
+      (backward ? (row.line.number > 1 ? state.doc.line(row.line.number - 1).to : pos) : cellIn(here.rowIndex - 1, -1, 0, true) ?? pos);
   } else if (here.col < 0) {
     if (!row.cells.length) return tr;
-    target = pos < row.cells[0].from ? contentRange(row.cells[0]).from : contentRange(row.cells[row.cells.length - 1]).to;
+    const after = pos >= row.cells[0].from;
+    if (!pointer && sameLine && after && !backward) {
+      // 行の最後で → ：次の行へ
+      target = cellIn(here.rowIndex + 1, 1, 0, false) ?? (row.line.number < state.doc.lines ? row.line.to + 1 : contentRange(row.cells[row.cells.length - 1]).to);
+    } else if (!pointer && sameLine && !after && backward) {
+      target = previousRow();
+    } else {
+      target = after ? contentRange(row.cells[row.cells.length - 1]).to : contentRange(row.cells[0]).from;
+    }
   } else {
     const cell = row.cells[here.col];
     if (pos === cell.from && /^[ \t]/.test(cell.text)) {
       const prev = row.cells[here.col - 1];
-      target = backward && prev && !tr.isUserEvent('select.pointer') ? prev.to : cell.from + 1;
+      if (!backward || pointer) target = cell.from + 1;
+      else target = prev ? prev.to : previousRow();
     }
   }
   if (target === pos) return tr;
