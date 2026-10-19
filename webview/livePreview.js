@@ -268,6 +268,9 @@ function buildDecorations(state, span = null) {
 
         case 'SetextHeading1': case 'SetextHeading2': {
           const underline = doc.lineAt(to);
+          // 段落の下の行で「-」や「- 」を打っている途中（箇条書きを書き始めるところ）は、見出しの見た目にしない。
+          // 1 文字打つごとに上の段落の大きさが変わり、行がずれるため
+          if (isActive(underline.from, underline.to) && underline.text.trim() === '-') return;
           if (underline.from > from) {
             lineClass(from, underline.from - 1, `cm-md-heading cm-md-h${name.slice(-1)}${isActive(from, to) ? ' cm-md-heading-active' : ''}`);
           }
