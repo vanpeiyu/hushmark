@@ -123,6 +123,27 @@ CI（GitHub Actions）では、Linux で `all` と Web 版のテストを、macO
 
 作業フォルダ（`.e2e/web`）は、VSCode からは読み取り専用に見えます。保存した内容はブラウザーの中に残り、ファイルには書き込まれません。そのため、ほかのツールでの変更の反映は確かめられません。失敗したときは、画面を `.e2e/web/failure.png` に、ブラウザーのエラーを `.e2e/web/console.log` に残します。
 
+## Webview のシミュレーション
+
+`test/sim/sim.mjs` は、Webview を VSCode なしで Playwright の Chromium（画面なし）に読み込み、実際のキーイベントで操作します。1 回の起動は数秒なので、入力や編集の細かい挙動（特に記号を隠した箇所でのカーソルの位置）を、多くのパターンで試すときに使います。テストではないので、CI では実行しません。
+
+`npm run build` の後、スクリプトから使います（例は `test/sim/example.mjs`）。
+
+```js
+import { open } from './test/sim/sim.mjs';
+
+const ed = await open('# 見出し\n\n本文\n', { cursor: 0 }); // cursor は文書の先頭からの文字数。省略すると末尾
+await ed.press('End');              // Enter、Shift+Tab、Control+z など、Playwright のキーの名前
+await ed.type('abc');               // 1 文字ずつキーを打つ
+await ed.ime('日本語');             // IME で確定した文字列を入れる
+await ed.setCursorLC(3, 2);         // 3 行目（1 始まり）の 2 文字目（0 始まり）にカーソルを置く
+console.log(await ed.inspect());    // 文書、カーソルの位置、描かれたカーソルの座標、カーソルの行の DOM など
+await ed.screenshot('out.png', { x: 0, y: 0, width: 600, height: 200 });
+await ed.close();
+```
+
+設定は `open(text, { options: { wordWrap: 'off' } })` のように変えます（既定値は `DEFAULT_OPTIONS`）。拡張機能本体は動かさないので、リンクを開く、画像を表示するなど、本体の返事が要る操作は確かめられません。変更の前後を比べるときは、`git worktree` で作った別の作業ツリーをビルドし、`HUSHMARK_DIR` にそのパスを指定して読み込みます。
+
 ## README の GIF
 
 README の GIF（英語の README の `docs/images/demo.gif` と、日本語の README の `docs/images/demo-ja.gif`）は、`npm run demo` で録り直します。日本語のものは、VSCode の表示言語を日本語にし、日本語の文での強調も見せます。E2E テストと同じく VSCode を起動して操作し（`test/demo/record.mjs`）、操作ごとに撮った画面をつないで GIF にします。フォントによって見た目が変わらないよう、E2E テストの Docker のイメージ（`hushmark-e2e`）の中で録ります。操作や文書を変えたときは、`--frames <フォルダ>` を付けて `node test/demo/record.mjs` を実行すると、撮った画面を PNG でも書き出すので、それで確かめます。

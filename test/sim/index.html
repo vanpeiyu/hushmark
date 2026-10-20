@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<!-- test/sim/sim.mjs が Webview の代わりに読み込むページ。VSCode が Webview に渡す CSS 変数と acquireVsCodeApi を、明るいテーマの値で用意する -->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<style>
+:root {
+  --vscode-editor-font-family: "Liberation Mono", "WenQuanYi Zen Hei Mono", monospace;
+  --vscode-font-family: sans-serif; --vscode-font-size: 13px;
+  --vscode-editor-background: #ffffff; --vscode-editor-foreground: #333333;
+  --vscode-editorCursor-foreground: #000000;
+  --vscode-editor-selectionBackground: #add6ff; --vscode-editor-lineHighlightBackground: #f3f3f3;
+  --vscode-editorLineNumber-foreground: #999; --vscode-editorLineNumber-activeForeground: #333;
+  --vscode-focusBorder: #0090f1; --vscode-editorWidget-border: #c8c8c8;
+}
+html, body { margin: 0; height: 100%; background: #fff; }
+</style>
+<link rel="stylesheet" href="/proj/media/editor.css">
+</head>
+<body class="md-style-soft md-heading-medium vscode-light">
+<div id="editor"></div>
+<script>
+  window.__messages = [];
+  let __state = null;
+  window.acquireVsCodeApi = () => ({
+    postMessage: (m) => window.__messages.push(m),
+    setState: (s) => { __state = s; },
+    getState: () => __state,
+  });
+</script>
+<script type="module" src="/proj/media/dist/main.js"></script>
+</body>
+</html>
