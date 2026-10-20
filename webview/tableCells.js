@@ -815,7 +815,7 @@ function cellBoundary(forward, extend) {
     if (state.selection.ranges.length > 1) return false;
     const sel = state.selection.main;
     const here = cellAt(state, sel.head);
-    if (!here || here.row.kind === 'delim' || !here.row.cells.length) return false;
+    if (!here || !here.row.cells.length) return false;
     const cell = here.row.cells[here.col >= 0 ? here.col : (sel.head <= here.row.from ? 0 : here.row.cells.length - 1)];
     const range = contentRange(cell);
     const target = forward ? range.to : range.from;
@@ -832,8 +832,8 @@ function cellBoundary(forward, extend) {
  * キーやクリックで動いたカーソルを、表のセルの中に置く。
  * - 行頭の | の前と最後の | の後ろは、いちばん近いセルの中身の端へ（そこで打つと新しい列になるため）。
  *   ← → で行の端を越えたときは、隣の行へ
- * - キーで区切りの行（|---|）に入ったときは、動いてきた向きの次の行へ（そこで打つと表全体が崩れるため）。
- *   揃え位置を変えられるよう、クリックでは入れる
+ * - ↑ ↓ などで区切りの行（|---|）に入ったときは、動いてきた向きの次の行へ（そこで打つと表全体が崩れるため）。
+ *   揃え位置を変えられるよう、← → で行の端を越えたときとクリックでは入れる
  * - | の直後（隠した空白の前）は、その空白の後ろへ（同じ場所に描かれ、→ を押しても動かないように見えるため）。
  *   ← で来たときは前のセルの末尾へ
  */
@@ -853,22 +853,22 @@ const keepInCells = EditorState.transactionFilter.of((tr) => {
   const sameLine = state.doc.lineAt(from).number === here.row.line.number;
   const { structure, row } = here;
   const rows = structure.rows;
-  /** index の行（区切りの行なら direction の向きにもう 1 行）の、列 col のセルの位置。表の外なら null */
-  const cellIn = (index, direction, col, end) => {
-    if (rows[index] && rows[index].kind === 'delim') index += direction;
+  /** index の行（区切りの行なら、skipDelim のとき direction の向きにもう 1 行）の、列 col のセルの位置。表の外なら null */
+  const cellIn = (index, direction, col, end, skipDelim = true) => {
+    if (skipDelim && rows[index] && rows[index].kind === 'delim') index += direction;
     const cells = rows[index] ? rows[index].cells : null;
     if (!cells || !cells.length) return null;
     const range = contentRange(cells[col === Infinity ? cells.length - 1 : Math.min(col, cells.length - 1)]);
     return end ? range.to : range.from;
   };
   // 行の先頭で ← ：前の行の最後のセルへ（表の外なら、前の行の末尾へ）
-  const previousRow = () => cellIn(here.rowIndex - 1, -1, Infinity, true) ??
+  const previousRow = () => cellIn(here.rowIndex - 1, -1, Infinity, true, false) ??
     (row.line.number > 1 ? row.line.from - 1 : contentRange(row.cells[0]).from);
   // 行の最後で → ：次の行の最初のセルへ（表の外なら、次の行の先頭へ）
-  const nextRow = () => cellIn(here.rowIndex + 1, 1, 0, false) ??
+  const nextRow = () => cellIn(here.rowIndex + 1, 1, 0, false, false) ??
     (row.line.number < state.doc.lines ? row.line.to + 1 : contentRange(row.cells[row.cells.length - 1]).to);
   let target = pos;
-  if (row.kind === 'delim') {
+  if (row.kind === 'delim' && !sameLine) {
     // クリックでは、区切りの行のセルの中なら入れる（揃え位置を変えるため）。行の左右の余白なら、近い行のセルへ
     if (pointer && here.col >= 0) return tr;
     if (pointer) {
@@ -898,7 +898,7 @@ const keepInCells = EditorState.transactionFilter.of((tr) => {
     } else if (pos === cell.from && /^[ \t]/.test(cell.text)) {
       const prev = row.cells[here.col - 1];
       if (!backward || pointer) target = cell.from + 1;
-      else target = prev ? prev.to : previousRow();
+      else target = prev ? contentRange(prev).to : previousRow();
     }
   }
   if (target === pos) return tr;
