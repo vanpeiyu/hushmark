@@ -101,6 +101,11 @@
         "category": "Hushmark"
       },
       {
+        "command": "hushmark.openLink",
+        "title": "%command.openLink%",
+        "category": "Hushmark"
+      },
+      {
         "command": "hushmark.toggleWordWrap",
         "title": "%command.toggleWordWrap%",
         "category": "Hushmark"
@@ -312,6 +317,10 @@
         },
         {
           "command": "hushmark.italic",
+          "when": "activeCustomEditorId == hushmark.editor"
+        },
+        {
+          "command": "hushmark.openLink",
           "when": "activeCustomEditorId == hushmark.editor"
         },
         {
@@ -766,6 +775,12 @@
         "command": "hushmark.italic",
         "key": "ctrl+i",
         "mac": "cmd+i",
+        "when": "hushmark.editorFocus"
+      },
+      {
+        "command": "hushmark.openLink",
+        "key": "alt+enter",
+        "mac": "alt+enter",
         "when": "hushmark.editorFocus"
       },
       {

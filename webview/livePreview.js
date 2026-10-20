@@ -585,6 +585,44 @@ function frontmatterRange(doc) {
   return null;
 }
 
+/**
+ * カーソルの位置のリンクを開く（Ctrl+クリックと同じ。hushmark.openLink）。リンクの先は、描くときに付けた
+ * data-href（Markdown のリンクと画像、裸の URL、他の拡張機能のドキュメントリンク）から取る。
+ * カーソルが [テキスト](URL) の URL の側にあるときも、そのリンクを開く。
+ * 選択範囲があるときや複数カーソルのときは何もしない（検索欄の Alt+Enter で一致をすべて選んだときに開かないように）
+ */
+export function openLinkAtCursor(view) {
+  const { state } = view;
+  if (!linksEnabled() || state.selection.ranges.length > 1 || !state.selection.main.empty) return false;
+  const head = state.selection.main.head;
+  let from = head;
+  let to = head;
+  const tree = syntaxTree(state);
+  // カーソルがリンクの直前や直後にあるときも、そのリンクとする
+  for (const side of [-1, 1]) {
+    for (let node = tree.resolveInner(head, side); node && from === head && to === head; node = node.parent) {
+      if (node.name === 'Link' || node.name === 'Image') {
+        from = node.from;
+        to = node.to;
+      }
+    }
+  }
+  let href = null;
+  for (const source of state.facet(EditorView.decorations)) {
+    const set = typeof source === 'function' ? source(view) : source;
+    set.between(from, to, (start, end, decoration) => {
+      const attributes = decoration.spec.attributes;
+      if (!attributes || !attributes['data-href'] || end < from || start > to) return;
+      href = attributes['data-href'];
+      return false;
+    });
+    if (href !== null) break;
+  }
+  if (href === null) return false;
+  state.facet(openLinkHandler)(href);
+  return true;
+}
+
 function handleLinkClick(event, view) {
   if (event.button !== 0 || !opensLink(event) || !linksEnabled()) return false;
   const link = event.target instanceof Element && event.target.closest('[data-href]');

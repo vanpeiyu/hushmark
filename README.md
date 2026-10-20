@@ -44,8 +44,8 @@ Install it from the [Visual Studio Marketplace](https://marketplace.visualstudio
 | Element | When the cursor is not on it | Actions |
 |---|---|---|
 | Heading | Hides `#`. Depending on the style, shows a mark for the level in the left margin. A line with only `##` is not a heading | ― |
-| Emphasis, link | Hides the syntax together with its width. A reference link such as `[foo]` becomes a link only when the document defines `[foo]: URL` (as in CommonMark) | Ctrl+Click (Cmd+Click on macOS) opens the link. A link to `#heading` moves to that heading (anchors follow the same rules as GitHub). For `other.md#heading`, the cursor moves to the heading when the file opens in this editor |
-| Image | Not rendered in the document; the source is shown in a muted color (rendering it would break the alignment with source lines). The same applies inside table cells | Hover to show the image in a popup. Ctrl+Click opens the image file |
+| Emphasis, link | Hides the syntax together with its width. A reference link such as `[foo]` becomes a link only when the document defines `[foo]: URL` (as in CommonMark) | Ctrl+Click (Cmd+Click on macOS), or Alt+Enter with the cursor on it, opens the link. A link to `#heading` moves to that heading (anchors follow the same rules as GitHub). For `other.md#heading`, the cursor moves to the heading when the file opens in this editor |
+| Image | Not rendered in the document; the source is shown in a muted color (rendering it would break the alignment with source lines). The same applies inside table cells | Hover to show the image in a popup. Ctrl+Click or Alt+Enter opens the image file |
 | Inline code | Hides `` ` `` and uses its width as padding of the background | ― |
 | Two trailing spaces (line break) | Shows a faint dot where the spaces are | ― |
 | List, task | Shows a bullet in place of `-` and a checkbox in place of `[ ]` | Click a checkbox to toggle between `[ ]` and `[x]` |
@@ -92,6 +92,7 @@ The keyboard shortcuts are the same as in the VS Code editor. Elsewhere in this 
 | Ctrl+Shift+O | Cmd+Shift+O | Shows the list of headings and moves to the one you choose (like "Go to Symbol in Editor" in the text editor). The view follows the highlighted heading, and closing the list without choosing returns to the original position |
 | Ctrl+B | Cmd+B | Bold |
 | Ctrl+I | Cmd+I | Italic |
+| Alt+Enter | Option+Enter | Opens the link at the cursor (same as Ctrl+Click) |
 | Alt+Z | Option+Z | Toggle word wrap |
 | Paste a URL over selected text | Same | Turns the selected text into a link to that URL (`[text](URL)`), as in VS Code's Markdown text editor |
 | Paste an image (Ctrl+V) | Same | Saves it as `image.png` (or `image-1.png` and so on if it exists) in the folder of the document (change it with `markdown.copyFiles.destination`) and inserts an image link. When text was copied together with the image (such as Excel cells), the text is pasted |
@@ -175,12 +176,13 @@ Column widths are chosen to keep the table short and to avoid wrapping short cel
 | Enter / Shift+Enter | Moves to the cell in the same column of the row below / above. At the edge of the table, leaves the table. Below the table, the cursor goes to a new line after a blank line, because a line right after a table becomes a row of the table. After the last `\|` of a row you have typed, Enter starts a new line so that you can type the next row |
 | ↑ at the top of a document that starts with a table | Adds an empty line above the table |
 | ↑ / ↓ | Moves up / down by position on the screen, including between wrapped lines in a cell. Skips the delimiter row (`\|---\|`) |
+| ← / → | At the edge of a cell, crosses the `\|` into the next cell. At the edge of a row, moves to the adjacent row, including the delimiter row |
 | Home / End | Moves to the start / end of the cell content |
 | Backspace / Delete | Deletes only within the cell. They do not delete the `\|` between cells or the line break. Deleting or typing over a selection across cells clears the content of each cell and keeps the `\|` |
 | Paste into a cell | Line breaks become spaces and `\|` is escaped |
 | Type `\|` in a cell | Escapes it as `\|` so that it does not split the cell |
 
-To change alignment (`:--:`), click the delimiter row (`|---|`), which is then shown as source. Delete rows and columns by editing the source.
+To change alignment (`:--:`), put the cursor on the delimiter row (`|---|`), which is then shown as source. Click it, or press → at the end of the header row. Delete rows and columns by editing the source.
 
 When you hover over a table, "+ Row" and "+ Column" buttons appear in its upper right. They add a row or a column at the end.
 

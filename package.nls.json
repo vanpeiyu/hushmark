@@ -66,6 +66,7 @@
   "command.unfold": "Unfold",
   "command.foldAll": "Fold All",
   "command.unfoldAll": "Unfold All",
+  "command.openLink": "Open Link",
   "command.gotoLine": "Go to Line...",
   "command.nextProblem": "Go to Next Problem",
   "command.prevProblem": "Go to Previous Problem",

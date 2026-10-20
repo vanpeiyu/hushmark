@@ -8,7 +8,7 @@ import { syntaxHighlighting } from '@codemirror/language';
 import { classHighlighter } from '@lezer/highlight';
 import { searchKeymap } from '@codemirror/search';
 import { findWidget, openFind, openReplace } from './findWidget.js';
-import { livePreview } from './livePreview.js';
+import { livePreview, openLinkAtCursor } from './livePreview.js';
 import { lineNumberGutter, reconfigureLineNumbers } from './lineNumbers.js';
 import { applyMetrics } from './metrics.js';
 import { markdownSupport } from './markdownSetup.js';
@@ -92,6 +92,7 @@ const ownKeys = (key, run, mac) => ({ key, mac, run, preventDefault: true, stopP
  */
 const actions = {
   bold: () => toggleInline('**')(view),
+  openLink: () => openLinkAtCursor(view),
   italic: () => toggleInline('*')(view),
   toggleWordWrap: () => toggleWrapping(view),
   find: () => openFind(view),
