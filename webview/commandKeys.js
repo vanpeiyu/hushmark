@@ -15,6 +15,8 @@
 export const COMMAND_KEYS = [
   { action: 'bold', keys: [{ key: 'ctrl+b', mac: 'cmd+b' }] },
   { action: 'italic', keys: [{ key: 'ctrl+i', mac: 'cmd+i' }] },
+  // VSCode の「リンクを開く」（editor.action.openLink）には既定のキーがないので、Obsidian の「カーソル位置のリンクを開く」に合わせる
+  { action: 'openLink', keys: [{ key: 'alt+enter', mac: 'alt+enter' }] },
   { action: 'toggleWordWrap', keys: [{ key: 'alt+z', mac: 'alt+z' }] },
   { action: 'find', keys: [{ key: 'ctrl+f', mac: 'cmd+f' }] },
   { action: 'replace', keys: [{ key: 'ctrl+h', mac: 'cmd+alt+f' }] },

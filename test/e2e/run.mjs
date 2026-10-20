@@ -11,7 +11,7 @@ import { openSession } from './session.mjs';
 
 const {
   file, remote, cdp, mainCtx, web, check, finish, toPage, clickPos, clickSelector, clickTableTool,
-  webDoc, readFile, writeFile, loadDoc, checkInSync,
+  webDoc, readFile, writeFile, loadDoc, save, checkInSync,
 } = await openSession();
 
 const original = await webDoc();
@@ -620,6 +620,21 @@ check('セルの末尾から → を 1 回: 次のセルの先頭（空白と | 
 await clickPos(await web('__hushmarkView.state.doc.line(3).to'));
 await sleep(150);
 check('表の行末をクリック: 最後のセルの末尾に置く', (await web('__hushmarkView.state.selection.main.head')) === (await cellPos('12')) + 2);
+// 区切りの行には、↑ ↓ では入らず、← → で行の端を越えたときに入る（揃え位置をキーボードでも変えられるように）
+await clickPos(await cellPos('値', 1));
+await press(cdp, 'ArrowRight');
+await sleep(150);
+const delimFrom = await web('__hushmarkView.state.doc.line(2).from');
+check('見出しの行の末尾から →: 区切りの行の最初のセルに入る', (await web('__hushmarkView.state.selection.main.head')) === delimFrom + 1);
+await press(cdp, 'Home');
+await type(cdp, ':');
+await sleep(150);
+check('区切りの行で Home と打鍵: 揃え位置を変えられる', (await webDoc()).split('\n')[1] === '|:---|---|', (await webDoc()).split('\n')[1]);
+await press(cdp, 'ArrowLeft');
+await press(cdp, 'ArrowLeft');
+await sleep(150);
+check('区切りの行の先頭から ←: 見出しの行の最後のセルに戻る', (await web('__hushmarkView.state.selection.main.head')) === (await cellPos('値', 1)));
+await save(); // 次の文書を読み込めるよう、未保存の変更を残さない
 
 // 17. 表: ソースで省略されたセルは空の箱で列をそろえる。セルの中の裸の URL
 const sparseDoc = ['| h1 | h2 | h3 |', '|---|---|---|', '| https://example.com |', '', '後'];
@@ -678,6 +693,13 @@ const anchorTarget = JSON.parse(await web(`JSON.stringify((() => {
 })())`));
 check('#見出し のリンク: 見出しにカーソルが移り、画面に出る', anchorTarget.text === '## 後の見出し（その2）' &&
   anchorTarget.top >= 0 && anchorTarget.top < anchorTarget.height, anchorTarget);
+// キーボードでも開ける（Alt+Enter。hushmark.openLink）
+await web('__hushmarkView.scrollDOM.scrollTop = 0');
+await clickPos(3);
+await press(cdp, 'Enter', ALT);
+await sleep(800);
+check('#見出し のリンク: Alt+Enter でも見出しに移る', (await web('__hushmarkView.state.doc.lineAt(__hushmarkView.state.selection.main.head).text')) === '## 後の見出し（その2）' &&
+  (await webDoc()) === anchorDoc.join('\n'), await web('__hushmarkView.state.doc.lineAt(__hushmarkView.state.selection.main.head).text'));
 
 // 23. 表の上のボタンは表の右端にそろえ、表が狭いときは左にはみ出さない
 const toolsLayout = () => web(`JSON.stringify((() => {
